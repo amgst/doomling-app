@@ -1,0 +1,13 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // All access is server-only via Firebase Admin SDK.
+    // The browser never talks to Firestore directly.
+    // Lock down all client access completely.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

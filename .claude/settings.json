@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const p=require\\(''./node_modules/@shopify/app-bridge-react/package.json''\\); console.log\\(''version:'', p.version\\); console.log\\(''exports:'', JSON.stringify\\(Object.keys\\(p.exports||{}\\)\\)\\)\")",
+      "Bash(node -e \"const m=require\\(''./node_modules/@shopify/app-bridge-react''\\); console.log\\(Object.keys\\(m\\).slice\\(0,20\\)\\)\")",
+      "Bash(npm run:*)"
+    ]
+  }
+}
