@@ -3,6 +3,7 @@ import { verifyRequest } from "@/lib/utils/verifyRequest";
 import { getOrderStats, buildDateRange } from "@/lib/firebase/analyticsStore";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/analytics?days=30
