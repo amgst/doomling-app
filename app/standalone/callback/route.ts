@@ -82,7 +82,8 @@ export async function GET(req: NextRequest) {
     res.cookies.delete("shopify_oauth_state");
     return res;
   } catch (err) {
-    console.error("[standalone/callback]", err);
-    return NextResponse.redirect(new URL("/?error=auth-failed", req.url));
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    return NextResponse.json({ step: "catch", message, stack }, { status: 500 });
   }
 }
