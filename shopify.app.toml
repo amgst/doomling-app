@@ -1,0 +1,19 @@
+name = "upsale"
+client_id = "7f0181f546f90779c2f2eb79f7da7550"
+application_url = "https://upsale-cyan.vercel.app"
+embedded = true
+
+[access_scopes]
+scopes = "write_orders,read_products,read_customers,read_analytics"
+
+[auth]
+redirect_urls = [
+  "https://upsale-cyan.vercel.app/auth/callback",
+  "https://upsale-cyan.vercel.app/standalone/callback"
+]
+
+[webhooks]
+api_version = "2024-01"
+
+[pos]
+embedded = false

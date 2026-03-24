@@ -1,0 +1,106 @@
+{% comment %} Upsell Widget — shows a product recommendation on the product page {% endcomment %}
+
+<div id="upsale-widget" data-product-id="{{ product.id }}" style="display:none;">
+  <div style="
+    border: 1px solid #e4e5e7;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+    background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  ">
+    <p id="upsale-message" style="margin: 0 0 1rem; font-size: 0.9rem; font-weight: 600; color: #1a1a1a;"></p>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <img id="upsale-image" src="" alt="" style="width: 72px; height: 72px; object-fit: cover; border-radius: 8px; display: none;" />
+      <div style="flex: 1;">
+        <p id="upsale-title" style="margin: 0 0 0.25rem; font-size: 0.95rem; font-weight: 600; color: #1a1a1a;"></p>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span id="upsale-price" style="font-size: 0.95rem; font-weight: 700; color: #008060;"></span>
+          <span id="upsale-original-price" style="font-size: 0.85rem; color: #6d7175; text-decoration: line-through; display: none;"></span>
+          <span id="upsale-badge" style="font-size: 0.75rem; font-weight: 600; background: #e3f1df; color: #1a6b3c; padding: 0.15rem 0.5rem; border-radius: 20px; display: none;"></span>
+        </div>
+      </div>
+      <a id="upsale-btn" href="" style="
+        display: inline-block;
+        padding: 0.6rem 1.25rem;
+        background: #008060;
+        color: #fff;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+      ">View offer</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var shop = {{ shop.permanent_domain | json }};
+  var productId = {{ product.id | json }};
+  var apiBase = {{ settings.api_base | default: '' | json }};
+
+  if (!apiBase) return;
+
+  fetch(apiBase + '/api/upsell?shop=' + shop + '&product_id=' + productId)
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.upsell) return;
+      var u = data.upsell;
+      var widget = document.getElementById('upsale-widget');
+
+      document.getElementById('upsale-message').textContent = u.message || 'You might also like this!';
+      document.getElementById('upsale-title').textContent = u.title;
+
+      var currency = {{ shop.currency | json }};
+      var fmt = function (n) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(n);
+      };
+
+      document.getElementById('upsale-price').textContent = fmt(u.price);
+
+      if (u.discountPercent > 0) {
+        var orig = document.getElementById('upsale-original-price');
+        orig.textContent = fmt(u.originalPrice);
+        orig.style.display = 'inline';
+        var badge = document.getElementById('upsale-badge');
+        badge.textContent = u.discountPercent + '% OFF';
+        badge.style.display = 'inline';
+      }
+
+      if (u.image) {
+        var img = document.getElementById('upsale-image');
+        img.src = u.image;
+        img.alt = u.title;
+        img.style.display = 'block';
+      }
+
+      document.getElementById('upsale-btn').href = '/products/' + u.handle;
+      widget.style.display = 'block';
+    })
+    .catch(function () {});
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Upsell Widget",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "api_base",
+      "label": "App URL",
+      "info": "Your Upsale app URL, e.g. https://upsale-cyan.vercel.app",
+      "default": "https://upsale-cyan.vercel.app"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Upsell Widget"
+    }
+  ]
+}
+{% endschema %}
