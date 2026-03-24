@@ -4,6 +4,7 @@ import { getShopify } from "@/lib/shopify/client";
 import { getShop } from "@/lib/firebase/shopStore";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/shop

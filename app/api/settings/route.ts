@@ -3,6 +3,7 @@ import { verifyRequest } from "@/lib/utils/verifyRequest";
 import { getShop, updateShopSettings } from "@/lib/firebase/shopStore";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/settings — fetch current settings for the authenticated shop

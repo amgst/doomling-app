@@ -5,6 +5,7 @@ import { markUninstalled } from "@/lib/firebase/shopStore";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * POST /api/webhooks
