@@ -1,31 +1,84 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getShopify } from "@/lib/shopify/client";
 import { saveShop } from "@/lib/firebase/shopStore";
 import { signShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
+import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
+import { Session } from "@shopify/shopify-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const { session } = await getShopify().auth.callback({
-      rawRequest: req,
-      rawResponse: { getHeaders: () => ({}), setHeader: () => {}, end: () => {} } as any,
-    });
+    const { searchParams } = req.nextUrl;
+    const shop = searchParams.get("shop") ?? "";
+    const code = searchParams.get("code") ?? "";
+    const state = searchParams.get("state") ?? "";
+    const hmac = searchParams.get("hmac") ?? "";
 
-    await saveShop(session.shop, {
-      installedAt: new Date().toISOString(),
-      uninstalledAt: null,
-    });
+    // Verify state matches cookie
+    const cookieState = req.cookies.get("shopify_oauth_state")?.value;
+    if (!state || state !== cookieState) {
+      return NextResponse.redirect(new URL("/?error=auth-failed", req.url));
+    }
 
+    // Verify HMAC signature
+    const params: Record<string, string> = {};
+    searchParams.forEach((value, key) => {
+      if (key !== "hmac") params[key] = value;
+    });
+    const message = Object.keys(params)
+      .sort()
+      .map((k) => `${k}=${params[k]}`)
+      .join("&");
+    const digest = crypto
+      .createHmac("sha256", process.env.SHOPIFY_API_SECRET!)
+      .update(message)
+      .digest("hex");
+    if (digest !== hmac) {
+      return NextResponse.redirect(new URL("/?error=auth-failed", req.url));
+    }
+
+    // Exchange code for access token
+    const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: process.env.SHOPIFY_API_KEY,
+        client_secret: process.env.SHOPIFY_API_SECRET,
+        code,
+      }),
+    });
+    if (!tokenRes.ok) {
+      return NextResponse.redirect(new URL("/?error=auth-failed", req.url));
+    }
+    const { access_token } = await tokenRes.json();
+
+    // Store session so embedded app API calls work too
+    const sessionId = `offline_${shop}`;
+    const session = Session.fromPropertyArray([
+      ["id", sessionId],
+      ["shop", shop],
+      ["state", state],
+      ["isOnline", false],
+      ["accessToken", access_token],
+      ["scope", "write_orders,read_products,read_customers,read_analytics"],
+    ]);
+    await firestoreSessionStorage.storeSession(session);
+
+    // Save shop metadata
+    await saveShop(shop, { installedAt: new Date().toISOString(), uninstalledAt: null });
+
+    // Set session cookie and redirect to dashboard
     const res = NextResponse.redirect(new URL("/dashboard", req.url));
-    res.cookies.set(COOKIE_NAME, signShop(session.shop), {
+    res.cookies.set(COOKIE_NAME, signShop(shop), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
+    res.cookies.delete("shopify_oauth_state");
     return res;
   } catch (err) {
     console.error("[standalone/callback]", err);

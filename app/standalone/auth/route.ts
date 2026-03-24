@@ -1,34 +1,34 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getShopify } from "@/lib/shopify/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const SCOPES = "write_orders,read_products,read_customers,read_analytics";
+
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get("shop") ?? "";
-  if (!shop) return NextResponse.redirect(new URL("/?error=missing-shop", req.url));
 
-  let sanitizedShop: string;
-  try {
-    sanitizedShop = getShopify().utils.sanitizeShop(shop, true)!;
-  } catch {
+  if (!shop || !shop.endsWith(".myshopify.com")) {
     return NextResponse.redirect(new URL("/?error=invalid-shop", req.url));
   }
 
-  try {
-    const { url, headers } = await getShopify().auth.begin({
-      shop: sanitizedShop,
-      callbackPath: "/standalone/callback",
-      isOnline: false,
-      rawRequest: req,
-      rawResponse: { getHeaders: () => ({}), setHeader: () => {}, end: () => {} } as any,
-    });
+  const state = crypto.randomBytes(16).toString("hex");
+  const redirectUri = `${process.env.HOST}/standalone/callback`;
+  const authUrl =
+    `https://${shop}/admin/oauth/authorize` +
+    `?client_id=${process.env.SHOPIFY_API_KEY}` +
+    `&scope=${SCOPES}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&state=${state}`;
 
-    const res = NextResponse.redirect(url);
-    (headers as Headers).forEach((value, key) => res.headers.set(key, value));
-    return res;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  const res = NextResponse.redirect(authUrl);
+  res.cookies.set("shopify_oauth_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 10,
+    path: "/",
+  });
+  return res;
 }
