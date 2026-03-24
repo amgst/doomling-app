@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
   );
 
   if (!res.ok) {
-    return NextResponse.json({ error: "Failed to fetch products" }, { status: res.status });
+    const body = await res.text();
+    return NextResponse.json({ error: `Shopify ${res.status}: ${body}` }, { status: res.status });
   }
 
   const data = await res.json();
