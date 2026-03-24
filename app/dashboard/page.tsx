@@ -22,6 +22,7 @@ interface Stats {
 interface Product {
   id: number;
   title: string;
+  handle: string;
   status: string;
   image: { src: string } | null;
   variants: { price: string }[];
@@ -250,6 +251,9 @@ function UpsellsTab() {
         triggerProductTitle: trigger?.title ?? "",
         upsellProductId: form.upsellProductId,
         upsellProductTitle: upsell?.title ?? "",
+        upsellProductImage: upsell?.image?.src ?? "",
+        upsellProductPrice: upsell?.variants?.[0]?.price ?? "",
+        upsellProductHandle: upsell?.handle ?? "",
         discountPercent: Number(form.discountPercent),
         message: form.message,
       }),

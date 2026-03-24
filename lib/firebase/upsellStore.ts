@@ -9,6 +9,9 @@ export interface UpsellRule {
   triggerProductTitle: string;
   upsellProductId: string;
   upsellProductTitle: string;
+  upsellProductImage: string;
+  upsellProductPrice: string;
+  upsellProductHandle: string;
   discountPercent: number;
   message: string;
   createdAt: string;
