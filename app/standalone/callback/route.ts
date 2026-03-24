@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     // Verify state matches cookie
     const cookieState = req.cookies.get("shopify_oauth_state")?.value;
     if (!state || state !== cookieState) {
-      return NextResponse.redirect(new URL("/?error=auth-failed", req.url));
+      return NextResponse.json({ step: "state", state, cookieState }, { status: 400 });
     }
 
     // Verify HMAC signature
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       .update(message)
       .digest("hex");
     if (digest !== hmac) {
-      return NextResponse.redirect(new URL("/?error=auth-failed", req.url));
+      return NextResponse.json({ step: "hmac", digest, hmac }, { status: 400 });
     }
 
     // Exchange code for access token
@@ -50,7 +50,8 @@ export async function GET(req: NextRequest) {
       }),
     });
     if (!tokenRes.ok) {
-      return NextResponse.redirect(new URL("/?error=auth-failed", req.url));
+      const body = await tokenRes.text();
+      return NextResponse.json({ step: "token", status: tokenRes.status, body }, { status: 400 });
     }
     const { access_token } = await tokenRes.json();
 
