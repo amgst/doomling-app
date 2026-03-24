@@ -135,9 +135,14 @@ function ProductsTab() {
 
   useEffect(() => {
     fetch("/api/standalone/products")
-      .then(r => { if (r.status === 401) { window.location.href = "/"; throw new Error("unauth"); } return r.json(); })
+      .then(async r => {
+        if (r.status === 401) { window.location.href = "/"; throw new Error("unauth"); }
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
+        return d;
+      })
       .then(d => setProducts(d.products ?? []))
-      .catch(e => { if (e.message !== "unauth") setError("Failed to load products."); })
+      .catch(e => { if (e.message !== "unauth") setError(e.message); })
       .finally(() => setLoading(false));
   }, []);
 
