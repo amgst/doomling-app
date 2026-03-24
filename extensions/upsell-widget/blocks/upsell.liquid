@@ -112,9 +112,9 @@
   var shop = root.dataset.shop;
   var productId = root.dataset.productId;
   var currency = root.dataset.currency;
-  var apiBase = {{ settings.api_base | json }};
+  var apiBase = ({{ settings.api_base | json }} || 'https://upsale-cyan.vercel.app').replace(/\/$/, '');
 
-  if (!apiBase || !shop || !productId) return;
+  if (!shop || !productId) return;
 
   var fmt = function (n) {
     try {
