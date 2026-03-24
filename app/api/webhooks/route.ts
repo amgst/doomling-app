@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { shopify } from "@/lib/shopify/client";
+import { getShopify } from "@/lib/shopify/client";
 import { incrementDailyOrder, decrementDailyOrder } from "@/lib/firebase/analyticsStore";
 import { markUninstalled } from "@/lib/firebase/shopStore";
+import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
   // Verify HMAC signature
-  const isValid = await shopify.webhooks.validate({
+  const isValid = await getShopify().webhooks.validate({
     rawBody,
     rawRequest: req,
     rawResponse: new Response(),
@@ -60,10 +61,10 @@ export async function POST(req: NextRequest) {
 
       case "app/uninstalled": {
         await markUninstalled(shop);
-        const sessions = await shopify.config.sessionStorage!.findSessionsByShop(shop);
+        const sessions = await firestoreSessionStorage.findSessionsByShop(shop);
         const ids = sessions.map((s) => s.id);
         if (ids.length > 0) {
-          await shopify.config.sessionStorage!.deleteSessions(ids);
+          await firestoreSessionStorage.deleteSessions(ids);
         }
         break;
       }

@@ -12,7 +12,7 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   try {
-    const { session, headers } = await shopify.auth.callback({
+    const { session, headers } = await getShopify().auth.callback({
       rawRequest: req,
       rawResponse: new Response(),
     });

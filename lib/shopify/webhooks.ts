@@ -1,5 +1,5 @@
 import { Session, DeliveryMethod } from "@shopify/shopify-api";
-import { shopify } from "./client";
+import { getShopify } from "./client";
 
 /**
  * Register all webhooks for a newly installed shop.
@@ -21,7 +21,7 @@ export async function registerWebhooks(session: Session): Promise<void> {
 
   for (const topic of topics) {
     try {
-      await shopify.webhooks.addHandlers({
+      await getShopify().webhooks.addHandlers({
         [topic]: [
           {
             deliveryMethod: DeliveryMethod.Http,
@@ -34,6 +34,6 @@ export async function registerWebhooks(session: Session): Promise<void> {
     }
   }
 
-  const response = await shopify.webhooks.register({ session });
+  const response = await getShopify().webhooks.register({ session });
   console.log("[webhooks] Registration result:", JSON.stringify(response, null, 2));
 }

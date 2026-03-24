@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/utils/verifyRequest";
-import { shopify } from "@/lib/shopify/client";
+import { getShopify } from "@/lib/shopify/client";
 import { getShop } from "@/lib/firebase/shopStore";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // Fetch shop data from Shopify
-    const client = new shopify.clients.Rest({ session: session! });
+    const client = new (getShopify().clients.Rest)({ session: session! });
     const shopData = await client.get({ path: "shop" });
 
     // Fetch stored metadata from Firestore

@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { shopify } from "@/lib/shopify/client";
+import { getShopify } from "@/lib/shopify/client";
+import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 import { Session } from "@shopify/shopify-api";
 
-/**
- * Verifies the session token in the Authorization header (App Bridge pattern).
- * Returns the offline session for the shop so API routes can make admin API calls.
- *
- * Usage in an API route:
- *   const { session, errorResponse } = await verifyRequest(req);
- *   if (errorResponse) return errorResponse;
- */
 export async function verifyRequest(req: NextRequest): Promise<{
   session: Session | null;
   shop: string | null;
@@ -25,14 +18,14 @@ export async function verifyRequest(req: NextRequest): Promise<{
   }
 
   const sessionToken = authHeader.slice(7);
+  const shopify = getShopify();
 
   try {
     const payload = await shopify.session.decodeSessionToken(sessionToken);
     const shop = (payload.dest as string).replace("https://", "");
 
-    // Load the offline session for this shop (used for admin API calls)
     const offlineSessionId = shopify.session.getOfflineId(shop);
-    const session = await shopify.config.sessionStorage!.loadSession(offlineSessionId);
+    const session = await firestoreSessionStorage.loadSession(offlineSessionId);
 
     if (!session) {
       return {
