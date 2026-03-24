@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
 
     // Set session cookie and redirect to dashboard
     const res = NextResponse.redirect(new URL("/dashboard", req.url));
-    res.cookies.set(COOKIE_NAME, signShop(shop), {
+    res.cookies.set(COOKIE_NAME, await signShop(shop), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

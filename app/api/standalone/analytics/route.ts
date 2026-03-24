@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
-  const shop = cookie ? verifyShop(cookie) : null;
+  const shop = cookie ? await verifyShop(cookie) : null;
   if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const daysParam = req.nextUrl.searchParams.get("days") ?? "30";
