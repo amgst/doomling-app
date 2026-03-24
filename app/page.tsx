@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 function LoginForm() {
-  const [shop, setShop] = useState("wbify-food.myshopify.com");
+  const [shop, setShop] = useState("vgpcreatives.myshopify.com");
   const params = useSearchParams();
   const error = params.get("error");
 
