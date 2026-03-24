@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   try {
     const { session, headers } = await getShopify().auth.callback({
       rawRequest: req,
-      rawResponse: new Response(),
+      rawResponse: { getHeaders: () => ({}), setHeader: () => {}, end: () => {} } as any,
     });
 
     // Persist shop metadata in Firestore

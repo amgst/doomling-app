@@ -4,33 +4,26 @@ import { getShopify } from "@/lib/shopify/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * GET /auth?shop=example.mygetShopify().com
- * Starts the Shopify OAuth flow — redirects to the Shopify permissions screen.
- */
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get("shop") ?? "";
-
-  if (!shop) {
-    return NextResponse.json({ error: "Missing shop parameter" }, { status: 400 });
-  }
+  if (!shop) return NextResponse.redirect(new URL("/?error=missing-shop", req.url));
 
   let sanitizedShop: string;
   try {
     sanitizedShop = getShopify().utils.sanitizeShop(shop, true)!;
   } catch {
-    return NextResponse.json({ error: "Invalid shop domain" }, { status: 400 });
+    return NextResponse.redirect(new URL("/?error=invalid-shop", req.url));
   }
 
   const { url, headers } = await getShopify().auth.begin({
     shop: sanitizedShop,
-    callbackPath: "/auth/callback",
+    callbackPath: "/standalone/callback",
     isOnline: false,
     rawRequest: req,
     rawResponse: { getHeaders: () => ({}), setHeader: () => {}, end: () => {} } as any,
   });
 
   const res = NextResponse.redirect(url);
-  (headers as Headers).forEach((value: string, key: string) => res.headers.set(key, value));
+  (headers as Headers).forEach((value, key) => res.headers.set(key, value));
   return res;
 }
