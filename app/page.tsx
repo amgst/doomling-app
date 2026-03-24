@@ -20,7 +20,7 @@ export default function RootPage({
   // No shop param — show a simple landing page
   return (
     <main style={{ fontFamily: "sans-serif", padding: "2rem", textAlign: "center" }}>
-      <h1>Doomling</h1>
+      <h1>Upsale</h1>
       <p>Install this app from the Shopify App Store.</p>
     </main>
   );

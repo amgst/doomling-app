@@ -1,3 +1,4 @@
+import "@shopify/shopify-api/adapters/node";
 import { shopifyApi, LATEST_API_VERSION, LogSeverity, type Shopify } from "@shopify/shopify-api";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 

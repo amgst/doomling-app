@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getShopify } from "@/lib/shopify/client";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /auth?shop=example.mygetShopify().com

@@ -4,6 +4,7 @@ import { saveShop } from "@/lib/firebase/shopStore";
 import { registerWebhooks } from "@/lib/shopify/webhooks";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /auth/callback

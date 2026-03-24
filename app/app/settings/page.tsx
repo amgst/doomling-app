@@ -99,7 +99,7 @@ export default function SettingsPage() {
     <Frame>
       <Page
         title="Settings"
-        subtitle="Configure your Doomling app preferences"
+        subtitle="Configure your Upsale app preferences"
         primaryAction={
           <Button variant="primary" loading={saving} onClick={saveSettings}>
             Save settings
@@ -140,7 +140,7 @@ export default function SettingsPage() {
               <BlockStack gap="300">
                 <Text variant="headingMd" as="h2">About</Text>
                 <Text as="p" tone="subdued">
-                  Doomling v0.1.0 — Built with Next.js, Firebase, and Shopify Polaris.
+                  Upsale v0.1.0 — Built with Next.js, Firebase, and Shopify Polaris.
                 </Text>
               </BlockStack>
             </Card>

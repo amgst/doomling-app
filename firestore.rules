@@ -3,9 +3,27 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // All access is server-only via Firebase Admin SDK.
-    // The browser never talks to Firestore directly.
-    // Lock down all client access completely.
+    // All Firestore access goes through Firebase Admin SDK (server-side only).
+    // Client SDKs never connect directly, so we lock down everything.
+    // During local testing, the emulator bypasses these rules entirely —
+    // no changes needed here to run tests against the emulator.
+
+    // shopify_sessions — OAuth session storage
+    match /shopify_sessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    // shops — per-shop metadata and settings
+    match /shops/{shop} {
+      allow read, write: if false;
+    }
+
+    // analytics — daily order stats per shop
+    match /analytics/{shop}/orders/{date} {
+      allow read, write: if false;
+    }
+
+    // Catch-all: deny anything not explicitly listed above
     match /{document=**} {
       allow read, write: if false;
     }

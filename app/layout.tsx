@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Doomling",
-  description: "Doomling Shopify App",
+  title: "Upsale",
+  description: "Upsale Shopify App",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
