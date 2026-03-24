@@ -117,7 +117,11 @@
   if (!apiBase || !shop || !productId) return;
 
   var fmt = function (n) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n);
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n);
+    } catch (e) {
+      return currency + ' ' + parseFloat(n).toFixed(2);
+    }
   };
 
   fetch(apiBase + '/api/upsell?shop=' + encodeURIComponent(shop) + '&product_id=' + productId)
@@ -126,7 +130,7 @@
       if (!data || !data.upsell) return;
       var u = data.upsell;
 
-      // Populate
+      // Populate content
       document.getElementById('upsale-message').textContent = u.message || '';
       document.getElementById('upsale-title').textContent = u.title || '';
       document.getElementById('upsale-price').textContent = fmt(u.price);
@@ -148,14 +152,16 @@
         document.getElementById('upsale-img-placeholder').style.display = 'none';
       }
 
-      // Get variant ID then wire up Add to Cart
+      // Show widget immediately — don't wait for variant fetch
+      root.style.display = 'block';
+
+      // Get variant ID for Add to Cart
+      var btn = document.getElementById('upsale-btn');
       fetch('/products/' + u.handle + '.js')
         .then(function (r) { return r.json(); })
         .then(function (product) {
           var variantId = product.variants && product.variants[0] && product.variants[0].id;
-          if (!variantId) return;
-
-          var btn = document.getElementById('upsale-btn');
+          if (!variantId) { btn.textContent = 'View product'; btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; }); return; }
           btn.addEventListener('click', function () {
             btn.disabled = true;
             btn.textContent = 'Adding…';
@@ -168,7 +174,6 @@
               if (!r.ok) throw new Error('failed');
               btn.style.display = 'none';
               document.getElementById('upsale-added').style.display = 'block';
-              // Refresh cart drawer if theme supports it
               document.dispatchEvent(new CustomEvent('cart:refresh'));
             })
             .catch(function () {
@@ -176,17 +181,10 @@
               btn.textContent = 'Add to cart';
             });
           });
-
-          root.style.display = 'block';
         })
         .catch(function () {
-          // Fallback: link to product page
-          var btn = document.getElementById('upsale-btn');
           btn.textContent = 'View product';
-          btn.addEventListener('click', function () {
-            window.location.href = '/products/' + u.handle;
-          });
-          root.style.display = 'block';
+          btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; });
         });
     })
     .catch(function () {});
