@@ -15,15 +15,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/?error=invalid-shop", req.url));
   }
 
-  const { url, headers } = await getShopify().auth.begin({
-    shop: sanitizedShop,
-    callbackPath: "/standalone/callback",
-    isOnline: false,
-    rawRequest: req,
-    rawResponse: { getHeaders: () => ({}), setHeader: () => {}, end: () => {} } as any,
-  });
+  try {
+    const { url, headers } = await getShopify().auth.begin({
+      shop: sanitizedShop,
+      callbackPath: "/standalone/callback",
+      isOnline: false,
+      rawRequest: req,
+      rawResponse: { getHeaders: () => ({}), setHeader: () => {}, end: () => {} } as any,
+    });
 
-  const res = NextResponse.redirect(url);
-  (headers as Headers).forEach((value, key) => res.headers.set(key, value));
-  return res;
+    const res = NextResponse.redirect(url);
+    (headers as Headers).forEach((value, key) => res.headers.set(key, value));
+    return res;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
