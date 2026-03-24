@@ -1,5 +1,8 @@
 import { getDb } from "./admin";
-import { FieldValue, FieldPath } from "firebase-admin/firestore";
+import {
+  doc, collection, setDoc, increment, serverTimestamp,
+  query, where, documentId, orderBy, getDocs,
+} from "firebase/firestore";
 
 /**
  * Firestore structure:
@@ -20,18 +23,14 @@ export async function incrementDailyOrder(
   currency: string,
   date: string = todayKey()
 ): Promise<void> {
-  const ref = getDb()
-    .collection("analytics")
-    .doc(shop)
-    .collection("orders")
-    .doc(date);
-
-  await ref.set(
+  const ref = doc(getDb(), "analytics", shop, "orders", date);
+  await setDoc(
+    ref,
     {
-      count: FieldValue.increment(1),
-      revenue: FieldValue.increment(revenue),
+      count: increment(1),
+      revenue: increment(revenue),
       currency,
-      updatedAt: FieldValue.serverTimestamp(),
+      updatedAt: serverTimestamp(),
     },
     { merge: true }
   );
@@ -42,17 +41,13 @@ export async function decrementDailyOrder(
   revenue: number,
   date: string = todayKey()
 ): Promise<void> {
-  const ref = getDb()
-    .collection("analytics")
-    .doc(shop)
-    .collection("orders")
-    .doc(date);
-
-  await ref.set(
+  const ref = doc(getDb(), "analytics", shop, "orders", date);
+  await setDoc(
+    ref,
     {
-      count: FieldValue.increment(-1),
-      revenue: FieldValue.increment(-revenue),
-      updatedAt: FieldValue.serverTimestamp(),
+      count: increment(-1),
+      revenue: increment(-revenue),
+      updatedAt: serverTimestamp(),
     },
     { merge: true }
   );
@@ -78,28 +73,28 @@ export async function getOrderStats(
   startDate: string,
   endDate: string
 ): Promise<AnalyticsSummary> {
-  const snap = await getDb()
-    .collection("analytics")
-    .doc(shop)
-    .collection("orders")
-    .where(FieldPath.documentId(), ">=", startDate)
-    .where(FieldPath.documentId(), "<=", endDate)
-    .orderBy(FieldPath.documentId())
-    .get();
+  const ordersCol = collection(getDb(), "analytics", shop, "orders");
+  const q = query(
+    ordersCol,
+    where(documentId(), ">=", startDate),
+    where(documentId(), "<=", endDate),
+    orderBy(documentId())
+  );
+  const snap = await getDocs(q);
 
   let totalOrders = 0;
   let totalRevenue = 0;
   let currency = "USD";
   const daily: DailyOrderStat[] = [];
 
-  snap.docs.forEach((doc) => {
-    const data = doc.data();
+  snap.docs.forEach((d) => {
+    const data = d.data();
     const count = (data.count as number) ?? 0;
     const revenue = (data.revenue as number) ?? 0;
     currency = (data.currency as string) ?? "USD";
     totalOrders += count;
     totalRevenue += revenue;
-    daily.push({ date: doc.id, count, revenue, currency });
+    daily.push({ date: d.id, count, revenue, currency });
   });
 
   return {

@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["firebase-admin", "@shopify/shopify-api"],
+  serverExternalPackages: ["@shopify/shopify-api"],
   async headers() {
     return [
       {

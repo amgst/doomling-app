@@ -1,5 +1,6 @@
 import { Session } from "@shopify/shopify-api";
 import { getDb } from "./admin";
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 const COLLECTION = "shopify_sessions";
 
@@ -10,7 +11,7 @@ export const firestoreSessionStorage = {
       const clean = Object.fromEntries(
         Object.entries(sessionObj).filter(([, v]) => v !== undefined)
       );
-      await getDb().collection(COLLECTION).doc(session.id).set(clean);
+      await setDoc(doc(getDb(), COLLECTION, session.id), clean);
       return true;
     } catch (err) {
       console.error("[sessionStore] storeSession failed:", err);
@@ -20,9 +21,9 @@ export const firestoreSessionStorage = {
 
   async loadSession(id: string): Promise<Session | undefined> {
     try {
-      const doc = await getDb().collection(COLLECTION).doc(id).get();
-      if (!doc.exists) return undefined;
-      const data = doc.data()!;
+      const snap = await getDoc(doc(getDb(), COLLECTION, id));
+      if (!snap.exists()) return undefined;
+      const data = snap.data()!;
       return Session.fromPropertyArray(
         Object.entries(data) as [string, string | boolean | number][]
       );
@@ -34,7 +35,7 @@ export const firestoreSessionStorage = {
 
   async deleteSession(id: string): Promise<boolean> {
     try {
-      await getDb().collection(COLLECTION).doc(id).delete();
+      await deleteDoc(doc(getDb(), COLLECTION, id));
       return true;
     } catch (err) {
       console.error("[sessionStore] deleteSession failed:", err);
@@ -44,10 +45,7 @@ export const firestoreSessionStorage = {
 
   async deleteSessions(ids: string[]): Promise<boolean> {
     try {
-      const db = getDb();
-      const batch = db.batch();
-      ids.forEach((id) => batch.delete(db.collection(COLLECTION).doc(id)));
-      await batch.commit();
+      await Promise.all(ids.map((id) => deleteDoc(doc(getDb(), COLLECTION, id))));
       return true;
     } catch (err) {
       console.error("[sessionStore] deleteSessions failed:", err);
@@ -57,10 +55,8 @@ export const firestoreSessionStorage = {
 
   async findSessionsByShop(shop: string): Promise<Session[]> {
     try {
-      const snap = await getDb()
-        .collection(COLLECTION)
-        .where("shop", "==", shop)
-        .get();
+      const q = query(collection(getDb(), COLLECTION), where("shop", "==", shop));
+      const snap = await getDocs(q);
       return snap.docs.map((d) =>
         Session.fromPropertyArray(
           Object.entries(d.data()) as [string, string | boolean | number][]
