@@ -564,7 +564,7 @@ function PromotionsTab() {
         <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", cursor: "pointer" }}>
           <div style={{ position: "relative" as const }}>
             <input type="checkbox" checked={promo.active} onChange={e => setPromo(p => ({ ...p, active: e.target.checked }))} style={{ opacity: 0, width: 0, height: 0, position: "absolute" as const }} />
-            <div style={{ width: 44, height: 24, borderRadius: 12, background: promo.active ? "#008060" : "#d1d5db", transition: "background 0.2s", cursor: "pointer" }} onClick={() => setPromo(p => ({ ...p, active: !p.active }))}>
+            <div style={{ width: 44, height: 24, borderRadius: 12, background: promo.active ? "#008060" : "#d1d5db", transition: "background 0.2s", cursor: "pointer" }} onClick={e => { e.preventDefault(); e.stopPropagation(); setPromo(p => ({ ...p, active: !p.active })); }}>
               <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute" as const, top: 2, left: promo.active ? 22 : 2, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
             </div>
           </div>
