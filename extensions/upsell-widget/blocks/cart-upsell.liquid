@@ -1,0 +1,239 @@
+{% comment %} Upsale — Cart Recommendations {% endcomment %}
+
+{% assign cart_product_ids = '' %}
+{% for item in cart.items %}
+  {% assign cart_product_ids = cart_product_ids | append: item.product_id | append: ',' %}
+{% endfor %}
+
+<div
+  id="upsale-cart-root"
+  data-shop="{{ shop.permanent_domain }}"
+  data-currency="{{ shop.currency }}"
+  data-product-ids="{{ cart_product_ids }}"
+  style="display:none; margin: 1.5rem 0;"
+>
+
+  <style>
+    #upsale-cart-root * { box-sizing: border-box; }
+    #upsale-cart-card {
+      border-radius: 12px;
+      border: 1px solid #e4e5e7;
+      overflow: hidden;
+      background: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #upsale-cart-header {
+      background: #f9fafb;
+      border-bottom: 1px solid #e4e5e7;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #upsale-cart-header-text {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    #upsale-cart-body {
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    #upsale-cart-img {
+      width: 80px; height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: none;
+    }
+    #upsale-cart-img-placeholder {
+      width: 80px; height: 80px;
+      background: #f1f1f1;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    #upsale-cart-info { flex: 1; min-width: 0; }
+    #upsale-cart-label { margin: 0 0 0.2rem; font-size: 0.78rem; color: #6d7175; }
+    #upsale-cart-title { margin: 0 0 0.4rem; font-size: 0.95rem; font-weight: 600; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #upsale-cart-prices { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    #upsale-cart-price { font-size: 1rem; font-weight: 700; color: #008060; }
+    #upsale-cart-original { font-size: 0.85rem; color: #9ca3af; text-decoration: line-through; display: none; }
+    #upsale-cart-badge { font-size: 0.7rem; font-weight: 700; background: #fef3c7; color: #92400e; padding: 0.15rem 0.5rem; border-radius: 20px; display: none; }
+    #upsale-cart-btn {
+      flex-shrink: 0;
+      padding: 0.7rem 1.25rem;
+      background: #008060;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    #upsale-cart-btn:hover { background: #006e52; }
+    #upsale-cart-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+    #upsale-cart-added {
+      display: none;
+      flex-shrink: 0;
+      padding: 0.7rem 1.25rem;
+      background: #e3f1df;
+      color: #1a6b3c;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+  </style>
+
+  <div id="upsale-cart-card">
+    <div id="upsale-cart-header">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="#008060"><path d="M10 1l2.39 4.84 5.34.78-3.87 3.77.91 5.32L10 13.27l-4.77 2.44.91-5.32L2.27 6.62l5.34-.78z"/></svg>
+      <span id="upsale-cart-header-text">{{ settings.header_text | default: 'Complete your order' }}</span>
+    </div>
+    <div id="upsale-cart-body">
+      <img id="upsale-cart-img" src="" alt="" width="80" height="80" />
+      <div id="upsale-cart-img-placeholder"></div>
+      <div id="upsale-cart-info">
+        <p id="upsale-cart-label"></p>
+        <p id="upsale-cart-title"></p>
+        <div id="upsale-cart-prices">
+          <span id="upsale-cart-price"></span>
+          <span id="upsale-cart-original"></span>
+          <span id="upsale-cart-badge"></span>
+        </div>
+      </div>
+      <button id="upsale-cart-btn">Add to cart</button>
+      <div id="upsale-cart-added">✓ Added!</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById('upsale-cart-root');
+  if (!root) return;
+
+  var shop = root.dataset.shop;
+  var currency = root.dataset.currency;
+  var ids = (root.dataset.productIds || '').split(',').filter(Boolean);
+  var apiBase = ({{ settings.api_base | json }} || 'https://upsale-cyan.vercel.app').replace(/\/$/, '');
+
+  if (!shop || ids.length === 0) return;
+
+  var fmt = function (n) {
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n);
+    } catch (e) {
+      return currency + ' ' + parseFloat(n).toFixed(2);
+    }
+  };
+
+  // Try each cart product until we find a matching upsell
+  var alreadyInCart = new Set(ids);
+
+  function tryNext(index) {
+    if (index >= ids.length) return;
+    var pid = ids[index];
+
+    fetch(apiBase + '/api/upsell?shop=' + encodeURIComponent(shop) + '&product_id=' + pid)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.upsell) { tryNext(index + 1); return; }
+        var u = data.upsell;
+
+        // Skip if already in cart
+        if (alreadyInCart.has(u.productId)) { tryNext(index + 1); return; }
+
+        document.getElementById('upsale-cart-label').textContent = u.message || 'You might also like';
+        document.getElementById('upsale-cart-title').textContent = u.title || '';
+        document.getElementById('upsale-cart-price').textContent = fmt(u.price);
+
+        if (u.discountPercent > 0) {
+          var orig = document.getElementById('upsale-cart-original');
+          orig.textContent = fmt(u.originalPrice);
+          orig.style.display = 'inline';
+          var badge = document.getElementById('upsale-cart-badge');
+          badge.textContent = u.discountPercent + '% OFF';
+          badge.style.display = 'inline';
+        }
+
+        if (u.image) {
+          var img = document.getElementById('upsale-cart-img');
+          img.src = u.image;
+          img.alt = u.title;
+          img.style.display = 'block';
+          document.getElementById('upsale-cart-img-placeholder').style.display = 'none';
+        }
+
+        root.style.display = 'block';
+
+        // Wire up Add to Cart
+        var btn = document.getElementById('upsale-cart-btn');
+        fetch('/products/' + u.handle + '.js')
+          .then(function (r) { return r.json(); })
+          .then(function (product) {
+            var variantId = product.variants && product.variants[0] && product.variants[0].id;
+            if (!variantId) {
+              btn.textContent = 'View product';
+              btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; });
+              return;
+            }
+            btn.addEventListener('click', function () {
+              btn.disabled = true;
+              btn.textContent = 'Adding…';
+              fetch('/cart/add.js', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: variantId, quantity: 1 })
+              })
+              .then(function (r) {
+                if (!r.ok) throw new Error('failed');
+                btn.style.display = 'none';
+                document.getElementById('upsale-cart-added').style.display = 'block';
+                document.dispatchEvent(new CustomEvent('cart:refresh'));
+              })
+              .catch(function () {
+                btn.disabled = false;
+                btn.textContent = 'Add to cart';
+              });
+            });
+          })
+          .catch(function () {
+            btn.textContent = 'View product';
+            btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; });
+          });
+      })
+      .catch(function () { tryNext(index + 1); });
+  }
+
+  tryNext(0);
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Cart Upsell",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "api_base",
+      "label": "App URL",
+      "info": "Your Upsale app URL",
+      "default": "https://upsale-cyan.vercel.app"
+    },
+    {
+      "type": "text",
+      "id": "header_text",
+      "label": "Header label",
+      "default": "Complete your order"
+    }
+  ]
+}
+{% endschema %}
