@@ -519,15 +519,8 @@ function PromotionsTab() {
     setSaving(true); setError(null); setSaved(false);
     const gift = products.find(p => String(p.id) === promo.giftProductId);
 
-    // Fetch variant ID for the gift product
-    let variantId = promo.giftVariantId;
-    if (gift && !variantId) {
-      try {
-        const r = await fetch(`/products/${gift.handle}.js`);
-        const data = await r.json();
-        variantId = String(data.variants?.[0]?.id ?? "");
-      } catch {}
-    }
+    // Get variant ID from already-fetched product data
+    const variantId = promo.giftVariantId || String(gift?.variants?.[0]?.id ?? "");
 
     const body = {
       active: promo.active,
