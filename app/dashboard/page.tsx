@@ -26,7 +26,7 @@ interface Product {
   handle: string;
   status: string;
   image: { src: string } | null;
-  variants: { price: string }[];
+  variants: { id: number; price: string }[];
 }
 
 interface UpsellRule {
