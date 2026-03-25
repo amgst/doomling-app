@@ -173,6 +173,16 @@
 
         root.style.display = 'block';
 
+        // Tracking
+        var track = function (event) {
+          fetch(apiBase + '/api/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shop: shop, ruleId: u.ruleId, event: event })
+          }).catch(function () {});
+        };
+        track('view');
+
         // Wire up Add to Cart
         var btn = document.getElementById('upsale-cart-btn');
         fetch('/products/' + u.handle + '.js')
@@ -185,6 +195,7 @@
               return;
             }
             btn.addEventListener('click', function () {
+              track('click');
               btn.disabled = true;
               btn.textContent = 'Adding…';
               fetch('/cart/add.js', {
@@ -194,6 +205,7 @@
               })
               .then(function (r) {
                 if (!r.ok) throw new Error('failed');
+                track('added');
                 btn.style.display = 'none';
                 document.getElementById('upsale-cart-added').style.display = 'block';
                 document.dispatchEvent(new CustomEvent('cart:refresh'));

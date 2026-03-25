@@ -34,13 +34,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ upsell: null }, { headers: CORS });
     }
 
-    const rule = snap.docs[0].data();
+    const doc = snap.docs[0];
+    const rule = doc.data();
     const discountedPrice = rule.discountPercent > 0
       ? (parseFloat(rule.upsellProductPrice) * (1 - rule.discountPercent / 100)).toFixed(2)
       : rule.upsellProductPrice;
 
     return NextResponse.json({
       upsell: {
+        ruleId: doc.id,
         productId: rule.upsellProductId,
         title: rule.upsellProductTitle,
         image: rule.upsellProductImage,

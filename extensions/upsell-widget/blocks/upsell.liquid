@@ -83,7 +83,7 @@
   <div id="upsale-card">
     <div id="upsale-header">
       <svg width="14" height="14" viewBox="0 0 20 20" fill="#fff"><path d="M10 1l2.39 4.84 5.34.78-3.87 3.77.91 5.32L10 13.27l-4.77 2.44.91-5.32L2.27 6.62l5.34-.78z"/></svg>
-      <span id="upsale-header-text">Frequently bought together</span>
+      <span id="upsale-header-text">{{ settings.header_text | default: 'Frequently bought together' }}</span>
     </div>
     <div id="upsale-body">
       <img id="upsale-img" src="" alt="" width="80" height="80" />
@@ -155,6 +155,16 @@
       // Show widget immediately — don't wait for variant fetch
       root.style.display = 'block';
 
+      // Track view
+      var track = function (event) {
+        fetch(apiBase + '/api/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shop: shop, ruleId: u.ruleId, event: event })
+        }).catch(function () {});
+      };
+      track('view');
+
       // Get variant ID for Add to Cart
       var btn = document.getElementById('upsale-btn');
       fetch('/products/' + u.handle + '.js')
@@ -163,6 +173,7 @@
           var variantId = product.variants && product.variants[0] && product.variants[0].id;
           if (!variantId) { btn.textContent = 'View product'; btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; }); return; }
           btn.addEventListener('click', function () {
+            track('click');
             btn.disabled = true;
             btn.textContent = 'Adding…';
             fetch('/cart/add.js', {
@@ -172,6 +183,7 @@
             })
             .then(function (r) {
               if (!r.ok) throw new Error('failed');
+              track('added');
               btn.style.display = 'none';
               document.getElementById('upsale-added').style.display = 'block';
               document.dispatchEvent(new CustomEvent('cart:refresh'));
