@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
 
@@ -627,9 +628,21 @@ function PromotionsTab() {
   );
 }
 
+const VALID_TABS = ["overview", "products", "upsells", "promotions", "stats"] as const;
+type Tab = typeof VALID_TABS[number];
+
 export default function DashboardPage() {
-  const [tab, setTab] = useState<"overview" | "products" | "upsells" | "promotions" | "stats">("overview");
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const tabFromPath = (pathname.split("/")[2] ?? "overview") as Tab;
+  const activeTab = VALID_TABS.includes(tabFromPath) ? tabFromPath : "overview";
+
   const [days, setDays] = useState("30");
+
+  const setTab = (t: Tab) => router.push(`/dashboard/${t}`);
+
+  const tab = activeTab;
 
   const TABS = [
     { key: "overview", label: "Overview" },
