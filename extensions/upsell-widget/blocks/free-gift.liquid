@@ -87,12 +87,14 @@
 <script>
 (function () {
   var root = document.getElementById('upsale-gift-root');
-  if (!root) return;
+  if (!root) { console.log('[Upsale Gift] root element not found'); return; }
 
   var shop = root.dataset.shop;
   var currency = root.dataset.currency;
   var cartTotal = parseFloat(root.dataset.cartTotal) || 0;
   var apiBase = ({{ settings.api_base | json }} || 'https://upsale-cyan.vercel.app').replace(/\/$/, '');
+
+  console.log('[Upsale Gift] init', { shop: shop, cartTotal: cartTotal, apiBase: apiBase });
 
   var fmt = function (n) {
     try {
@@ -103,13 +105,18 @@
   };
 
   fetch(apiBase + '/api/promotion?shop=' + encodeURIComponent(shop))
-    .then(function (r) { return r.json(); })
+    .then(function (r) {
+      console.log('[Upsale Gift] API status', r.status);
+      return r.json();
+    })
     .then(function (data) {
-      if (!data || !data.promotion) return;
+      console.log('[Upsale Gift] API response', JSON.stringify(data));
+      if (!data || !data.promotion) { console.log('[Upsale Gift] no active promotion'); return; }
       var p = data.promotion;
       var threshold = parseFloat(p.threshold) || 50;
       var variantId = p.giftVariantId;
-      if (!variantId) return;
+      console.log('[Upsale Gift] threshold=' + threshold + ' cartTotal=' + cartTotal + ' variantId=' + variantId);
+      if (!variantId) { console.log('[Upsale Gift] missing variantId, aborting'); return; }
 
       // Show image
       if (p.giftProductImage) {
@@ -153,7 +160,7 @@
 
       root.style.display = 'block';
     })
-    .catch(function () {});
+    .catch(function (err) { console.log('[Upsale Gift] fetch error', err); });
 })();
 </script>
 
