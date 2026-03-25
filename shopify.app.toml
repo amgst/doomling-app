@@ -4,7 +4,7 @@ application_url = "https://upsale-cyan.vercel.app"
 embedded = true
 
 [access_scopes]
-scopes = "write_orders,read_products,read_customers,read_analytics"
+scopes = "write_orders,read_products,read_customers,read_analytics,write_discounts,read_discounts"
 
 [auth]
 redirect_urls = [
@@ -14,6 +14,10 @@ redirect_urls = [
 
 [webhooks]
 api_version = "2024-01"
+
+  [[webhooks.subscriptions]]
+  topics = ["orders/create", "orders/cancelled", "app/uninstalled", "customers/data_request", "customers/redact", "shop/redact"]
+  uri = "/api/webhooks"
 
 [pos]
 embedded = false

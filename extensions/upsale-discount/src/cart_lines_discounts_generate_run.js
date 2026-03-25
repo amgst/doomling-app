@@ -1,96 +1,49 @@
-import {
-  DiscountClass,
-  OrderDiscountSelectionStrategy,
-  ProductDiscountSelectionStrategy,
-} from '../generated/api';
-
+import { ProductDiscountSelectionStrategy } from '../generated/api';
 
 /**
-  * @typedef {import("../generated/api").CartInput} RunInput
-  * @typedef {import("../generated/api").CartLinesDiscountsGenerateRunResult} CartLinesDiscountsGenerateRunResult
-  */
+ * @typedef {import("../generated/api").CartInput} RunInput
+ * @typedef {import("../generated/api").CartLinesDiscountsGenerateRunResult} CartLinesDiscountsGenerateRunResult
+ */
 
 /**
-  * @param {RunInput} input
-  * @returns {CartLinesDiscountsGenerateRunResult}
-  */
-
+ * @param {RunInput} input
+ * @returns {CartLinesDiscountsGenerateRunResult}
+ */
 export function cartLinesDiscountsGenerateRun(input) {
-  if (!input.cart.lines.length) {
-    return {operations: []};
-  }
+  // Read promotion config from discount metafield
+  const meta = input.discount?.metafield;
+  if (!meta?.value) return { operations: [] };
 
-  const hasOrderDiscountClass = input.discount.discountClasses.includes(
-    DiscountClass.Order,
-  );
-  const hasProductDiscountClass = input.discount.discountClasses.includes(
-    DiscountClass.Product,
-  );
+  let config;
+  try { config = JSON.parse(meta.value); } catch { return { operations: [] }; }
 
-  if (!hasOrderDiscountClass && !hasProductDiscountClass) {
-    return {operations: []};
-  }
+  const { threshold, giftVariantId } = config;
+  if (!threshold || !giftVariantId) return { operations: [] };
 
-  const maxCartLine = input.cart.lines.reduce((maxLine, line) => {
-    if (line.cost.subtotalAmount.amount > maxLine.cost.subtotalAmount.amount) {
-      return line;
-    }
-    return maxLine;
-  }, input.cart.lines[0]);
+  const giftGid = `gid://shopify/ProductVariant/${giftVariantId}`;
 
-  const operations = [];
+  // Find the gift line in cart
+  const giftLine = input.cart.lines.find(line => line.merchandise?.id === giftGid);
+  if (!giftLine) return { operations: [] };
 
-  if (hasOrderDiscountClass) {
-    operations.push({
-      orderDiscountsAdd: {
-        candidates: [
-          {
-            message: '10% OFF ORDER',
-            targets: [
-              {
-                orderSubtotal: {
-                  excludedCartLineIds: [],
-                },
-              },
-            ],
-            value: {
-              percentage: {
-                value: 10,
-              },
-            },
-          },
-        ],
-        selectionStrategy: OrderDiscountSelectionStrategy.First,
-      },
-    });
-  }
+  // Sum subtotal of non-gift lines to check threshold
+  const nonGiftSubtotal = input.cart.lines
+    .filter(line => line.merchandise?.id !== giftGid)
+    .reduce((sum, line) => sum + parseFloat(line.cost.subtotalAmount.amount), 0);
 
-  if (hasProductDiscountClass) {
-    operations.push({
+  if (nonGiftSubtotal < parseFloat(threshold)) return { operations: [] };
+
+  // Apply 100% discount to the gift line
+  return {
+    operations: [{
       productDiscountsAdd: {
-        candidates: [
-          {
-            message: '20% OFF PRODUCT',
-            targets: [
-              {
-                cartLine: {
-                  id: maxCartLine.id,
-                },
-              },
-            ],
-            value: {
-              percentage: {
-                value: 20,
-              },
-            },
-          },
-        ],
+        candidates: [{
+          message: 'Free Gift',
+          targets: [{ cartLine: { id: giftLine.id } }],
+          value: { percentage: { value: 100 } },
+        }],
         selectionStrategy: ProductDiscountSelectionStrategy.First,
       },
-    });
-  }
-
-  return {
-    operations,
+    }],
   };
 }

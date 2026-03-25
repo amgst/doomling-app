@@ -7,9 +7,16 @@ query CartInput {
           amount
         }
       }
+      merchandise {
+        ... on ProductVariant {
+          id
+        }
+      }
     }
   }
   discount {
-    discountClasses
+    metafield(namespace: "upsale", key: "config") {
+      value
+    }
   }
 }

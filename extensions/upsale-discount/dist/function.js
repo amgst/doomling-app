@@ -1,4 +1,4 @@
-// node_modules/@shopify/shopify_function/run.ts
+// ../../node_modules/@shopify/shopify_function/run.ts
 function run_default(userfunction) {
   try {
     ShopifyFunction;
@@ -12,81 +12,38 @@ function run_default(userfunction) {
   ShopifyFunction.writeOutput(output_obj);
 }
 
-// extensions/upsale-discount/src/cart_lines_discounts_generate_run.js
+// src/cart_lines_discounts_generate_run.js
 function cartLinesDiscountsGenerateRun(input) {
-  if (!input.cart.lines.length) {
+  const meta = input.discount?.metafield;
+  if (!meta?.value) return { operations: [] };
+  let config;
+  try {
+    config = JSON.parse(meta.value);
+  } catch {
     return { operations: [] };
   }
-  const hasOrderDiscountClass = input.discount.discountClasses.includes(
-    "ORDER" /* Order */
-  );
-  const hasProductDiscountClass = input.discount.discountClasses.includes(
-    "PRODUCT" /* Product */
-  );
-  if (!hasOrderDiscountClass && !hasProductDiscountClass) {
-    return { operations: [] };
-  }
-  const maxCartLine = input.cart.lines.reduce((maxLine, line) => {
-    if (line.cost.subtotalAmount.amount > maxLine.cost.subtotalAmount.amount) {
-      return line;
-    }
-    return maxLine;
-  }, input.cart.lines[0]);
-  const operations = [];
-  if (hasOrderDiscountClass) {
-    operations.push({
-      orderDiscountsAdd: {
-        candidates: [
-          {
-            message: "10% OFF ORDER",
-            targets: [
-              {
-                orderSubtotal: {
-                  excludedCartLineIds: []
-                }
-              }
-            ],
-            value: {
-              percentage: {
-                value: 10
-              }
-            }
-          }
-        ],
-        selectionStrategy: "FIRST" /* First */
-      }
-    });
-  }
-  if (hasProductDiscountClass) {
-    operations.push({
-      productDiscountsAdd: {
-        candidates: [
-          {
-            message: "20% OFF PRODUCT",
-            targets: [
-              {
-                cartLine: {
-                  id: maxCartLine.id
-                }
-              }
-            ],
-            value: {
-              percentage: {
-                value: 20
-              }
-            }
-          }
-        ],
-        selectionStrategy: "FIRST" /* First */
-      }
-    });
-  }
+  const { threshold, giftVariantId } = config;
+  if (!threshold || !giftVariantId) return { operations: [] };
+  const giftGid = `gid://shopify/ProductVariant/${giftVariantId}`;
+  const giftLine = input.cart.lines.find((line) => line.merchandise?.id === giftGid);
+  if (!giftLine) return { operations: [] };
+  const nonGiftSubtotal = input.cart.lines.filter((line) => line.merchandise?.id !== giftGid).reduce((sum, line) => sum + parseFloat(line.cost.subtotalAmount.amount), 0);
+  if (nonGiftSubtotal < parseFloat(threshold)) return { operations: [] };
   return {
-    operations
+    operations: [{
+      productDiscountsAdd: {
+        candidates: [{
+          message: "Free Gift",
+          targets: [{ cartLine: { id: giftLine.id } }],
+          value: { percentage: { value: 100 } }
+        }],
+        selectionStrategy: "FIRST" /* First */
+      }
+    }]
   };
 }
 
-// extensions/upsale-discount/src/cart_delivery_options_discounts_generate_run.js
+// src/cart_delivery_options_discounts_generate_run.js
 function cartDeliveryOptionsDiscountsGenerateRun(input) {
   const firstDeliveryGroup = input.cart.deliveryGroups[0];
   if (!firstDeliveryGroup) {

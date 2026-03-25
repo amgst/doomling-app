@@ -11,6 +11,7 @@ export interface Promotion {
   giftVariantId: string;
   giftProductPrice: string;
   message: string;
+  discountId?: string;
 }
 
 const DEFAULT: Promotion = {
