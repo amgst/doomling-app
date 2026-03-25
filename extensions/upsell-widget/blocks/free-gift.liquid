@@ -1,0 +1,174 @@
+{% comment %} Upsale — Free Gift Progress Bar {% endcomment %}
+
+<div
+  id="upsale-gift-root"
+  data-shop="{{ shop.permanent_domain }}"
+  data-currency="{{ shop.currency }}"
+  data-cart-total="{{ cart.total_price | divided_by: 100.0 }}"
+  data-gift-variant="{{ cart.items | map: 'variant_id' | join: ',' }}"
+  style="display:none; margin: 1.5rem 0;"
+>
+
+  <style>
+    #upsale-gift-root * { box-sizing: border-box; }
+    #upsale-gift-card {
+      border-radius: 12px;
+      border: 1px solid #e4e5e7;
+      padding: 1.25rem;
+      background: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #upsale-gift-top {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    #upsale-gift-img {
+      width: 48px; height: 48px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+      border: 2px solid #e4e5e7;
+      display: none;
+    }
+    #upsale-gift-msg {
+      font-size: 0.875rem;
+      color: #374151;
+      margin: 0;
+      line-height: 1.4;
+    }
+    #upsale-gift-msg strong { color: #008060; }
+    #upsale-gift-bar-wrap {
+      background: #f1f1f1;
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+    #upsale-gift-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #008060, #00a376);
+      transition: width 0.4s ease;
+    }
+    #upsale-gift-unlocked {
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.75rem 1rem;
+      background: #e3f1df;
+      border-radius: 8px;
+      margin-top: 0.5rem;
+    }
+    #upsale-gift-unlocked span {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #1a6b3c;
+    }
+  </style>
+
+  <div id="upsale-gift-card">
+    <div id="upsale-gift-top">
+      <img id="upsale-gift-img" src="" alt="" width="48" height="48" />
+      <p id="upsale-gift-msg"></p>
+    </div>
+    <div id="upsale-gift-bar-wrap">
+      <div id="upsale-gift-bar" style="width:0%"></div>
+    </div>
+    <div id="upsale-gift-unlocked">
+      <span>🎁</span>
+      <span id="upsale-gift-unlocked-text">Free gift added to your cart!</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById('upsale-gift-root');
+  if (!root) return;
+
+  var shop = root.dataset.shop;
+  var currency = root.dataset.currency;
+  var cartTotal = parseFloat(root.dataset.cartTotal) || 0;
+  var apiBase = ({{ settings.api_base | json }} || 'https://upsale-cyan.vercel.app').replace(/\/$/, '');
+
+  var fmt = function (n) {
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(n);
+    } catch (e) {
+      return currency + ' ' + parseFloat(n).toFixed(0);
+    }
+  };
+
+  fetch(apiBase + '/api/promotion?shop=' + encodeURIComponent(shop))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data || !data.promotion) return;
+      var p = data.promotion;
+      var threshold = parseFloat(p.threshold) || 50;
+      var variantId = p.giftVariantId;
+      if (!variantId) return;
+
+      // Show image
+      if (p.giftProductImage) {
+        var img = document.getElementById('upsale-gift-img');
+        img.src = p.giftProductImage;
+        img.alt = p.giftProductTitle;
+        img.style.display = 'block';
+      }
+
+      var remaining = Math.max(0, threshold - cartTotal);
+      var pct = Math.min(100, (cartTotal / threshold) * 100);
+      var unlocked = cartTotal >= threshold;
+
+      // Progress bar
+      document.getElementById('upsale-gift-bar').style.width = pct + '%';
+
+      if (unlocked) {
+        document.getElementById('upsale-gift-msg').innerHTML = '🎁 <strong>You\'ve unlocked a free gift!</strong>';
+        document.getElementById('upsale-gift-unlocked').style.display = 'flex';
+        document.getElementById('upsale-gift-unlocked-text').textContent = p.giftProductTitle + ' has been added free!';
+        // Auto-add gift if not already in cart
+        var cartVariants = (root.dataset.giftVariant || '').split(',');
+        if (!cartVariants.includes(String(variantId))) {
+          fetch('/cart/add.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: parseInt(variantId),
+              quantity: 1,
+              properties: { _free_gift: 'true', _upsale: 'true' }
+            })
+          }).then(function () {
+            document.dispatchEvent(new CustomEvent('cart:refresh'));
+          }).catch(function () {});
+        }
+      } else {
+        var msg = (p.message || 'Add {amount} more to get a free gift!')
+          .replace('{amount}', '<strong>' + fmt(remaining) + '</strong>');
+        document.getElementById('upsale-gift-msg').innerHTML = msg;
+      }
+
+      root.style.display = 'block';
+    })
+    .catch(function () {});
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Free Gift Progress Bar",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "api_base",
+      "label": "App URL",
+      "info": "Your Upsale app URL",
+      "default": "https://upsale-cyan.vercel.app"
+    }
+  ]
+}
+{% endschema %}

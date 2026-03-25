@@ -363,14 +363,159 @@ function UpsellsTab() {
   );
 }
 
+function PromotionsTab() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [promo, setPromo] = useState<{
+    active: boolean; threshold: string; giftProductId: string;
+    giftVariantId: string; message: string;
+  }>({ active: false, threshold: "50", giftProductId: "", giftVariantId: "", message: "Add {amount} more to get a free gift!" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/standalone/promotion").then(r => r.json()),
+      fetch("/api/standalone/products").then(r => r.json()),
+    ]).then(([p, pr]) => {
+      if (p.promotion) {
+        setPromo({
+          active: p.promotion.active,
+          threshold: String(p.promotion.threshold),
+          giftProductId: p.promotion.giftProductId,
+          giftVariantId: p.promotion.giftVariantId,
+          message: p.promotion.message,
+        });
+      }
+      setProducts(pr.products ?? []);
+    }).catch(() => setError("Failed to load."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    if (!promo.giftProductId) { setError("Select a gift product."); return; }
+    setSaving(true); setError(null); setSaved(false);
+    const gift = products.find(p => String(p.id) === promo.giftProductId);
+
+    // Fetch variant ID for the gift product
+    let variantId = promo.giftVariantId;
+    if (gift && !variantId) {
+      try {
+        const r = await fetch(`/products/${gift.handle}.js`);
+        const data = await r.json();
+        variantId = String(data.variants?.[0]?.id ?? "");
+      } catch {}
+    }
+
+    const body = {
+      active: promo.active,
+      threshold: Number(promo.threshold) || 50,
+      giftProductId: promo.giftProductId,
+      giftProductTitle: gift?.title ?? "",
+      giftProductImage: gift?.image?.src ?? "",
+      giftProductHandle: gift?.handle ?? "",
+      giftVariantId: variantId,
+      giftProductPrice: gift?.variants?.[0]?.price ?? "0",
+      message: promo.message,
+    };
+
+    const res = await fetch("/api/standalone/promotion", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000); }
+    else setError("Failed to save.");
+    setSaving(false);
+  };
+
+  const inputStyle = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
+  const labelStyle = { display: "block" as const, fontSize: "0.8rem", fontWeight: 600 as const, color: "#374151", marginBottom: "0.35rem" };
+
+  if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
+
+  return (
+    <>
+      <div style={{ marginBottom: "1.5rem", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Free Gift Promotion</h1>
+          <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Automatically offer a free gift when cart reaches a spend threshold</p>
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", cursor: "pointer" }}>
+          <div style={{ position: "relative" as const }}>
+            <input type="checkbox" checked={promo.active} onChange={e => setPromo(p => ({ ...p, active: e.target.checked }))} style={{ opacity: 0, width: 0, height: 0, position: "absolute" as const }} />
+            <div style={{ width: 44, height: 24, borderRadius: 12, background: promo.active ? "#008060" : "#d1d5db", transition: "background 0.2s", cursor: "pointer" }} onClick={() => setPromo(p => ({ ...p, active: !p.active }))}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute" as const, top: 2, left: promo.active ? 22 : 2, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+            </div>
+          </div>
+          <span style={{ fontSize: "0.875rem", fontWeight: 600, color: promo.active ? "#008060" : "#6d7175" }}>{promo.active ? "Active" : "Inactive"}</span>
+        </label>
+      </div>
+
+      {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
+
+      <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+          <div>
+            <label style={labelStyle}>Spend threshold ({products[0] ? "store currency" : ""})</label>
+            <input type="number" min="1" style={inputStyle} value={promo.threshold} onChange={e => setPromo(p => ({ ...p, threshold: e.target.value }))} />
+            <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "#6d7175" }}>Cart must reach this amount to unlock the gift</p>
+          </div>
+          <div>
+            <label style={labelStyle}>Gift product</label>
+            <select style={inputStyle} value={promo.giftProductId} onChange={e => setPromo(p => ({ ...p, giftProductId: e.target.value, giftVariantId: "" }))}>
+              <option value="">Select product</option>
+              {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
+            </select>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={labelStyle}>Progress bar message</label>
+            <input type="text" style={inputStyle} value={promo.message} onChange={e => setPromo(p => ({ ...p, message: e.target.value }))} />
+            <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "#6d7175" }}>Use {"{amount}"} to show remaining amount, e.g. "Add {"{amount}"} more for a free gift!"</p>
+          </div>
+        </div>
+
+        {promo.giftProductId && (() => {
+          const gift = products.find(p => String(p.id) === promo.giftProductId);
+          return gift ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem", background: "#f9fafb", borderRadius: "8px", marginBottom: "1rem" }}>
+              {gift.image?.src && <img src={gift.image.src} alt={gift.title} style={{ width: 48, height: 48, borderRadius: "6px", objectFit: "cover" }} />}
+              <div>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", color: "#1a1a1a" }}>{gift.title}</p>
+                <p style={{ margin: 0, fontSize: "0.8rem", color: "#6d7175" }}>Will be added free when threshold is met</p>
+              </div>
+            </div>
+          ) : null;
+        })()}
+
+        <button onClick={handleSave} disabled={saving} style={{
+          padding: "0.6rem 1.5rem", background: saved ? "#1a6b3c" : "#008060", color: "#fff",
+          border: "none", borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600,
+          cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
+        }}>{saving ? "Saving…" : saved ? "✓ Saved!" : "Save Promotion"}</button>
+      </div>
+
+      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "1rem 1.25rem" }}>
+        <p style={{ margin: "0 0 0.5rem", fontWeight: 600, fontSize: "0.875rem", color: "#1a6b3c" }}>How to activate on your store</p>
+        <ol style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.8rem", color: "#374151", lineHeight: 1.7 }}>
+          <li>Set up the promotion above and click Save</li>
+          <li>Go to <strong>Online Store → Themes → Customize → Cart page</strong></li>
+          <li>Add the <strong>Free Gift Progress Bar</strong> block from Apps</li>
+          <li>Toggle <strong>Active</strong> above to turn it on or off anytime</li>
+        </ol>
+      </div>
+    </>
+  );
+}
+
 export default function DashboardPage() {
-  const [tab, setTab] = useState<"overview" | "products" | "upsells">("overview");
+  const [tab, setTab] = useState<"overview" | "products" | "upsells" | "promotions">("overview");
   const [days, setDays] = useState("30");
 
   const TABS = [
     { key: "overview", label: "Overview" },
     { key: "products", label: "Products" },
     { key: "upsells", label: "Upsells" },
+    { key: "promotions", label: "Free Gift" },
   ] as const;
 
   return (
@@ -416,6 +561,7 @@ export default function DashboardPage() {
         {tab === "overview" && <OverviewTab days={days} setDays={setDays} />}
         {tab === "products" && <ProductsTab />}
         {tab === "upsells" && <UpsellsTab />}
+        {tab === "promotions" && <PromotionsTab />}
       </div>
     </div>
   );
