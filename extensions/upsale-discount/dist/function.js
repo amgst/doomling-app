@@ -1,4 +1,4 @@
-// ../../node_modules/@shopify/shopify_function/run.ts
+// ../node_modules/@shopify/shopify_function/run.ts
 function run_default(userfunction) {
   try {
     ShopifyFunction;
@@ -12,7 +12,7 @@ function run_default(userfunction) {
   ShopifyFunction.writeOutput(output_obj);
 }
 
-// src/cart_lines_discounts_generate_run.js
+// upsale-discount/src/cart_lines_discounts_generate_run.js
 function cartLinesDiscountsGenerateRun(input) {
   const meta = input.discount?.metafield;
   if (!meta?.value) return { operations: [] };
@@ -53,7 +53,7 @@ function cartLinesDiscountsGenerateRun(input) {
   return { operations };
 }
 
-// src/cart_delivery_options_discounts_generate_run.js
+// upsale-discount/src/cart_delivery_options_discounts_generate_run.js
 function cartDeliveryOptionsDiscountsGenerateRun(input) {
   const firstDeliveryGroup = input.cart.deliveryGroups[0];
   if (!firstDeliveryGroup) {
