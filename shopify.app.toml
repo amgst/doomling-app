@@ -4,7 +4,7 @@ application_url = "https://upsale-cyan.vercel.app"
 embedded = true
 
 [access_scopes]
-scopes = "write_orders,read_products,read_customers,read_analytics,write_discounts,read_discounts"
+scopes = "write_orders,read_products,read_customers,read_analytics,write_discounts,read_discounts,read_functions"
 
 [auth]
 redirect_urls = [
