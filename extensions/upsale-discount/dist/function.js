@@ -22,25 +22,35 @@ function cartLinesDiscountsGenerateRun(input) {
   } catch {
     return { operations: [] };
   }
-  const { threshold, giftVariantId } = config;
-  if (!threshold || !giftVariantId) return { operations: [] };
-  const giftGid = `gid://shopify/ProductVariant/${giftVariantId}`;
-  const giftLine = input.cart.lines.find((line) => line.merchandise?.id === giftGid);
-  if (!giftLine) return { operations: [] };
-  const nonGiftSubtotal = input.cart.lines.filter((line) => line.merchandise?.id !== giftGid).reduce((sum, line) => sum + parseFloat(line.cost.subtotalAmount.amount), 0);
-  if (nonGiftSubtotal < parseFloat(threshold)) return { operations: [] };
-  return {
-    operations: [{
-      productDiscountsAdd: {
-        candidates: [{
-          message: "Free Gift",
-          targets: [{ cartLine: { id: giftLine.id } }],
-          value: { percentage: { value: 100 } }
-        }],
-        selectionStrategy: "FIRST" /* First */
-      }
-    }]
-  };
+  let tiers = config.tiers;
+  if (!tiers && config.threshold && config.giftVariantId) {
+    tiers = [{ threshold: config.threshold, giftVariantId: config.giftVariantId }];
+  }
+  if (!tiers?.length) return { operations: [] };
+  const giftGids = new Set(
+    tiers.map((t) => `gid://shopify/ProductVariant/${t.giftVariantId}`)
+  );
+  const nonGiftSubtotal = input.cart.lines.filter((line) => !giftGids.has(line.merchandise?.id)).reduce((sum, line) => sum + parseFloat(line.cost.subtotalAmount.amount), 0);
+  const operations = [];
+  for (const tier of tiers) {
+    if (!tier.giftVariantId) continue;
+    const giftGid = `gid://shopify/ProductVariant/${tier.giftVariantId}`;
+    const giftLine = input.cart.lines.find((line) => line.merchandise?.id === giftGid);
+    if (!giftLine) continue;
+    if (nonGiftSubtotal >= parseFloat(tier.threshold)) {
+      operations.push({
+        productDiscountsAdd: {
+          candidates: [{
+            message: "Free Gift",
+            targets: [{ cartLine: { id: giftLine.id } }],
+            value: { percentage: { value: 100 } }
+          }],
+          selectionStrategy: "FIRST" /* First */
+        }
+      });
+    }
+  }
+  return { operations };
 }
 
 // extensions/upsale-discount/src/cart_delivery_options_discounts_generate_run.js
