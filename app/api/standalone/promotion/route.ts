@@ -11,72 +11,6 @@ async function getShop(req: NextRequest) {
   return cookie ? await verifyShop(cookie) : null;
 }
 
-async function gqlAdmin(shop: string, token: string, query: string, variables?: object) {
-  const res = await fetch(`https://${shop}/admin/api/2024-01/graphql.json`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
-    body: JSON.stringify({ query, variables }),
-  });
-  return res.json();
-}
-
-// Extension UID from shopify.extension.toml — this is what discountAutomaticAppCreate requires
-// (NOT the runtime ID returned by shopifyFunctions query, which is different)
-const FUNCTION_GID = "gid://shopify/ShopifyFunction/ca9f669b-dd58-1d8c-2599-4e065cc68d8e310c87c1";
-
-async function createShopifyDiscount(
-  shop: string, token: string, config: string
-): Promise<{ discountId: string | null; error: string | null }> {
-  const functionId = FUNCTION_GID;
-
-  const data = await gqlAdmin(shop, token, `
-    mutation CreateDiscount($input: DiscountAutomaticAppInput!) {
-      discountAutomaticAppCreate(automaticAppDiscount: $input) {
-        automaticAppDiscount { discountId }
-        userErrors { field message }
-      }
-    }
-  `, {
-    input: {
-      title: "Upsale Free Gift",
-      functionId,
-      startsAt: "2020-01-01T00:00:00Z",
-      metafields: [{ namespace: "upsale", key: "config", type: "json", value: config }],
-    },
-  });
-  const userErrors = data?.data?.discountAutomaticAppCreate?.userErrors ?? [];
-  if (userErrors.length > 0) {
-    return { discountId: null, error: userErrors.map((e: { message: string }) => e.message).join("; ") };
-  }
-  const discountId = data?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId ?? null;
-  return { discountId, error: discountId ? null : "Discount created but ID not returned" };
-}
-
-async function updateDiscountConfig(shop: string, token: string, discountId: string, config: string): Promise<string | null> {
-  const data = await gqlAdmin(shop, token, `
-    mutation UpdateMetafield($metafields: [MetafieldsSetInput!]!) {
-      metafieldsSet(metafields: $metafields) {
-        userErrors { field message }
-      }
-    }
-  `, {
-    metafields: [{ ownerId: discountId, namespace: "upsale", key: "config", type: "json", value: config }],
-  });
-  const errs = data?.data?.metafieldsSet?.userErrors ?? [];
-  return errs.length > 0 ? errs.map((e: { message: string }) => e.message).join("; ") : null;
-}
-
-async function deleteShopifyDiscount(shop: string, token: string, discountId: string) {
-  await gqlAdmin(shop, token, `
-    mutation DeleteDiscount($id: ID!) {
-      discountAutomaticDelete(id: $id) {
-        deletedAutomaticDiscountId
-        userErrors { field message }
-      }
-    }
-  `, { id: discountId });
-}
-
 async function fetchVariantId(shop: string, token: string, productId: string): Promise<string> {
   try {
     const res = await fetch(
@@ -115,46 +49,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const existing = await getPromotion(shop);
   await savePromotion(shop, body);
 
-  // Sync Shopify Automatic Discount — capture full result for dashboard feedback
-  let syncStatus: { status: string; error?: string; discountId?: string; allFunctions?: { id: string; apiType: string }[] } = { status: "skipped" };
-
-  if (!session?.accessToken) {
-    syncStatus = { status: "error", error: "No access token — reinstall the app to grant permissions" };
-  } else {
-    try {
-      const validTiers = (body.tiers as PromotionTier[] ?? [])
-        .filter(t => t.giftVariantId)
-        .map(t => ({ threshold: Number(t.threshold) || 50, giftVariantId: t.giftVariantId }));
-
-      const config = JSON.stringify({ tiers: validTiers });
-
-      if (body.active && validTiers.length > 0) {
-        if (existing.discountId) {
-          const err = await updateDiscountConfig(shop, session.accessToken, existing.discountId, config);
-          syncStatus = err ? { status: "error", error: err } : { status: "updated", discountId: existing.discountId };
-        } else {
-          const result = await createShopifyDiscount(shop, session.accessToken, config);
-          if (result.discountId) {
-            await savePromotion(shop, { discountId: result.discountId });
-            syncStatus = { status: "created", discountId: result.discountId };
-          } else {
-            syncStatus = { status: "error", error: result.error ?? "Unknown error" };
-          }
-        }
-      } else if (!body.active && existing.discountId) {
-        await deleteShopifyDiscount(shop, session.accessToken, existing.discountId);
-        await savePromotion(shop, { discountId: "" });
-        syncStatus = { status: "deleted" };
-      } else {
-        syncStatus = { status: "skipped" };
-      }
-    } catch (e) {
-      syncStatus = { status: "error", error: String(e) };
-    }
-  }
-
-  return NextResponse.json({ ok: true, syncStatus });
+  return NextResponse.json({ ok: true, syncStatus: { status: "saved" } });
 }
