@@ -20,20 +20,35 @@ async function gqlAdmin(shop: string, token: string, query: string, variables?: 
   return res.json();
 }
 
-async function getFunctionId(shop: string, token: string): Promise<string | null> {
+async function getFunctionId(shop: string, token: string): Promise<{ id: string | null; allFunctions: { id: string; apiType: string }[] }> {
   const data = await gqlAdmin(shop, token, `{
     shopifyFunctions(first: 25) {
       nodes { id apiType }
     }
   }`);
   const nodes: { id: string; apiType: string }[] = data?.data?.shopifyFunctions?.nodes ?? [];
-  const fn = nodes.find(f => f.apiType === "cart_lines_discounts_generate_run");
-  return fn?.id ?? null;
+
+  // Match against all known formats Shopify may return for this function type
+  const patterns = [
+    "cart_lines_discounts_generate_run",
+    "cart-lines-discounts-generate-run",
+    "cart.lines.discounts.generate.run",
+    "CART_LINES_DISCOUNTS_GENERATE_RUN",
+  ];
+  const fn = nodes.find(f =>
+    patterns.includes(f.apiType) ||
+    f.apiType?.toLowerCase().replace(/[-\.]/g, "_").includes("cart_lines_discounts")
+  );
+  return { id: fn?.id ?? null, allFunctions: nodes };
 }
 
-async function createShopifyDiscount(shop: string, token: string, config: string): Promise<string | null> {
-  const functionId = await getFunctionId(shop, token);
-  if (!functionId) return null;
+async function createShopifyDiscount(
+  shop: string, token: string, config: string
+): Promise<{ discountId: string | null; error: string | null; functionFound: boolean; allFunctions: { id: string; apiType: string }[] }> {
+  const { id: functionId, allFunctions } = await getFunctionId(shop, token);
+  if (!functionId) {
+    return { discountId: null, error: "Function not found. Deploy the extension first: shopify app deploy --allow-updates", functionFound: false, allFunctions };
+  }
   const data = await gqlAdmin(shop, token, `
     mutation CreateDiscount($input: DiscountAutomaticAppInput!) {
       discountAutomaticAppCreate(automaticAppDiscount: $input) {
@@ -49,11 +64,16 @@ async function createShopifyDiscount(shop: string, token: string, config: string
       metafields: [{ namespace: "upsale", key: "config", type: "json", value: config }],
     },
   });
-  return data?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId ?? null;
+  const userErrors = data?.data?.discountAutomaticAppCreate?.userErrors ?? [];
+  if (userErrors.length > 0) {
+    return { discountId: null, error: userErrors.map((e: { message: string }) => e.message).join("; "), functionFound: true, allFunctions };
+  }
+  const discountId = data?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId ?? null;
+  return { discountId, error: discountId ? null : "Discount created but ID not returned", functionFound: true, allFunctions };
 }
 
-async function updateDiscountConfig(shop: string, token: string, discountId: string, config: string) {
-  await gqlAdmin(shop, token, `
+async function updateDiscountConfig(shop: string, token: string, discountId: string, config: string): Promise<string | null> {
+  const data = await gqlAdmin(shop, token, `
     mutation UpdateMetafield($metafields: [MetafieldsSetInput!]!) {
       metafieldsSet(metafields: $metafields) {
         userErrors { field message }
@@ -62,6 +82,8 @@ async function updateDiscountConfig(shop: string, token: string, discountId: str
   `, {
     metafields: [{ ownerId: discountId, namespace: "upsale", key: "config", type: "json", value: config }],
   });
+  const errs = data?.data?.metafieldsSet?.userErrors ?? [];
+  return errs.length > 0 ? errs.map((e: { message: string }) => e.message).join("; ") : null;
 }
 
 async function deleteShopifyDiscount(shop: string, token: string, discountId: string) {
@@ -116,8 +138,12 @@ export async function POST(req: NextRequest) {
   const existing = await getPromotion(shop);
   await savePromotion(shop, body);
 
-  // Sync Shopify Automatic Discount (best-effort)
-  if (session?.accessToken) {
+  // Sync Shopify Automatic Discount — capture full result for dashboard feedback
+  let syncStatus: { status: string; error?: string; discountId?: string; allFunctions?: { id: string; apiType: string }[] } = { status: "skipped" };
+
+  if (!session?.accessToken) {
+    syncStatus = { status: "error", error: "No access token — reinstall the app to grant permissions" };
+  } else {
     try {
       const validTiers = (body.tiers as PromotionTier[] ?? [])
         .filter(t => t.giftVariantId)
@@ -127,17 +153,28 @@ export async function POST(req: NextRequest) {
 
       if (body.active && validTiers.length > 0) {
         if (existing.discountId) {
-          await updateDiscountConfig(shop, session.accessToken, existing.discountId, config);
+          const err = await updateDiscountConfig(shop, session.accessToken, existing.discountId, config);
+          syncStatus = err ? { status: "error", error: err } : { status: "updated", discountId: existing.discountId };
         } else {
-          const discountId = await createShopifyDiscount(shop, session.accessToken, config);
-          if (discountId) await savePromotion(shop, { discountId });
+          const result = await createShopifyDiscount(shop, session.accessToken, config);
+          if (result.discountId) {
+            await savePromotion(shop, { discountId: result.discountId });
+            syncStatus = { status: "created", discountId: result.discountId };
+          } else {
+            syncStatus = { status: "error", error: result.error ?? "Unknown error", allFunctions: result.allFunctions };
+          }
         }
       } else if (!body.active && existing.discountId) {
         await deleteShopifyDiscount(shop, session.accessToken, existing.discountId);
         await savePromotion(shop, { discountId: "" });
+        syncStatus = { status: "deleted" };
+      } else {
+        syncStatus = { status: "skipped" };
       }
-    } catch {}
+    } catch (e) {
+      syncStatus = { status: "error", error: String(e) };
+    }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, syncStatus });
 }

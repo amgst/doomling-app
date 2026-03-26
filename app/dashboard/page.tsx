@@ -638,6 +638,7 @@ function PromotionsTab() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<{ status: string; error?: string; discountId?: string; allFunctions?: { id: string; apiType: string }[] } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -715,8 +716,14 @@ function PromotionsTab() {
     const res = await fetch("/api/standalone/promotion", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000); }
-    else setError("Failed to save.");
+    if (res.ok) {
+      const data = await res.json();
+      setSyncStatus(data.syncStatus ?? null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 4000);
+    } else {
+      setError("Failed to save.");
+    }
     setSaving(false);
   };
 
@@ -741,6 +748,40 @@ function PromotionsTab() {
       </div>
 
       {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
+
+      {/* Discount sync status */}
+      {syncStatus && (() => {
+        const s = syncStatus;
+        if (s.status === "created" || s.status === "updated") {
+          return (
+            <div style={{ background: "#e3f1df", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.875rem", color: "#1a6b3c" }}>
+              ✓ Shopify discount {s.status === "created" ? "created" : "updated"} successfully — gift will be free at checkout.
+            </div>
+          );
+        }
+        if (s.status === "error") {
+          return (
+            <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.875rem", color: "#c0392b" }}>
+              <strong>Discount sync failed:</strong> {s.error}
+              {s.allFunctions !== undefined && (
+                <div style={{ marginTop: "0.5rem", fontSize: "0.8rem", color: "#6d7175" }}>
+                  {s.allFunctions.length === 0
+                    ? "No Shopify Functions found on this store. Run: shopify app deploy --allow-updates"
+                    : `Functions found: ${s.allFunctions.map(f => f.apiType).join(", ")}`}
+                </div>
+              )}
+            </div>
+          );
+        }
+        if (s.status === "skipped") {
+          return (
+            <div style={{ background: "#fefce8", border: "1px solid #fde68a", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.875rem", color: "#92400e" }}>
+              Promotion saved. Discount sync was skipped (promotion is inactive or no gift product set).
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* Gift Tiers */}
       <div style={card}>
