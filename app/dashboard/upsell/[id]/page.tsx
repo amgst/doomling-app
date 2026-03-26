@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import DashboardShell from "@/components/DashboardShell";
 
 interface DailyStat { date: string; views: number; clicks: number; added: number; }
 interface Rule {
@@ -47,7 +48,6 @@ export default function CampaignDetailPage() {
     background: "#fff", borderRadius: "10px",
     boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: "1.25rem",
   };
-
   const th: React.CSSProperties = {
     padding: "0.65rem 1rem", textAlign: "left", fontSize: "0.78rem",
     fontWeight: 600, color: "#6d7175", textTransform: "uppercase",
@@ -59,18 +59,20 @@ export default function CampaignDetailPage() {
   };
 
   if (loading) return (
-    <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>
+    <DashboardShell activeTab="upsells">
+      <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>
+    </DashboardShell>
   );
 
   if (error || !rule || !stats) return (
-    <div style={{ padding: "2rem" }}>
+    <DashboardShell activeTab="upsells">
       <button onClick={() => router.back()} style={{ marginBottom: "1rem", background: "none", border: "none", color: "#008060", fontSize: "0.875rem", cursor: "pointer", padding: 0 }}>
         ← Back
       </button>
       <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "1rem", color: "#c0392b" }}>
         {error ?? "Campaign not found."}
       </div>
-    </div>
+    </DashboardShell>
   );
 
   const statCards = [
@@ -82,10 +84,10 @@ export default function CampaignDetailPage() {
   ];
 
   return (
-    <div style={{ padding: "1.5rem 2rem", maxWidth: "960px" }}>
-      {/* Header */}
+    <DashboardShell activeTab="upsells">
+      {/* Back + heading */}
       <button
-        onClick={() => router.back()}
+        onClick={() => router.push("/dashboard/upsells")}
         style={{ background: "none", border: "none", color: "#008060", fontSize: "0.875rem", cursor: "pointer", padding: 0, marginBottom: "1.25rem" }}
       >
         ← Back to Upsells
@@ -98,7 +100,7 @@ export default function CampaignDetailPage() {
         <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Campaign performance</p>
       </div>
 
-      {/* Campaign info */}
+      {/* Campaign info card */}
       <div style={{ ...card, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "1.25rem" }}>
         {rule.upsellProductImage && (
           <img src={rule.upsellProductImage} alt={rule.upsellProductTitle} style={{ width: 64, height: 64, borderRadius: "8px", objectFit: "cover", flexShrink: 0 }} />
@@ -128,7 +130,7 @@ export default function CampaignDetailPage() {
         ))}
       </div>
 
-      {/* Daily breakdown table */}
+      {/* Daily breakdown */}
       <div style={{ ...card, padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "0.9rem 1.25rem", borderBottom: "1px solid #e4e5e7" }}>
           <p style={{ margin: 0, fontWeight: 600, color: "#1a1a1a", fontSize: "0.9rem" }}>Daily Breakdown</p>
@@ -149,8 +151,8 @@ export default function CampaignDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {[...stats.daily].reverse().map((d, i) => (
-                <tr key={d.date} style={{ opacity: i === 0 && stats.daily.length > 1 ? 1 : undefined }}>
+              {[...stats.daily].reverse().map(d => (
+                <tr key={d.date}>
                   <td style={td}>{d.date}</td>
                   <td style={{ ...td, textAlign: "center" as const }}>{d.views}</td>
                   <td style={{ ...td, textAlign: "center" as const }}>{d.clicks}</td>
@@ -166,6 +168,6 @@ export default function CampaignDetailPage() {
           </table>
         )}
       </div>
-    </div>
+    </DashboardShell>
   );
 }

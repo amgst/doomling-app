@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
+import DashboardShell from "@/components/DashboardShell";
 
 interface DailyStat {
   date: string;
@@ -633,72 +634,20 @@ const VALID_TABS = ["overview", "products", "upsells", "promotions", "stats"] as
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
-  const router = useRouter();
   const pathname = usePathname();
 
   const tabFromPath = (pathname.split("/")[2] ?? "overview") as Tab;
-  const activeTab = VALID_TABS.includes(tabFromPath) ? tabFromPath : "overview";
+  const tab = VALID_TABS.includes(tabFromPath) ? tabFromPath : "overview";
 
   const [days, setDays] = useState("30");
 
-  const setTab = (t: Tab) => router.push(`/dashboard/${t}`);
-
-  const tab = activeTab;
-
-  const TABS = [
-    { key: "overview", label: "Overview" },
-    { key: "products", label: "Products" },
-    { key: "upsells", label: "Upsells" },
-    { key: "promotions", label: "Free Gift" },
-    { key: "stats", label: "Statistics" },
-  ] as const;
-
   return (
-    <div>
-      {/* Header */}
-      <div style={{
-        background: "#fff",
-        borderBottom: "1px solid #e4e5e7",
-        padding: "0 2rem",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        height: "60px",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          <div style={{ width: 32, height: 32, background: "#008060", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: "0.9rem" }}>U</span>
-          </div>
-          <span style={{ fontWeight: 700, fontSize: "1rem", color: "#1a1a1a" }}>Upsale</span>
-        </div>
-        <a href="/standalone/logout" style={{ fontSize: "0.85rem", color: "#6d7175", textDecoration: "none" }}>Sign out</a>
-      </div>
-
-      {/* Tab nav */}
-      <div style={{ background: "#fff", borderBottom: "1px solid #e4e5e7", padding: "0 2rem", display: "flex", gap: "0" }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: "0.875rem 1.25rem",
-            border: "none",
-            borderBottom: tab === t.key ? "2px solid #008060" : "2px solid transparent",
-            background: "none",
-            fontSize: "0.875rem",
-            fontWeight: tab === t.key ? 600 : 400,
-            color: tab === t.key ? "#008060" : "#6d7175",
-            cursor: "pointer",
-            marginBottom: "-1px",
-          }}>{t.label}</button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "2rem 1.5rem" }}>
-        {tab === "overview" && <OverviewTab days={days} setDays={setDays} />}
-        {tab === "products" && <ProductsTab />}
-        {tab === "upsells" && <UpsellsTab />}
-        {tab === "promotions" && <PromotionsTab />}
-        {tab === "stats" && <StatsTab />}
-      </div>
-    </div>
+    <DashboardShell>
+      {tab === "overview" && <OverviewTab days={days} setDays={setDays} />}
+      {tab === "products" && <ProductsTab />}
+      {tab === "upsells" && <UpsellsTab />}
+      {tab === "promotions" && <PromotionsTab />}
+      {tab === "stats" && <StatsTab />}
+    </DashboardShell>
   );
 }
