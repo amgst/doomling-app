@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
@@ -20,6 +20,10 @@ interface Stats {
   currency: string;
   avgOrderValue: number;
   daily: DailyStat[];
+  prevTotalOrders?: number;
+  prevTotalRevenue?: number;
+  prevUpsaleRevenue?: number;
+  prevAvgOrderValue?: number;
 }
 
 interface Product {
@@ -57,7 +61,40 @@ const RANGES = [
 const fmt = (n: number, currency = "USD") =>
   new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
 
-function StatCard({ title, value, sub }: { title: string; value: string; sub: string }) {
+function calcTrend(current: number, prev: number): number | null {
+  if (!prev || prev === 0) return null;
+  return Math.round(((current - prev) / prev) * 100);
+}
+
+function TrendBadge({ trend }: { trend: number | null }) {
+  if (trend === null) return null;
+  const up = trend >= 0;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: "2px",
+      padding: "0.15rem 0.45rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600,
+      background: up ? "#e3f1df" : "#fff0f0",
+      color: up ? "#1a6b3c" : "#c0392b",
+    }}>
+      {up ? "▲" : "▼"} {Math.abs(trend)}%
+    </span>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div style={{
+      background: "#fff", borderRadius: "10px", padding: "1.25rem 1.5rem",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+    }}>
+      <div style={{ height: "0.75rem", width: "60%", background: "#f1f1f1", borderRadius: "4px", marginBottom: "0.75rem" }} />
+      <div style={{ height: "1.75rem", width: "80%", background: "#f1f1f1", borderRadius: "4px", marginBottom: "0.5rem" }} />
+      <div style={{ height: "0.65rem", width: "50%", background: "#f8f8f8", borderRadius: "4px" }} />
+    </div>
+  );
+}
+
+function StatCard({ title, value, sub, trend }: { title: string; value: string; sub: string; trend?: number | null }) {
   return (
     <div style={{
       background: "#fff",
@@ -66,7 +103,10 @@ function StatCard({ title, value, sub }: { title: string; value: string; sub: st
       boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
     }}>
       <p style={{ margin: 0, fontSize: "0.8rem", color: "#6d7175", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>{title}</p>
-      <p style={{ margin: "0.4rem 0 0.25rem", fontSize: "1.75rem", fontWeight: 700, color: "#1a1a1a" }}>{value}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.4rem 0 0.25rem" }}>
+        <p style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700, color: "#1a1a1a" }}>{value}</p>
+        {trend !== undefined && <TrendBadge trend={trend ?? null} />}
+      </div>
       <p style={{ margin: 0, fontSize: "0.8rem", color: "#6d7175" }}>{sub}</p>
     </div>
   );
@@ -76,6 +116,10 @@ function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => 
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [secondsAgo, setSecondsAgo] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -86,6 +130,8 @@ function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setStats(data.stats);
+      setLastUpdated(new Date());
+      setSecondsAgo(0);
     } catch {
       setError("Failed to load analytics.");
     } finally {
@@ -95,6 +141,28 @@ function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => 
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => { fetchStats(); }, 60000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchStats]);
+
+  // Tick counter for "Updated X ago"
+  useEffect(() => {
+    if (tickRef.current) clearInterval(tickRef.current);
+    tickRef.current = setInterval(() => {
+      setSecondsAgo(s => s + 1);
+    }, 1000);
+    return () => { if (tickRef.current) clearInterval(tickRef.current); };
+  }, []);
+
+  const updatedLabel = lastUpdated
+    ? secondsAgo < 10 ? "just now"
+      : secondsAgo < 60 ? `${secondsAgo}s ago`
+      : `${Math.floor(secondsAgo / 60)}m ago`
+    : null;
+
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
@@ -102,18 +170,28 @@ function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => 
           <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Overview</h1>
           <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Store performance</p>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          {RANGES.map(r => (
-            <button key={r.value} onClick={() => setDays(r.value)} style={{
-              padding: "0.4rem 0.9rem",
-              borderRadius: "6px",
-              border: "1px solid",
-              borderColor: days === r.value ? "#008060" : "#d1d5db",
-              background: days === r.value ? "#008060" : "#fff",
-              color: days === r.value ? "#fff" : "#374151",
-              fontSize: "0.85rem", fontWeight: 500, cursor: "pointer",
-            }}>{r.label}</button>
-          ))}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          {updatedLabel && (
+            <span style={{ fontSize: "0.78rem", color: "#9ca3af" }}>Updated {updatedLabel}</span>
+          )}
+          <button onClick={fetchStats} disabled={loading} title="Refresh" style={{
+            padding: "0.35rem 0.7rem", borderRadius: "6px", border: "1px solid #d1d5db",
+            background: "#fff", color: "#374151", fontSize: "0.82rem", cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.5 : 1,
+          }}>↻ Refresh</button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            {RANGES.map(r => (
+              <button key={r.value} onClick={() => setDays(r.value)} style={{
+                padding: "0.4rem 0.9rem",
+                borderRadius: "6px",
+                border: "1px solid",
+                borderColor: days === r.value ? "#008060" : "#d1d5db",
+                background: days === r.value ? "#008060" : "#fff",
+                color: days === r.value ? "#fff" : "#374151",
+                fontSize: "0.85rem", fontWeight: 500, cursor: "pointer",
+              }}>{r.label}</button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -123,15 +201,37 @@ function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => 
         </div>
       )}
 
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>
+      {loading && !stats ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+          <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
       ) : stats ? (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
-            <StatCard title="Total Orders" value={stats.totalOrders.toString()} sub={`Last ${days} days`} />
-            <StatCard title="Total Revenue" value={fmt(stats.totalRevenue, stats.currency)} sub={`Last ${days} days`} />
-            <StatCard title="Upsale Revenue" value={fmt(stats.totalUpsaleRevenue ?? 0, stats.currency)} sub="Attributed to Upsale" />
-            <StatCard title="Avg Order Value" value={fmt(stats.avgOrderValue, stats.currency)} sub={`Last ${days} days`} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.5rem", opacity: loading ? 0.6 : 1, transition: "opacity 0.2s" }}>
+            <StatCard
+              title="Total Orders"
+              value={stats.totalOrders.toString()}
+              sub={`vs ${stats.prevTotalOrders ?? "—"} prev period`}
+              trend={stats.prevTotalOrders !== undefined ? calcTrend(stats.totalOrders, stats.prevTotalOrders) : undefined}
+            />
+            <StatCard
+              title="Total Revenue"
+              value={fmt(stats.totalRevenue, stats.currency)}
+              sub={`vs ${stats.prevTotalRevenue !== undefined ? fmt(stats.prevTotalRevenue, stats.currency) : "—"} prev`}
+              trend={stats.prevTotalRevenue !== undefined ? calcTrend(stats.totalRevenue, stats.prevTotalRevenue) : undefined}
+            />
+            <StatCard
+              title="Upsale Revenue"
+              value={fmt(stats.totalUpsaleRevenue ?? 0, stats.currency)}
+              sub={`vs ${stats.prevUpsaleRevenue !== undefined ? fmt(stats.prevUpsaleRevenue, stats.currency) : "—"} prev`}
+              trend={stats.prevUpsaleRevenue !== undefined ? calcTrend(stats.totalUpsaleRevenue ?? 0, stats.prevUpsaleRevenue) : undefined}
+            />
+            <StatCard
+              title="Avg Order Value"
+              value={fmt(stats.avgOrderValue, stats.currency)}
+              sub={`vs ${stats.prevAvgOrderValue !== undefined ? fmt(stats.prevAvgOrderValue, stats.currency) : "—"} prev`}
+              trend={stats.prevAvgOrderValue !== undefined ? calcTrend(stats.avgOrderValue, stats.prevAvgOrderValue) : undefined}
+            />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
