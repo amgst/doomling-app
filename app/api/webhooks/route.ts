@@ -45,7 +45,16 @@ export async function POST(req: NextRequest) {
         const totalPrice = parseFloat((body.total_price as string) ?? "0");
         const currency = (body.currency as string) ?? "USD";
         const createdAt = (body.created_at as string)?.slice(0, 10);
-        await incrementDailyOrder(shop, totalPrice, currency, createdAt);
+        // Sum revenue from line items tagged with _upsale by our widgets
+        const lineItems = (body.line_items as Array<{
+          price: string;
+          quantity: number;
+          properties: Array<{ name: string; value: string }>;
+        }>) ?? [];
+        const upsaleRevenue = lineItems
+          .filter(item => item.properties?.some(p => p.name === "_upsale" && p.value === "true"))
+          .reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0);
+        await incrementDailyOrder(shop, totalPrice, currency, createdAt, upsaleRevenue);
         break;
       }
 

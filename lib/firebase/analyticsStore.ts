@@ -21,7 +21,8 @@ export async function incrementDailyOrder(
   shop: string,
   revenue: number,
   currency: string,
-  date: string = todayKey()
+  date: string = todayKey(),
+  upsaleRevenue = 0
 ): Promise<void> {
   const ref = doc(getDb(), "analytics", shop, "orders", date);
   await setDoc(
@@ -29,6 +30,7 @@ export async function incrementDailyOrder(
     {
       count: increment(1),
       revenue: increment(revenue),
+      upsaleRevenue: increment(upsaleRevenue),
       currency,
       updatedAt: serverTimestamp(),
     },
@@ -57,12 +59,14 @@ export interface DailyOrderStat {
   date: string;
   count: number;
   revenue: number;
+  upsaleRevenue: number;
   currency: string;
 }
 
 export interface AnalyticsSummary {
   totalOrders: number;
   totalRevenue: number;
+  totalUpsaleRevenue: number;
   currency: string;
   avgOrderValue: number;
   daily: DailyOrderStat[];
@@ -84,6 +88,7 @@ export async function getOrderStats(
 
   let totalOrders = 0;
   let totalRevenue = 0;
+  let totalUpsaleRevenue = 0;
   let currency = "USD";
   const daily: DailyOrderStat[] = [];
 
@@ -91,15 +96,18 @@ export async function getOrderStats(
     const data = d.data();
     const count = (data.count as number) ?? 0;
     const revenue = (data.revenue as number) ?? 0;
+    const upsaleRevenue = (data.upsaleRevenue as number) ?? 0;
     currency = (data.currency as string) ?? "USD";
     totalOrders += count;
     totalRevenue += revenue;
-    daily.push({ date: d.id, count, revenue, currency });
+    totalUpsaleRevenue += upsaleRevenue;
+    daily.push({ date: d.id, count, revenue, upsaleRevenue, currency });
   });
 
   return {
     totalOrders,
     totalRevenue,
+    totalUpsaleRevenue,
     currency,
     avgOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
     daily,

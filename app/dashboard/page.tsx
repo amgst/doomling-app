@@ -15,6 +15,7 @@ interface DailyStat {
 interface Stats {
   totalOrders: number;
   totalRevenue: number;
+  totalUpsaleRevenue: number;
   currency: string;
   avgOrderValue: number;
   daily: DailyStat[];
@@ -121,8 +122,8 @@ function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
             <StatCard title="Total Orders" value={stats.totalOrders.toString()} sub={`Last ${days} days`} />
             <StatCard title="Total Revenue" value={fmt(stats.totalRevenue, stats.currency)} sub={`Last ${days} days`} />
+            <StatCard title="Upsale Revenue" value={fmt(stats.totalUpsaleRevenue ?? 0, stats.currency)} sub="Attributed to Upsale" />
             <StatCard title="Avg Order Value" value={fmt(stats.avgOrderValue, stats.currency)} sub={`Last ${days} days`} />
-            <StatCard title="Daily Avg" value={(stats.totalOrders / parseInt(days)).toFixed(1)} sub="Orders per day" />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>

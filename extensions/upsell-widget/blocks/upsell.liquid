@@ -179,7 +179,7 @@
             fetch('/cart/add.js', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: variantId, quantity: 1 })
+              body: JSON.stringify({ id: variantId, quantity: 1, properties: { _upsale: 'true' } })
             })
             .then(function (r) {
               if (!r.ok) throw new Error('failed');
