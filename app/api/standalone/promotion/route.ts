@@ -20,31 +20,36 @@ async function gqlAdmin(shop: string, token: string, query: string, variables?: 
   return res.json();
 }
 
-async function getFunctionId(shop: string, token: string): Promise<{ id: string | null; allFunctions: { id: string; apiType: string }[] }> {
+async function getFunctionId(shop: string, token: string): Promise<{ id: string | null; allFunctions: { id: string; apiType: string; handle: string }[] }> {
   const data = await gqlAdmin(shop, token, `{
     shopifyFunctions(first: 25) {
-      nodes { id apiType }
+      nodes { id apiType handle }
     }
   }`);
-  const nodes: { id: string; apiType: string }[] = data?.data?.shopifyFunctions?.nodes ?? [];
+  const nodes: { id: string; apiType: string; handle: string }[] = data?.data?.shopifyFunctions?.nodes ?? [];
 
-  // Match against all known formats Shopify may return for this function type
+  // 1. Match by our known extension handle (most reliable)
+  const byHandle = nodes.find(f => f.handle === "upsale-discount");
+  if (byHandle) return { id: byHandle.id, allFunctions: nodes };
+
+  // 2. Match by any known apiType format Shopify may return
   const patterns = [
+    "discount",
     "cart_lines_discounts_generate_run",
     "cart-lines-discounts-generate-run",
     "cart.lines.discounts.generate.run",
     "CART_LINES_DISCOUNTS_GENERATE_RUN",
   ];
-  const fn = nodes.find(f =>
+  const byType = nodes.find(f =>
     patterns.includes(f.apiType) ||
-    f.apiType?.toLowerCase().replace(/[-\.]/g, "_").includes("cart_lines_discounts")
+    f.apiType?.toLowerCase().replace(/[-\. ]/g, "_").includes("cart_lines_discounts")
   );
-  return { id: fn?.id ?? null, allFunctions: nodes };
+  return { id: byType?.id ?? null, allFunctions: nodes };
 }
 
 async function createShopifyDiscount(
   shop: string, token: string, config: string
-): Promise<{ discountId: string | null; error: string | null; functionFound: boolean; allFunctions: { id: string; apiType: string }[] }> {
+): Promise<{ discountId: string | null; error: string | null; functionFound: boolean; allFunctions: { id: string; apiType: string; handle: string }[] }> {
   const { id: functionId, allFunctions } = await getFunctionId(shop, token);
   if (!functionId) {
     return { discountId: null, error: "Function not found. Deploy the extension first: shopify app deploy --allow-updates", functionFound: false, allFunctions };
