@@ -296,12 +296,40 @@
           }
           prevUnlocked = newUnlocked;
           renderUI(tiers, newUnlocked, newNonGift);
-          // Notify theme cart drawer/mini-cart
-          document.dispatchEvent(new CustomEvent('cart:refresh'));
-          document.dispatchEvent(new Event('cart:updated'));
+          refreshCartSections(null);
         });
       }
     };
+
+    // Section IDs to refresh — covers Dawn and most major themes
+    var CART_SECTIONS = ['main-cart-items', 'cart-items', 'cart-icon-bubble',
+      'cart-notification-product', 'cart-notification-button'];
+
+    function refreshCartSections(sectionsData) {
+      // If the cart op returned rendered sections, use them immediately
+      if (sectionsData) {
+        Object.keys(sectionsData).forEach(function (id) {
+          var el = document.getElementById('shopify-section-' + id);
+          // Never replace the section that contains our own widget
+          if (el && !el.contains(root)) el.outerHTML = sectionsData[id];
+        });
+      } else {
+        // Fallback: fetch fresh section HTML via Sections Rendering API
+        fetch('/cart?sections=' + CART_SECTIONS.join(','))
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            Object.keys(data).forEach(function (id) {
+              var el = document.getElementById('shopify-section-' + id);
+              if (el && !el.contains(root)) el.outerHTML = data[id];
+            });
+          })
+          .catch(function () {});
+      }
+      // Also fire events for themes with custom cart drawers
+      document.dispatchEvent(new CustomEvent('cart:change', { bubbles: true }));
+      document.dispatchEvent(new CustomEvent('cart:refresh', { bubbles: true }));
+      document.dispatchEvent(new Event('cart:updated'));
+    }
 
     for (var o = 0; o < ops.length; o++) {
       (function (op) {
@@ -309,14 +337,22 @@
           fetch('/cart/add.js', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: parseInt(op.variantId), quantity: 1, properties: { _free_gift: 'true', _upsale: 'true' } })
-          }).then(done).catch(done);
+            body: JSON.stringify({
+              id: parseInt(op.variantId), quantity: 1,
+              properties: { _free_gift: 'true', _upsale: 'true' },
+              sections: CART_SECTIONS
+            })
+          }).then(function (r) { return r.json(); })
+            .then(function (data) { refreshCartSections(data.sections || null); done(); })
+            .catch(done);
         } else {
           fetch('/cart/change.js', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: op.key, quantity: 0 })
-          }).then(done).catch(done);
+            body: JSON.stringify({ id: op.key, quantity: 0, sections: CART_SECTIONS })
+          }).then(function (r) { return r.json(); })
+            .then(function (data) { refreshCartSections(data.sections || null); done(); })
+            .catch(done);
         }
       })(ops[o]);
     }
