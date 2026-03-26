@@ -99,8 +99,8 @@
   var promotion = null;
   var prevUnlocked = [];
   var syncing = false;
-  var ownCartOp = false;   // prevents interceptor re-triggering on our own ops
-  var addRetries = {};     // variantId → fail count, to prevent infinite retry
+  var ownCartOp = false;
+  var opRetries = {};  // variantId → fail count for both add and remove
 
   var fmt = function (n) {
     try {
@@ -254,7 +254,7 @@
     renderUI(tiers, unlockedSet, nonGiftTotal);
     prevUnlocked = unlockedSet;
 
-    // Build add/remove ops — skip adds that have failed too many times
+    // Build add/remove ops — skip ops that have failed too many times
     var ops = [];
     for (var i = 0; i < tiers.length; i++) {
       var tier = tiers[i];
@@ -262,11 +262,12 @@
       var vid = String(tier.giftVariantId);
       var inCart = cartVids.indexOf(vid) !== -1;
       var shouldBeInCart = unlockedSet.indexOf(i) !== -1;
+      var retryKey = (shouldBeInCart ? 'add_' : 'rem_') + vid;
 
-      if (shouldBeInCart && !inCart && (addRetries[vid] || 0) < 4) {
-        ops.push({ type: 'add', variantId: vid });
-      } else if (!shouldBeInCart && inCart && cartKeys[vid]) {
-        ops.push({ type: 'remove', key: cartKeys[vid] });
+      if (shouldBeInCart && !inCart && (opRetries[retryKey] || 0) < 3) {
+        ops.push({ type: 'add', variantId: vid, retryKey: retryKey });
+      } else if (!shouldBeInCart && inCart && cartKeys[vid] && (opRetries['rem_' + vid] || 0) < 3) {
+        ops.push({ type: 'remove', key: cartKeys[vid], retryKey: 'rem_' + vid });
       }
     }
 
@@ -274,7 +275,7 @@
     syncing = true;
 
     var pending = ops.length;
-    var done = function (opType, succeeded) {
+    var done = function () {
       pending--;
       if (pending === 0) {
         syncing = false;
@@ -297,11 +298,7 @@
           }
           prevUnlocked = newUnlocked;
           renderUI(tiers, newUnlocked, newNonGift);
-          refreshCartSections(null);
-          // Only retry if an ADD failed (not removes — those loop)
-          if (opType === 'add' && !succeeded) {
-            setTimeout(scheduleUpdate, 1000);
-          }
+          // No refreshCartSections here — already called in op .then() to avoid double event firing
         });
       }
     };
@@ -347,14 +344,14 @@
           }).then(function (r) { return r.json(); })
             .then(function (data) {
               ownCartOp = false;
-              addRetries[op.variantId] = 0;
+              opRetries[op.retryKey] = 0;
               refreshCartSections(data.sections || null);
-              done('add', true);
+              done();
             })
             .catch(function () {
               ownCartOp = false;
-              addRetries[op.variantId] = (addRetries[op.variantId] || 0) + 1;
-              done('add', false);
+              opRetries[op.retryKey] = (opRetries[op.retryKey] || 0) + 1;
+              done();
             });
         } else {
           fetch('/cart/change.js', {
@@ -364,10 +361,15 @@
           }).then(function (r) { return r.json(); })
             .then(function (data) {
               ownCartOp = false;
+              opRetries[op.retryKey] = 0;
               refreshCartSections(data.sections || null);
-              done('remove', true);
+              done();
             })
-            .catch(function () { ownCartOp = false; done('remove', false); });
+            .catch(function () {
+              ownCartOp = false;
+              opRetries[op.retryKey] = (opRetries[op.retryKey] || 0) + 1;
+              done();
+            });
         }
       })(ops[o]);
     }
@@ -376,7 +378,8 @@
   var updateTimer = null;
   function scheduleUpdate() {
     if (updateTimer) clearTimeout(updateTimer);
-    updateTimer = setTimeout(function () { fetchCart(syncAndRender); }, 350);
+    opRetries = {}; // reset retry counts on each new user-triggered cart change
+    updateTimer = setTimeout(function () { fetchCart(syncAndRender); }, 600);
   }
 
   // Fetch promotion config then initialise
