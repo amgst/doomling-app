@@ -25,58 +25,77 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    #upsale-body {
+    #upsale-message-bar {
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: #374151;
+      border-bottom: 1px solid #f1f1f1;
+      display: none;
+    }
+    #upsale-products {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+    }
+    .upsale-product-item {
+      flex: 1 1 200px;
+      min-width: 180px;
+      max-width: 100%;
       padding: 1rem;
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
+      border-right: 1px solid #f1f1f1;
+      border-bottom: 1px solid #f1f1f1;
     }
-    #upsale-img {
-      width: 80px;
-      height: 80px;
+    .upsale-product-item:last-child { border-right: none; }
+    .upsale-product-img {
+      width: 64px; height: 64px;
       object-fit: cover;
       border-radius: 8px;
       flex-shrink: 0;
-      display: none;
+      border: 1px solid #e4e5e7;
     }
-    #upsale-img-placeholder {
-      width: 80px;
-      height: 80px;
+    .upsale-product-img-placeholder {
+      width: 64px; height: 64px;
       background: #f1f1f1;
       border-radius: 8px;
       flex-shrink: 0;
     }
-    #upsale-info { flex: 1; min-width: 0; }
-    #upsale-message { margin: 0 0 0.25rem; font-size: 0.8rem; color: #6d7175; }
-    #upsale-title { margin: 0 0 0.4rem; font-size: 0.95rem; font-weight: 600; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #upsale-prices { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-    #upsale-price { font-size: 1rem; font-weight: 700; color: #008060; }
-    #upsale-original { font-size: 0.85rem; color: #9ca3af; text-decoration: line-through; display: none; }
-    #upsale-badge { font-size: 0.7rem; font-weight: 700; background: #fef3c7; color: #92400e; padding: 0.15rem 0.5rem; border-radius: 20px; display: none; }
-    #upsale-btn {
-      flex-shrink: 0;
-      padding: 0.65rem 1.25rem;
-      background: #008060;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
+    .upsale-product-info { flex: 1; min-width: 0; }
+    .upsale-product-title {
+      font-size: 0.85rem; font-weight: 600; color: #1a1a1a;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin: 0 0 0.25rem;
+    }
+    .upsale-product-prices {
+      display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+      margin: 0 0 0.5rem;
+    }
+    .upsale-product-price { font-size: 0.9rem; font-weight: 700; color: #008060; }
+    .upsale-product-original { font-size: 0.8rem; color: #9ca3af; text-decoration: line-through; }
+    .upsale-product-badge {
+      font-size: 0.68rem; font-weight: 700;
+      background: #fef3c7; color: #92400e;
+      padding: 0.1rem 0.4rem; border-radius: 20px;
+    }
+    .upsale-add-btn {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: #008060; color: #fff;
+      border: none; border-radius: 7px;
+      font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
       white-space: nowrap;
     }
-    #upsale-btn:hover { background: #006e52; }
-    #upsale-btn:disabled { background: #9ca3af; cursor: not-allowed; }
-    #upsale-added {
-      display: none;
-      flex-shrink: 0;
-      padding: 0.65rem 1.25rem;
-      background: #e3f1df;
-      color: #1a6b3c;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 600;
+    .upsale-add-btn:hover { background: #006e52; }
+    .upsale-add-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+    .upsale-added-badge {
+      display: none; width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: #e3f1df; color: #1a6b3c;
+      border-radius: 7px; font-size: 0.8rem; font-weight: 600;
+      text-align: center;
     }
   </style>
 
@@ -85,21 +104,8 @@
       <svg width="14" height="14" viewBox="0 0 20 20" fill="#fff"><path d="M10 1l2.39 4.84 5.34.78-3.87 3.77.91 5.32L10 13.27l-4.77 2.44.91-5.32L2.27 6.62l5.34-.78z"/></svg>
       <span id="upsale-header-text">{{ settings.header_text | default: 'Frequently bought together' }}</span>
     </div>
-    <div id="upsale-body">
-      <img id="upsale-img" src="" alt="" width="80" height="80" />
-      <div id="upsale-img-placeholder"></div>
-      <div id="upsale-info">
-        <p id="upsale-message"></p>
-        <p id="upsale-title"></p>
-        <div id="upsale-prices">
-          <span id="upsale-price"></span>
-          <span id="upsale-original"></span>
-          <span id="upsale-badge"></span>
-        </div>
-      </div>
-      <button id="upsale-btn">Add to cart</button>
-      <div id="upsale-added">✓ Added!</div>
-    </div>
+    <div id="upsale-message-bar"></div>
+    <div id="upsale-products"></div>
   </div>
 
 </div>
@@ -119,85 +125,109 @@
   var fmt = function (n) {
     try {
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n);
-    } catch (e) {
-      return currency + ' ' + parseFloat(n).toFixed(2);
-    }
+    } catch (e) { return (currency || 'USD') + ' ' + parseFloat(n).toFixed(2); }
+  };
+
+  var track = function (ruleId, event) {
+    fetch(apiBase + '/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shop: shop, ruleId: ruleId, event: event })
+    }).catch(function () {});
   };
 
   fetch(apiBase + '/api/upsell?shop=' + encodeURIComponent(shop) + '&product_id=' + productId)
     .then(function (r) { return r.json(); })
     .then(function (data) {
-      if (!data || !data.upsell) return;
-      var u = data.upsell;
+      var upsells = data && data.upsells;
+      if (!upsells || !upsells.length) return;
 
-      // Populate content
-      document.getElementById('upsale-message').textContent = u.message || '';
-      document.getElementById('upsale-title').textContent = u.title || '';
-      document.getElementById('upsale-price').textContent = fmt(u.price);
-
-      if (u.discountPercent > 0) {
-        var orig = document.getElementById('upsale-original');
-        orig.textContent = fmt(u.originalPrice);
-        orig.style.display = 'inline';
-        var badge = document.getElementById('upsale-badge');
-        badge.textContent = u.discountPercent + '% OFF';
-        badge.style.display = 'inline';
+      // Show message bar if present
+      var msgBar = document.getElementById('upsale-message-bar');
+      if (upsells[0].message) {
+        msgBar.textContent = upsells[0].message;
+        msgBar.style.display = 'block';
       }
 
-      if (u.image) {
-        var img = document.getElementById('upsale-img');
-        img.src = u.image;
-        img.alt = u.title;
-        img.style.display = 'block';
-        document.getElementById('upsale-img-placeholder').style.display = 'none';
-      }
+      var container = document.getElementById('upsale-products');
+      var ruleId = upsells[0].ruleId;
 
-      // Show widget immediately — don't wait for variant fetch
-      root.style.display = 'block';
+      upsells.forEach(function (u, idx) {
+        var item = document.createElement('div');
+        item.className = 'upsale-product-item';
 
-      // Track view
-      var track = function (event) {
-        fetch(apiBase + '/api/track', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop: shop, ruleId: u.ruleId, event: event })
-        }).catch(function () {});
-      };
-      track('view');
+        var imgHtml = u.image
+          ? '<img class="upsale-product-img" src="' + u.image + '" alt="" />'
+          : '<div class="upsale-product-img-placeholder"></div>';
 
-      // Get variant ID for Add to Cart
-      var btn = document.getElementById('upsale-btn');
-      fetch('/products/' + u.handle + '.js')
-        .then(function (r) { return r.json(); })
-        .then(function (product) {
-          var variantId = product.variants && product.variants[0] && product.variants[0].id;
-          if (!variantId) { btn.textContent = 'View product'; btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; }); return; }
-          btn.addEventListener('click', function () {
-            track('click');
-            btn.disabled = true;
-            btn.textContent = 'Adding…';
-            fetch('/cart/add.js', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: variantId, quantity: 1, properties: { _upsale: 'true' } })
-            })
-            .then(function (r) {
-              if (!r.ok) throw new Error('failed');
-              track('added');
-              btn.style.display = 'none';
-              document.getElementById('upsale-added').style.display = 'block';
-              document.dispatchEvent(new CustomEvent('cart:refresh'));
+        var discountHtml = '';
+        if (u.discountPercent > 0) {
+          discountHtml =
+            '<span class="upsale-product-original">' + fmt(u.originalPrice) + '</span>' +
+            '<span class="upsale-product-badge">' + u.discountPercent + '% OFF</span>';
+        }
+
+        item.innerHTML =
+          imgHtml +
+          '<div class="upsale-product-info">' +
+            '<p class="upsale-product-title">' + (u.title || '') + '</p>' +
+            '<div class="upsale-product-prices">' +
+              '<span class="upsale-product-price">' + fmt(u.price) + '</span>' +
+              discountHtml +
+            '</div>' +
+            '<button class="upsale-add-btn" data-idx="' + idx + '">Add to cart</button>' +
+            '<div class="upsale-added-badge">&#10003; Added!</div>' +
+          '</div>';
+
+        container.appendChild(item);
+
+        // Fetch variant ID and wire up the button
+        var btn = item.querySelector('.upsale-add-btn');
+        var addedBadge = item.querySelector('.upsale-added-badge');
+
+        if (u.handle) {
+          fetch('/products/' + u.handle + '.js')
+            .then(function (r) { return r.json(); })
+            .then(function (product) {
+              var variantId = product.variants && product.variants[0] && product.variants[0].id;
+              if (!variantId) {
+                btn.textContent = 'View';
+                btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; });
+                return;
+              }
+              btn.addEventListener('click', function () {
+                track(ruleId, 'click');
+                btn.disabled = true;
+                btn.textContent = 'Adding…';
+                fetch('/cart/add.js', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: variantId, quantity: 1, properties: { _upsale: 'true' } })
+                })
+                .then(function (r) {
+                  if (!r.ok) throw new Error('failed');
+                  track(ruleId, 'added');
+                  btn.style.display = 'none';
+                  addedBadge.style.display = 'block';
+                  document.dispatchEvent(new CustomEvent('cart:refresh'));
+                })
+                .catch(function () {
+                  btn.disabled = false;
+                  btn.textContent = 'Add to cart';
+                });
+              });
             })
             .catch(function () {
-              btn.disabled = false;
-              btn.textContent = 'Add to cart';
+              btn.textContent = 'View';
+              btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; });
             });
-          });
-        })
-        .catch(function () {
-          btn.textContent = 'View product';
-          btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; });
-        });
+        } else {
+          btn.style.display = 'none';
+        }
+      });
+
+      root.style.display = 'block';
+      track(ruleId, 'view');
     })
     .catch(function () {});
 })();
