@@ -165,10 +165,38 @@ function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => 
 
   return (
     <>
+      {/* Welcome banner */}
+      <div style={{
+        background: "linear-gradient(135deg, #fef9ef 0%, #fff8e6 100%)",
+        border: "1px solid #fde68a",
+        borderRadius: "14px",
+        padding: "1.5rem 2rem",
+        marginBottom: "1.75rem",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: "1rem",
+      }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "#1a1a1a" }}>
+            Welcome back, Doomlings 👋
+          </h1>
+          <p style={{ margin: "0.3rem 0 0", color: "#6b7280", fontSize: "0.875rem" }}>
+            Here&apos;s how your store is performing.
+          </p>
+        </div>
+        <img
+          src="https://www.doomlings.com/cdn/shop/files/Doomlings_Logo_FullColor_Outline_440x.png?v=1741365053"
+          alt=""
+          style={{ height: 52, opacity: 0.15, pointerEvents: "none" }}
+        />
+      </div>
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Overview</h1>
-          <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Store performance</p>
+          <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, color: "#1a1a1a" }}>Performance</p>
+          <p style={{ margin: "0.15rem 0 0", color: "#6d7175", fontSize: "0.8rem" }}>Store analytics</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
           {updatedLabel && (
