@@ -20,40 +20,14 @@ async function gqlAdmin(shop: string, token: string, query: string, variables?: 
   return res.json();
 }
 
-async function getFunctionId(shop: string, token: string): Promise<{ id: string | null; allFunctions: { id: string; apiType: string; handle: string }[] }> {
-  const data = await gqlAdmin(shop, token, `{
-    shopifyFunctions(first: 25) {
-      nodes { id apiType handle }
-    }
-  }`);
-  const nodes: { id: string; apiType: string; handle: string }[] = data?.data?.shopifyFunctions?.nodes ?? [];
-
-  // 1. Match by our known extension handle (most reliable)
-  const byHandle = nodes.find(f => f.handle === "upsale-discount");
-  if (byHandle) return { id: byHandle.id, allFunctions: nodes };
-
-  // 2. Match by any known apiType format Shopify may return
-  const patterns = [
-    "discount",
-    "cart_lines_discounts_generate_run",
-    "cart-lines-discounts-generate-run",
-    "cart.lines.discounts.generate.run",
-    "CART_LINES_DISCOUNTS_GENERATE_RUN",
-  ];
-  const byType = nodes.find(f =>
-    patterns.includes(f.apiType) ||
-    f.apiType?.toLowerCase().replace(/[-\. ]/g, "_").includes("cart_lines_discounts")
-  );
-  return { id: byType?.id ?? null, allFunctions: nodes };
-}
+// The function GID is stable and derived directly from the uid in shopify.extension.toml.
+// No need to query shopifyFunctions (which requires read_functions scope we don't have).
+const FUNCTION_UID = "ca9f669b-dd58-1d8c-2599-4e065cc68d8e310c87c1";
+const FUNCTION_GID = `gid://shopify/ShopifyFunction/${FUNCTION_UID}`;
 
 async function createShopifyDiscount(
   shop: string, token: string, config: string
-): Promise<{ discountId: string | null; error: string | null; functionFound: boolean; allFunctions: { id: string; apiType: string; handle: string }[] }> {
-  const { id: functionId, allFunctions } = await getFunctionId(shop, token);
-  if (!functionId) {
-    return { discountId: null, error: "Function not found. Deploy the extension first: shopify app deploy --allow-updates", functionFound: false, allFunctions };
-  }
+): Promise<{ discountId: string | null; error: string | null }> {
   const data = await gqlAdmin(shop, token, `
     mutation CreateDiscount($input: DiscountAutomaticAppInput!) {
       discountAutomaticAppCreate(automaticAppDiscount: $input) {
@@ -64,17 +38,17 @@ async function createShopifyDiscount(
   `, {
     input: {
       title: "Upsale Free Gift",
-      functionId,
+      functionId: FUNCTION_GID,
       startsAt: "2020-01-01T00:00:00Z",
       metafields: [{ namespace: "upsale", key: "config", type: "json", value: config }],
     },
   });
   const userErrors = data?.data?.discountAutomaticAppCreate?.userErrors ?? [];
   if (userErrors.length > 0) {
-    return { discountId: null, error: userErrors.map((e: { message: string }) => e.message).join("; "), functionFound: true, allFunctions };
+    return { discountId: null, error: userErrors.map((e: { message: string }) => e.message).join("; ") };
   }
   const discountId = data?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId ?? null;
-  return { discountId, error: discountId ? null : "Discount created but ID not returned", functionFound: true, allFunctions };
+  return { discountId, error: discountId ? null : "Discount created but ID not returned" };
 }
 
 async function updateDiscountConfig(shop: string, token: string, discountId: string, config: string): Promise<string | null> {
@@ -166,7 +140,7 @@ export async function POST(req: NextRequest) {
             await savePromotion(shop, { discountId: result.discountId });
             syncStatus = { status: "created", discountId: result.discountId };
           } else {
-            syncStatus = { status: "error", error: result.error ?? "Unknown error", allFunctions: result.allFunctions };
+            syncStatus = { status: "error", error: result.error ?? "Unknown error" };
           }
         }
       } else if (!body.active && existing.discountId) {

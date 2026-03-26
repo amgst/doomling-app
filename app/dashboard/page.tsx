@@ -638,7 +638,7 @@ function PromotionsTab() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<{ status: string; error?: string; discountId?: string; allFunctions?: { id: string; apiType: string }[] } | null>(null);
+  const [syncStatus, setSyncStatus] = useState<{ status: string; error?: string; discountId?: string } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -763,13 +763,6 @@ function PromotionsTab() {
           return (
             <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.875rem", color: "#c0392b" }}>
               <strong>Discount sync failed:</strong> {s.error}
-              {s.allFunctions !== undefined && (
-                <div style={{ marginTop: "0.5rem", fontSize: "0.8rem", color: "#6d7175" }}>
-                  {s.allFunctions.length === 0
-                    ? "No Shopify Functions found on this store. Run: shopify app deploy --allow-updates"
-                    : `Functions found: ${s.allFunctions.map(f => f.apiType).join(", ")}`}
-                </div>
-              )}
             </div>
           );
         }
