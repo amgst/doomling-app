@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
   // Merge rule info with stats
   const merged = ruleStats.map((s) => {
     const rule = rules.find((r) => r.id === s.ruleId);
-    return { ...s, triggerProductTitle: rule?.triggerProductTitle ?? "", upsellProductTitle: rule?.upsellProductTitle ?? "" };
+    const upsellProductTitle = rule?.upsellProducts?.map(p => p.title).join(", ") ?? "";
+    return { ...s, triggerProductTitle: rule?.triggerProductTitle ?? "", upsellProductTitle };
   });
 
   return NextResponse.json({ rules: merged, gift: giftStats });

@@ -5,13 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
 
 interface DailyStat { date: string; views: number; clicks: number; added: number; }
+interface UpsellProduct { title: string; image: string; price: string; discountPercent: number; }
 interface Rule {
   id: string;
   triggerProductTitle: string;
-  upsellProductTitle: string;
-  upsellProductImage: string;
-  upsellProductPrice: string;
-  discountPercent: number;
+  upsellProducts: UpsellProduct[];
   message: string;
 }
 interface Stats {
@@ -95,27 +93,26 @@ export default function CampaignDetailPage() {
 
       <div style={{ marginBottom: "1.5rem" }}>
         <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>
-          {rule.triggerProductTitle} → {rule.upsellProductTitle}
+          {rule.triggerProductTitle} → {rule.upsellProducts.length} suggestion{rule.upsellProducts.length !== 1 ? "s" : ""}
         </h1>
         <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Campaign performance</p>
       </div>
 
       {/* Campaign info card */}
-      <div style={{ ...card, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "1.25rem" }}>
-        {rule.upsellProductImage && (
-          <img src={rule.upsellProductImage} alt={rule.upsellProductTitle} style={{ width: 64, height: 64, borderRadius: "8px", objectFit: "cover", flexShrink: 0 }} />
-        )}
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: 0, fontWeight: 600, color: "#1a1a1a" }}>{rule.upsellProductTitle}</p>
-          <p style={{ margin: "0.2rem 0 0", fontSize: "0.85rem", color: "#6d7175" }}>{rule.message}</p>
-        </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <p style={{ margin: 0, fontWeight: 700, color: "#008060", fontSize: "1.1rem" }}>
-            {rule.discountPercent > 0 ? `${rule.discountPercent}% OFF` : "No discount"}
-          </p>
-          {rule.upsellProductPrice && (
-            <p style={{ margin: "0.2rem 0 0", fontSize: "0.85rem", color: "#6d7175" }}>${rule.upsellProductPrice}</p>
-          )}
+      <div style={{ ...card, marginBottom: "1.25rem" }}>
+        <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", color: "#6d7175" }}>{rule.message}</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+          {rule.upsellProducts.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.6rem 0.85rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e4e5e7" }}>
+              {p.image && <img src={p.image} alt={p.title} style={{ width: 40, height: 40, borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} />}
+              <div>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem", color: "#1a1a1a" }}>{p.title}</p>
+                <p style={{ margin: 0, fontSize: "0.78rem", color: "#008060", fontWeight: 600 }}>
+                  {p.discountPercent > 0 ? `${p.discountPercent}% OFF` : `$${p.price}`}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

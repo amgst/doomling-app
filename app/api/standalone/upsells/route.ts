@@ -21,19 +21,16 @@ export async function POST(req: NextRequest) {
   const shop = await getShop(req);
   if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
-  const { triggerProductId, triggerProductTitle, upsellProductId, upsellProductTitle, upsellProductImage, upsellProductPrice, upsellProductHandle, discountPercent, message } = body;
-  if (!triggerProductId || !upsellProductId) {
+
+  const { triggerProductId, triggerProductTitle, upsellProducts, message } = body;
+  if (!triggerProductId || !Array.isArray(upsellProducts) || upsellProducts.length === 0) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+
   const id = await addUpsell(shop, {
     triggerProductId,
-    triggerProductTitle,
-    upsellProductId,
-    upsellProductTitle,
-    upsellProductImage: upsellProductImage || "",
-    upsellProductPrice: upsellProductPrice || "",
-    upsellProductHandle: upsellProductHandle || "",
-    discountPercent: Number(discountPercent) || 0,
+    triggerProductTitle: triggerProductTitle || "",
+    upsellProducts,
     message: message || "",
   });
   return NextResponse.json({ ok: true, id });

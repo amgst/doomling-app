@@ -31,13 +31,20 @@ interface Product {
   variants: { id: number; price: string }[];
 }
 
+interface UpsellProduct {
+  productId: string;
+  title: string;
+  image: string;
+  price: string;
+  handle: string;
+  discountPercent: number;
+}
+
 interface UpsellRule {
   id: string;
   triggerProductId: string;
   triggerProductTitle: string;
-  upsellProductId: string;
-  upsellProductTitle: string;
-  discountPercent: number;
+  upsellProducts: UpsellProduct[];
   message: string;
 }
 
@@ -212,6 +219,8 @@ function ProductsTab() {
   );
 }
 
+interface SuggestionDraft { productId: string; discountPercent: string; }
+
 function UpsellsTab() {
   const router = useRouter();
   const [rules, setRules] = useState<UpsellRule[]>([]);
@@ -219,12 +228,9 @@ function UpsellsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    triggerProductId: "",
-    upsellProductId: "",
-    discountPercent: "0",
-    message: "You might also like this!",
-  });
+  const [triggerProductId, setTriggerProductId] = useState("");
+  const [message, setMessage] = useState("You might also like these!");
+  const [suggestions, setSuggestions] = useState<SuggestionDraft[]>([{ productId: "", discountPercent: "0" }]);
 
   useEffect(() => {
     Promise.all([
@@ -237,36 +243,53 @@ function UpsellsTab() {
       .finally(() => setLoading(false));
   }, []);
 
+  const addSuggestion = () => {
+    if (suggestions.length >= 5) return;
+    setSuggestions(s => [...s, { productId: "", discountPercent: "0" }]);
+  };
+
+  const removeSuggestion = (i: number) => setSuggestions(s => s.filter((_, idx) => idx !== i));
+
+  const updateSuggestion = (i: number, field: keyof SuggestionDraft, val: string) => {
+    setSuggestions(s => { const next = [...s]; next[i] = { ...next[i], [field]: val }; return next; });
+  };
+
   const handleAdd = async () => {
-    if (!form.triggerProductId || !form.upsellProductId) {
-      setError("Select both products."); return;
-    }
-    if (form.triggerProductId === form.upsellProductId) {
-      setError("Trigger and upsell must be different products."); return;
-    }
+    const validSuggestions = suggestions.filter(s => s.productId && s.productId !== triggerProductId);
+    if (!triggerProductId) { setError("Select a trigger product."); return; }
+    if (validSuggestions.length === 0) { setError("Add at least one suggestion product (different from the trigger)."); return; }
     setSaving(true); setError(null);
-    const trigger = products.find(p => String(p.id) === form.triggerProductId);
-    const upsell = products.find(p => String(p.id) === form.upsellProductId);
+
+    const trigger = products.find(p => String(p.id) === triggerProductId);
+    const upsellProducts: UpsellProduct[] = validSuggestions.map(s => {
+      const p = products.find(pr => String(pr.id) === s.productId)!;
+      return {
+        productId: s.productId,
+        title: p?.title ?? "",
+        image: p?.image?.src ?? "",
+        price: p?.variants?.[0]?.price ?? "",
+        handle: p?.handle ?? "",
+        discountPercent: Number(s.discountPercent) || 0,
+      };
+    });
+
     const res = await fetch("/api/standalone/upsells", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        triggerProductId: form.triggerProductId,
+        triggerProductId,
         triggerProductTitle: trigger?.title ?? "",
-        upsellProductId: form.upsellProductId,
-        upsellProductTitle: upsell?.title ?? "",
-        upsellProductImage: upsell?.image?.src ?? "",
-        upsellProductPrice: upsell?.variants?.[0]?.price ?? "",
-        upsellProductHandle: upsell?.handle ?? "",
-        discountPercent: Number(form.discountPercent),
-        message: form.message,
+        upsellProducts,
+        message,
       }),
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error); setSaving(false); return; }
     const updated = await fetch("/api/standalone/upsells").then(r => r.json());
     setRules(updated.rules ?? []);
-    setForm({ triggerProductId: "", upsellProductId: "", discountPercent: "0", message: "You might also like this!" });
+    setTriggerProductId("");
+    setMessage("You might also like these!");
+    setSuggestions([{ productId: "", discountPercent: "0" }]);
     setSaving(false);
   };
 
@@ -275,12 +298,8 @@ function UpsellsTab() {
     setRules(r => r.filter(x => x.id !== id));
   };
 
-  const selectStyle = {
-    width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db",
-    borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a",
-  };
-  const inputStyle = { ...selectStyle };
-  const labelStyle = { display: "block" as const, fontSize: "0.8rem", fontWeight: 600 as const, color: "#374151", marginBottom: "0.35rem" };
+  const sel: React.CSSProperties = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
 
   if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
 
@@ -291,37 +310,64 @@ function UpsellsTab() {
         <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Show product recommendations on product pages</p>
       </div>
 
-      {error && (
-        <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>
-      )}
+      {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
 
       {/* Add rule form */}
       <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.5rem" }}>
-        <p style={{ margin: "0 0 1.25rem", fontWeight: 600, color: "#1a1a1a", fontSize: "0.95rem" }}>Add Upsell Rule</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+        <p style={{ margin: "0 0 1.25rem", fontWeight: 700, color: "#1a1a1a", fontSize: "0.95rem" }}>New Upsell Rule</p>
+
+        {/* Trigger + message */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
           <div>
-            <label style={labelStyle}>When customer views…</label>
-            <select style={selectStyle} value={form.triggerProductId} onChange={e => setForm(f => ({ ...f, triggerProductId: e.target.value }))}>
+            <label style={lbl}>When customer views…</label>
+            <select style={sel} value={triggerProductId} onChange={e => setTriggerProductId(e.target.value)}>
               <option value="">Select trigger product</option>
               {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Suggest this product</label>
-            <select style={selectStyle} value={form.upsellProductId} onChange={e => setForm(f => ({ ...f, upsellProductId: e.target.value }))}>
-              <option value="">Select upsell product</option>
-              {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Discount %</label>
-            <input type="number" min="0" max="100" style={inputStyle} value={form.discountPercent} onChange={e => setForm(f => ({ ...f, discountPercent: e.target.value }))} />
-          </div>
-          <div>
-            <label style={labelStyle}>Message</label>
-            <input type="text" style={inputStyle} value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
+            <label style={lbl}>Widget message</label>
+            <input type="text" style={sel} value={message} onChange={e => setMessage(e.target.value)} />
           </div>
         </div>
+
+        {/* Suggestions */}
+        <div style={{ marginBottom: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+            <label style={{ ...lbl, margin: 0 }}>Suggest these products ({suggestions.length}/5)</label>
+            {suggestions.length < 5 && (
+              <button onClick={addSuggestion} style={{ padding: "0.3rem 0.75rem", border: "1px solid #008060", borderRadius: "6px", background: "#fff", color: "#008060", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
+                + Add product
+              </button>
+            )}
+          </div>
+
+          {suggestions.map((s, i) => {
+            const picked = products.find(p => String(p.id) === s.productId);
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.6rem", padding: "0.75rem", background: "#f9fafb", borderRadius: "8px" }}>
+                {picked?.image?.src && <img src={picked.image.src} alt={picked.title} style={{ width: 36, height: 36, borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} />}
+                <select style={{ ...sel, flex: 2 }} value={s.productId} onChange={e => updateSuggestion(i, "productId", e.target.value)}>
+                  <option value="">Select product</option>
+                  {products.filter(p => String(p.id) !== triggerProductId).map(p => (
+                    <option key={p.id} value={String(p.id)}>{p.title}</option>
+                  ))}
+                </select>
+                <div style={{ flex: "0 0 110px" }}>
+                  <input type="number" min="0" max="100" style={sel} value={s.discountPercent}
+                    onChange={e => updateSuggestion(i, "discountPercent", e.target.value)}
+                    placeholder="Discount %"
+                    title="Discount %" />
+                </div>
+                <span style={{ fontSize: "0.75rem", color: "#6d7175", flexShrink: 0 }}>% off</span>
+                {suggestions.length > 1 && (
+                  <button onClick={() => removeSuggestion(i)} style={{ border: "none", background: "none", color: "#c0392b", fontSize: "1rem", cursor: "pointer", flexShrink: 0, padding: "0.1rem 0.3rem" }}>✕</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
         <button onClick={handleAdd} disabled={saving} style={{
           padding: "0.6rem 1.5rem", background: "#008060", color: "#fff", border: "none",
           borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
@@ -339,8 +385,8 @@ function UpsellsTab() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
-                {["When viewing", "Suggest", "Discount", "Message", "", ""].map(h => (
-                  <th key={h} style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>{h}</th>
+                {["When viewing", "Suggestions", "Message", "", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -348,13 +394,23 @@ function UpsellsTab() {
               {rules.map((r, i) => (
                 <tr key={r.id} style={{ borderBottom: i < rules.length - 1 ? "1px solid #f1f1f1" : "none" }}>
                   <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", fontWeight: 500, color: "#1a1a1a" }}>{r.triggerProductTitle}</td>
-                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a" }}>{r.upsellProductTitle}</td>
-                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a" }}>{r.discountPercent > 0 ? `${r.discountPercent}%` : "—"}</td>
-                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#6d7175" }}>{r.message}</td>
+                  <td style={{ padding: "0.85rem 1rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
+                      {r.upsellProducts.slice(0, 4).map((p, pi) => (
+                        p.image
+                          ? <img key={pi} src={p.image} alt={p.title} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", objectFit: "cover", border: "1px solid #e4e5e7" }} />
+                          : <div key={pi} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", background: "#f1f1f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#6d7175" }}>{p.title.slice(0, 2)}</div>
+                      ))}
+                      <span style={{ fontSize: "0.78rem", color: "#6d7175" }}>
+                        {r.upsellProducts.length} product{r.upsellProducts.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </td>
+                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#6d7175", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.message}</td>
                   <td style={{ padding: "0.85rem 1rem" }}>
                     <button onClick={() => router.push(`/dashboard/upsell/${r.id}`)} style={{
                       padding: "0.3rem 0.75rem", background: "#f0faf7", color: "#008060",
-                      border: "1px solid #b7dfce", borderRadius: "6px", fontSize: "0.8rem", cursor: "pointer", marginRight: "0.5rem",
+                      border: "1px solid #b7dfce", borderRadius: "6px", fontSize: "0.8rem", cursor: "pointer",
                     }}>View Stats</button>
                   </td>
                   <td style={{ padding: "0.85rem 1rem" }}>
@@ -376,7 +432,7 @@ function UpsellsTab() {
 interface RuleStat {
   ruleId: string;
   triggerProductTitle: string;
-  upsellProductTitle: string;
+  upsellProductTitle: string; // comma-joined suggestion titles
   views: number;
   clicks: number;
   added: number;
