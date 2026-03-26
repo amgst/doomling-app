@@ -212,6 +212,7 @@ function ProductsTab() {
 }
 
 function UpsellsTab() {
+  const router = useRouter();
   const [rules, setRules] = useState<UpsellRule[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -337,7 +338,7 @@ function UpsellsTab() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
-                {["When viewing", "Suggest", "Discount", "Message", ""].map(h => (
+                {["When viewing", "Suggest", "Discount", "Message", "", ""].map(h => (
                   <th key={h} style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
@@ -349,6 +350,12 @@ function UpsellsTab() {
                   <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a" }}>{r.upsellProductTitle}</td>
                   <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a" }}>{r.discountPercent > 0 ? `${r.discountPercent}%` : "—"}</td>
                   <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#6d7175" }}>{r.message}</td>
+                  <td style={{ padding: "0.85rem 1rem" }}>
+                    <button onClick={() => router.push(`/dashboard/upsell/${r.id}`)} style={{
+                      padding: "0.3rem 0.75rem", background: "#f0faf7", color: "#008060",
+                      border: "1px solid #b7dfce", borderRadius: "6px", fontSize: "0.8rem", cursor: "pointer", marginRight: "0.5rem",
+                    }}>View Stats</button>
+                  </td>
                   <td style={{ padding: "0.85rem 1rem" }}>
                     <button onClick={() => handleDelete(r.id)} style={{
                       padding: "0.3rem 0.75rem", background: "#fff", color: "#c0392b",

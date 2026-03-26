@@ -1,6 +1,6 @@
 import { getDb } from "./admin";
 import {
-  collection, doc, getDocs, addDoc, deleteDoc, serverTimestamp,
+  collection, doc, getDocs, getDoc, addDoc, deleteDoc, serverTimestamp,
 } from "firebase/firestore";
 
 export interface UpsellRule {
@@ -19,6 +19,12 @@ export interface UpsellRule {
 
 function rulesCol(shop: string) {
   return collection(getDb(), "upsells", shop, "rules");
+}
+
+export async function getUpsell(shop: string, id: string): Promise<UpsellRule | null> {
+  const snap = await getDoc(doc(getDb(), "upsells", shop, "rules", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as UpsellRule;
 }
 
 export async function listUpsells(shop: string): Promise<UpsellRule[]> {
