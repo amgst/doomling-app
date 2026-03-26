@@ -274,14 +274,34 @@
     syncing = true;
 
     var pending = ops.length;
-    var done = function (succeeded) {
+    var done = function (opType, succeeded) {
       pending--;
       if (pending === 0) {
         syncing = false;
-        // Re-fetch and run full syncAndRender so failed adds are retried
-        // and successful removes are confirmed
         fetchCart(function (updated) {
-          if (updated) syncAndRender(updated);
+          if (!updated) return;
+          var giftVidsInner = tiers.filter(function (t) { return t.giftVariantId; }).map(function (t) { return String(t.giftVariantId); });
+          var newNonGift = 0;
+          var newVids = [];
+          var newKeys = {};
+          for (var j = 0; j < updated.items.length; j++) {
+            var it = updated.items[j];
+            var v = String(it.variant_id);
+            newVids.push(v);
+            newKeys[v] = it.key;
+            if (giftVidsInner.indexOf(v) === -1) newNonGift += it.line_price / 100;
+          }
+          var newUnlocked = [];
+          for (var k = 0; k < tiers.length; k++) {
+            if (newNonGift >= tiers[k].threshold) newUnlocked.push(k);
+          }
+          prevUnlocked = newUnlocked;
+          renderUI(tiers, newUnlocked, newNonGift);
+          refreshCartSections(null);
+          // Only retry if an ADD failed (not removes — those loop)
+          if (opType === 'add' && !succeeded) {
+            setTimeout(scheduleUpdate, 1000);
+          }
         });
       }
     };
@@ -327,14 +347,14 @@
           }).then(function (r) { return r.json(); })
             .then(function (data) {
               ownCartOp = false;
-              addRetries[op.variantId] = 0; // reset on success
+              addRetries[op.variantId] = 0;
               refreshCartSections(data.sections || null);
-              done(true);
+              done('add', true);
             })
             .catch(function () {
               ownCartOp = false;
               addRetries[op.variantId] = (addRetries[op.variantId] || 0) + 1;
-              done(false);
+              done('add', false);
             });
         } else {
           fetch('/cart/change.js', {
@@ -345,9 +365,9 @@
             .then(function (data) {
               ownCartOp = false;
               refreshCartSections(data.sections || null);
-              done(true);
+              done('remove', true);
             })
-            .catch(function () { ownCartOp = false; done(false); });
+            .catch(function () { ownCartOp = false; done('remove', false); });
         }
       })(ops[o]);
     }
