@@ -799,7 +799,10 @@ function PromotionsTab() {
   const updateTier = (i: number, field: keyof PromoTier, val: string) => {
     setPromo(p => {
       const tiers = [...p.tiers];
-      tiers[i] = { ...tiers[i], [field]: val };
+      // Clear giftVariantId whenever the product changes so the server re-resolves it
+      tiers[i] = field === "giftProductId"
+        ? { ...tiers[i], giftProductId: val, giftVariantId: "" }
+        : { ...tiers[i], [field]: val };
       return { ...p, tiers };
     });
   };
