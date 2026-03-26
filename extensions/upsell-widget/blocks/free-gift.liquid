@@ -1,13 +1,6 @@
-{% comment %} Upsale — Free Gift Progress Bar {% endcomment %}
+{% comment %} Upsale — Free Gift Progress Bar (Enhanced) {% endcomment %}
 
-<div
-  id="upsale-gift-root"
-  data-shop="{{ shop.permanent_domain }}"
-  data-currency="{{ shop.currency }}"
-  data-cart-total="{{ cart.total_price | divided_by: 100.0 }}"
-  data-gift-variant="{{ cart.items | map: 'variant_id' | join: ',' }}"
-  style="display:none; margin: 1.5rem 0;"
->
+<div id="upsale-gift-root" data-shop="{{ shop.permanent_domain }}" data-currency="{{ shop.currency }}" style="display:none; margin: 1.5rem 0;">
 
   <style>
     #upsale-gift-root * { box-sizing: border-box; }
@@ -17,69 +10,79 @@
       padding: 1.25rem;
       background: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      position: relative;
     }
-    #upsale-gift-top {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
+    .upsale-tier-row {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.85rem;
     }
-    #upsale-gift-img {
-      width: 48px; height: 48px;
-      object-fit: cover;
-      border-radius: 8px;
-      flex-shrink: 0;
-      border: 2px solid #e4e5e7;
-      display: none;
+    .upsale-tier-img {
+      width: 44px; height: 44px; object-fit: cover; border-radius: 8px;
+      flex-shrink: 0; border: 2px solid #e4e5e7;
     }
-    #upsale-gift-msg {
-      font-size: 0.875rem;
-      color: #374151;
-      margin: 0;
-      line-height: 1.4;
+    .upsale-tier-info { flex: 1; min-width: 0; }
+    .upsale-tier-name {
+      font-size: 0.875rem; font-weight: 600; color: #1a1a1a;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    #upsale-gift-msg strong { color: #008060; }
-    #upsale-gift-bar-wrap {
-      background: #f1f1f1;
-      border-radius: 999px;
-      height: 8px;
-      overflow: hidden;
-      margin-bottom: 0.5rem;
+    .upsale-tier-value { font-size: 0.78rem; color: #6d7175; margin-top: 0.1rem; }
+    .upsale-tier-badge {
+      font-size: 0.72rem; font-weight: 600; flex-shrink: 0;
+      padding: 0.2rem 0.6rem; border-radius: 20px;
+      background: #f1f1f1; color: #6d7175;
     }
-    #upsale-gift-bar {
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #008060, #00a376);
-      transition: width 0.4s ease;
+    .upsale-tier-badge.unlocked { background: #e3f1df; color: #1a6b3c; }
+    #upsale-bar-section { margin: 0.25rem 0 0.85rem; }
+    #upsale-bar-wrap {
+      background: #f1f1f1; border-radius: 999px; height: 10px;
+      position: relative; overflow: visible;
     }
-    #upsale-gift-unlocked {
-      display: none;
-      align-items: center;
-      gap: 0.6rem;
-      padding: 0.75rem 1rem;
-      background: #e3f1df;
-      border-radius: 8px;
-      margin-top: 0.5rem;
+    #upsale-bar {
+      height: 100%; border-radius: 999px;
+      transition: width 0.5s ease;
+      max-width: 100%; min-width: 0;
     }
-    #upsale-gift-unlocked span {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #1a6b3c;
+    .upsale-marker {
+      position: absolute; top: 50%; transform: translate(-50%, -50%);
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      transition: background 0.3s;
+    }
+    #upsale-progress-msg {
+      font-size: 0.82rem; color: #374151; margin: 0.5rem 0 0; line-height: 1.5;
+    }
+    #upsale-progress-msg strong { color: inherit; font-weight: 700; }
+    #upsale-unlocked-banner {
+      display: none; align-items: center; gap: 0.6rem;
+      padding: 0.75rem 1rem; background: #e3f1df;
+      border-radius: 8px; margin-top: 0.75rem;
+      font-size: 0.875rem; font-weight: 600; color: #1a6b3c;
+    }
+    /* Confetti */
+    #upsale-confetti {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; overflow: hidden; border-radius: 12px;
+    }
+    .upsale-dot {
+      position: absolute; width: 7px; height: 7px; border-radius: 2px;
+      animation: upsale-fall 1.4s ease-in forwards;
+    }
+    @keyframes upsale-fall {
+      0%   { transform: translateY(-10px) rotate(0deg);   opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translateY(130px) rotate(400deg); opacity: 0; }
     }
   </style>
 
   <div id="upsale-gift-card">
-    <div id="upsale-gift-top">
-      <img id="upsale-gift-img" src="" alt="" width="48" height="48" />
-      <p id="upsale-gift-msg"></p>
+    <div id="upsale-confetti"></div>
+    <div id="upsale-tiers-list"></div>
+    <div id="upsale-bar-section">
+      <div id="upsale-bar-wrap">
+        <div id="upsale-bar" style="width:0%"></div>
+      </div>
     </div>
-    <div id="upsale-gift-bar-wrap">
-      <div id="upsale-gift-bar" style="width:0%"></div>
-    </div>
-    <div id="upsale-gift-unlocked">
-      <span>🎁</span>
-      <span id="upsale-gift-unlocked-text">Free gift added to your cart!</span>
-    </div>
+    <p id="upsale-progress-msg"></p>
+    <div id="upsale-unlocked-banner"></div>
   </div>
 
 </div>
@@ -87,80 +90,292 @@
 <script>
 (function () {
   var root = document.getElementById('upsale-gift-root');
-  if (!root) { console.log('[Upsale Gift] root element not found'); return; }
+  if (!root) return;
 
   var shop = root.dataset.shop;
   var currency = root.dataset.currency;
-  var cartTotal = parseFloat(root.dataset.cartTotal) || 0;
   var apiBase = ({{ settings.api_base | json }} || 'https://upsale-cyan.vercel.app').replace(/\/$/, '');
 
-  console.log('[Upsale Gift] init', { shop: shop, cartTotal: cartTotal, apiBase: apiBase });
+  var promotion = null;
+  var prevUnlocked = [];
+  var syncing = false;
 
   var fmt = function (n) {
     try {
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(n);
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0
+      }).format(n);
     } catch (e) {
-      return currency + ' ' + parseFloat(n).toFixed(0);
+      return (currency || 'USD') + ' ' + parseFloat(n).toFixed(0);
     }
   };
 
-  fetch(apiBase + '/api/promotion?shop=' + encodeURIComponent(shop))
-    .then(function (r) {
-      console.log('[Upsale Gift] API status', r.status);
-      return r.json();
-    })
-    .then(function (data) {
-      console.log('[Upsale Gift] API response', JSON.stringify(data));
-      if (!data || !data.promotion) { console.log('[Upsale Gift] no active promotion'); return; }
-      var p = data.promotion;
-      var threshold = parseFloat(p.threshold) || 50;
-      var variantId = p.giftVariantId;
-      console.log('[Upsale Gift] threshold=' + threshold + ' cartTotal=' + cartTotal + ' variantId=' + variantId);
-      if (!variantId) { console.log('[Upsale Gift] missing variantId, aborting'); return; }
+  function fetchCart(cb) {
+    fetch('/cart.js')
+      .then(function (r) { return r.json(); })
+      .then(function (c) { cb(c); })
+      .catch(function () { cb(null); });
+  }
 
-      // Show image
-      if (p.giftProductImage) {
-        var img = document.getElementById('upsale-gift-img');
-        img.src = p.giftProductImage;
-        img.alt = p.giftProductTitle;
-        img.style.display = 'block';
+  function fireConfetti() {
+    var container = document.getElementById('upsale-confetti');
+    if (!container) return;
+    var colors = ['#008060', '#00c48c', '#FFD700', '#FF6B6B', '#4ECDC4', '#A78BFA'];
+    for (var i = 0; i < 24; i++) {
+      (function (idx) {
+        setTimeout(function () {
+          var dot = document.createElement('div');
+          dot.className = 'upsale-dot';
+          dot.style.cssText = 'left:' + (5 + Math.random() * 90) + '%;' +
+            'top:' + (Math.random() * 30) + '%;' +
+            'background:' + colors[Math.floor(Math.random() * colors.length)] + ';' +
+            'animation-delay:' + (Math.random() * 0.4) + 's;' +
+            'animation-duration:' + (0.9 + Math.random() * 0.7) + 's;';
+          container.appendChild(dot);
+          setTimeout(function () { if (dot.parentNode) dot.parentNode.removeChild(dot); }, 2000);
+        }, idx * 35);
+      })(i);
+    }
+  }
+
+  function renderUI(tiers, unlockedSet, nonGiftTotal) {
+    var barColor = (promotion && promotion.barColor) || '#008060';
+    var highestThreshold = tiers[tiers.length - 1].threshold;
+
+    // Tier rows
+    var tiersList = document.getElementById('upsale-tiers-list');
+    var tiersHtml = '';
+    for (var i = 0; i < tiers.length; i++) {
+      var t = tiers[i];
+      var unlocked = unlockedSet.indexOf(i) !== -1;
+      var imgHtml = t.giftProductImage
+        ? '<img class="upsale-tier-img" src="' + t.giftProductImage + '" alt="" />'
+        : '';
+      var valueHtml = t.giftProductPrice && parseFloat(t.giftProductPrice) > 0
+        ? 'Worth ' + fmt(parseFloat(t.giftProductPrice)) + ' — yours FREE!'
+        : '';
+      var badgeHtml = unlocked
+        ? '<span class="upsale-tier-badge unlocked">✓ Unlocked</span>'
+        : '<span class="upsale-tier-badge">at ' + fmt(t.threshold) + '</span>';
+      tiersHtml +=
+        '<div class="upsale-tier-row">' +
+          imgHtml +
+          '<div class="upsale-tier-info">' +
+            '<div class="upsale-tier-name">' + (t.giftProductTitle || 'Free Gift') + '</div>' +
+            (valueHtml ? '<div class="upsale-tier-value">' + valueHtml + '</div>' : '') +
+          '</div>' +
+          badgeHtml +
+        '</div>';
+    }
+    if (tiersList) tiersList.innerHTML = tiersHtml;
+
+    // Progress bar
+    var pct = Math.min(100, (nonGiftTotal / highestThreshold) * 100);
+    var bar = document.getElementById('upsale-bar');
+    var barWrap = document.getElementById('upsale-bar-wrap');
+    if (bar) { bar.style.width = pct + '%'; bar.style.background = barColor; }
+
+    // Remove old markers
+    if (barWrap) {
+      var old = barWrap.querySelectorAll('.upsale-marker');
+      for (var m = 0; m < old.length; m++) barWrap.removeChild(old[m]);
+      // Add tier markers
+      for (var i = 0; i < tiers.length; i++) {
+        var markerPct = Math.min(99.5, (tiers[i].threshold / highestThreshold) * 100);
+        var marker = document.createElement('div');
+        marker.className = 'upsale-marker ' + (unlockedSet.indexOf(i) !== -1 ? 'unlocked' : 'locked');
+        marker.style.cssText = 'left:' + markerPct + '%;background:' +
+          (unlockedSet.indexOf(i) !== -1 ? barColor : '#d1d5db') + ';';
+        barWrap.appendChild(marker);
       }
+    }
 
-      var remaining = Math.max(0, threshold - cartTotal);
-      var pct = Math.min(100, (cartTotal / threshold) * 100);
-      var unlocked = cartTotal >= threshold;
+    // Progress message
+    var msgEl = document.getElementById('upsale-progress-msg');
+    var bannerEl = document.getElementById('upsale-unlocked-banner');
+    var allUnlocked = unlockedSet.length === tiers.length;
 
-      // Progress bar
-      document.getElementById('upsale-gift-bar').style.width = pct + '%';
+    if (allUnlocked) {
+      var ul = (promotion && promotion.unlockedMessage) || "\uD83C\uDF81 You've unlocked all free gifts!";
+      if (msgEl) msgEl.innerHTML = '';
+      if (bannerEl) {
+        bannerEl.innerHTML = '\uD83C\uDF81 ' + ul;
+        bannerEl.style.display = 'flex';
+      }
+    } else {
+      if (bannerEl) bannerEl.style.display = 'none';
+      // Find next locked tier
+      var nextIdx = -1;
+      for (var i = 0; i < tiers.length; i++) {
+        if (unlockedSet.indexOf(i) === -1) { nextIdx = i; break; }
+      }
+      if (nextIdx >= 0 && msgEl) {
+        var remaining = Math.max(0, tiers[nextIdx].threshold - nonGiftTotal);
+        var tmpl = (promotion && promotion.message) || 'Add {amount} more to unlock a free gift!';
+        msgEl.innerHTML = tmpl.replace('{amount}', '<strong>' + fmt(remaining) + '</strong>');
+      }
+    }
 
-      if (unlocked) {
-        document.getElementById('upsale-gift-msg').innerHTML = '🎁 <strong>You\'ve unlocked a free gift!</strong>';
-        document.getElementById('upsale-gift-unlocked').style.display = 'flex';
-        document.getElementById('upsale-gift-unlocked-text').textContent = p.giftProductTitle + ' has been added free!';
-        // Auto-add gift if not already in cart
-        var cartVariants = (root.dataset.giftVariant || '').split(',');
-        if (!cartVariants.includes(String(variantId))) {
+    root.style.display = 'block';
+  }
+
+  function syncAndRender(cart) {
+    if (!promotion || !promotion.tiers || !promotion.tiers.length) return;
+    var tiers = promotion.tiers.slice().sort(function (a, b) { return a.threshold - b.threshold; });
+
+    var giftVids = tiers.filter(function (t) { return t.giftVariantId; }).map(function (t) { return String(t.giftVariantId); });
+
+    var nonGiftTotal = 0;
+    var cartVids = [];
+    var cartKeys = {};
+    if (cart) {
+      for (var i = 0; i < cart.items.length; i++) {
+        var item = cart.items[i];
+        var vid = String(item.variant_id);
+        cartVids.push(vid);
+        cartKeys[vid] = item.key;
+        if (giftVids.indexOf(vid) === -1) nonGiftTotal += item.line_price / 100;
+      }
+    }
+
+    var unlockedSet = [];
+    for (var i = 0; i < tiers.length; i++) {
+      if (nonGiftTotal >= tiers[i].threshold) unlockedSet.push(i);
+    }
+
+    // Confetti on newly unlocked tiers (not on initial load when prevUnlocked is empty and cart is 0)
+    var newlyUnlocked = unlockedSet.filter(function (idx) { return prevUnlocked.indexOf(idx) === -1; });
+    if (newlyUnlocked.length > 0 && prevUnlocked.length > 0) fireConfetti();
+    // Also fire confetti if we just hit a threshold from a previously non-zero state
+    if (newlyUnlocked.length > 0 && prevUnlocked.length === 0 && nonGiftTotal > 0) fireConfetti();
+
+    renderUI(tiers, unlockedSet, nonGiftTotal);
+    prevUnlocked = unlockedSet;
+
+    // Build add/remove ops
+    var ops = [];
+    for (var i = 0; i < tiers.length; i++) {
+      var tier = tiers[i];
+      if (!tier.giftVariantId) continue;
+      var vid = String(tier.giftVariantId);
+      var inCart = cartVids.indexOf(vid) !== -1;
+      var shouldBeInCart = unlockedSet.indexOf(i) !== -1;
+
+      if (shouldBeInCart && !inCart) {
+        ops.push({ type: 'add', variantId: vid });
+      } else if (!shouldBeInCart && inCart && cartKeys[vid]) {
+        ops.push({ type: 'remove', key: cartKeys[vid] });
+      }
+    }
+
+    if (ops.length === 0 || syncing) return;
+    syncing = true;
+
+    var pending = ops.length;
+    var done = function () {
+      pending--;
+      if (pending === 0) {
+        syncing = false;
+        // Re-fetch cart and re-render to reflect new cart state
+        fetchCart(function (updated) {
+          if (!updated) return;
+          var giftVidsInner = tiers.filter(function (t) { return t.giftVariantId; }).map(function (t) { return String(t.giftVariantId); });
+          var newNonGift = 0;
+          var newVids = [];
+          var newKeys = {};
+          for (var j = 0; j < updated.items.length; j++) {
+            var it = updated.items[j];
+            var v = String(it.variant_id);
+            newVids.push(v);
+            newKeys[v] = it.key;
+            if (giftVidsInner.indexOf(v) === -1) newNonGift += it.line_price / 100;
+          }
+          var newUnlocked = [];
+          for (var k = 0; k < tiers.length; k++) {
+            if (newNonGift >= tiers[k].threshold) newUnlocked.push(k);
+          }
+          prevUnlocked = newUnlocked;
+          renderUI(tiers, newUnlocked, newNonGift);
+          // Notify theme cart drawer/mini-cart
+          document.dispatchEvent(new CustomEvent('cart:refresh'));
+          document.dispatchEvent(new Event('cart:updated'));
+        });
+      }
+    };
+
+    for (var o = 0; o < ops.length; o++) {
+      (function (op) {
+        if (op.type === 'add') {
           fetch('/cart/add.js', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: parseInt(variantId),
-              quantity: 1,
-              properties: { _free_gift: 'true', _upsale: 'true' }
-            })
-          }).then(function () {
-            document.dispatchEvent(new CustomEvent('cart:refresh'));
-          }).catch(function () {});
+            body: JSON.stringify({ id: parseInt(op.variantId), quantity: 1, properties: { _free_gift: 'true', _upsale: 'true' } })
+          }).then(done).catch(done);
+        } else {
+          fetch('/cart/change.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: op.key, quantity: 0 })
+          }).then(done).catch(done);
         }
-      } else {
-        var msg = (p.message || 'Add {amount} more to get a free gift!')
-          .replace('{amount}', '<strong>' + fmt(remaining) + '</strong>');
-        document.getElementById('upsale-gift-msg').innerHTML = msg;
-      }
+      })(ops[o]);
+    }
+  }
 
-      root.style.display = 'block';
+  var updateTimer = null;
+  function scheduleUpdate() {
+    if (updateTimer) clearTimeout(updateTimer);
+    updateTimer = setTimeout(function () { fetchCart(syncAndRender); }, 350);
+  }
+
+  // Fetch promotion config then initialise
+  fetch(apiBase + '/api/promotion?shop=' + encodeURIComponent(shop))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data || !data.promotion) return;
+      promotion = data.promotion;
+      // Back-compat: migrate old flat format
+      if (!promotion.tiers && promotion.threshold) {
+        promotion.tiers = [{
+          threshold: parseFloat(promotion.threshold) || 50,
+          giftProductId: promotion.giftProductId || '',
+          giftProductTitle: promotion.giftProductTitle || '',
+          giftProductImage: promotion.giftProductImage || '',
+          giftProductHandle: promotion.giftProductHandle || '',
+          giftVariantId: promotion.giftVariantId || '',
+          giftProductPrice: promotion.giftProductPrice || '0',
+        }];
+      }
+      if (!promotion.tiers || !promotion.tiers.length) return;
+      fetchCart(syncAndRender);
     })
-    .catch(function (err) { console.log('[Upsale Gift] fetch error', err); });
+    .catch(function () {});
+
+  // Cart change listeners (works across Dawn, Debut, and custom themes)
+  document.addEventListener('cart:change', scheduleUpdate);
+  document.addEventListener('cart:refresh', scheduleUpdate);
+  document.addEventListener('cart:updated', scheduleUpdate);
+  document.addEventListener('cart:update', scheduleUpdate);
+
+  // Intercept XHR cart mutations for themes that don't fire custom events
+  var _origXhrOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    if (typeof url === 'string' && /\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
+      this.addEventListener('load', scheduleUpdate);
+    }
+    return _origXhrOpen.apply(this, arguments);
+  };
+
+  // Intercept fetch cart mutations
+  var _origFetch = window.fetch;
+  window.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var result = _origFetch.apply(this, arguments);
+    if (/\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
+      result.then(scheduleUpdate).catch(function () {});
+    }
+    return result;
+  };
 })();
 </script>
 

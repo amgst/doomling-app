@@ -15,9 +15,22 @@ export async function GET(req: NextRequest) {
   if (!shop) return NextResponse.json({ promotion: null }, { headers: CORS });
   try {
     const promotion = await getPromotion(shop);
-    if (!promotion.active || !promotion.giftProductId) {
+    if (!promotion.active) return NextResponse.json({ promotion: null }, { headers: CORS });
+
+    // Schedule check
+    const now = new Date();
+    if (promotion.startsAt && new Date(promotion.startsAt) > now) {
       return NextResponse.json({ promotion: null }, { headers: CORS });
     }
+    if (promotion.endsAt && new Date(promotion.endsAt) < now) {
+      return NextResponse.json({ promotion: null }, { headers: CORS });
+    }
+
+    // Require at least one configured tier
+    if (!promotion.tiers?.some(t => t.giftProductId)) {
+      return NextResponse.json({ promotion: null }, { headers: CORS });
+    }
+
     return NextResponse.json({ promotion }, { headers: CORS });
   } catch {
     return NextResponse.json({ promotion: null }, { headers: CORS });

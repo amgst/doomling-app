@@ -493,12 +493,91 @@ function StatsTab() {
   );
 }
 
+interface PromoTier { threshold: string; giftProductId: string; giftVariantId: string; }
+interface PromoState {
+  active: boolean;
+  tiers: PromoTier[];
+  message: string;
+  unlockedMessage: string;
+  barColor: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+const DEFAULT_TIER: PromoTier = { threshold: "50", giftProductId: "", giftVariantId: "" };
+const DEFAULT_PROMO: PromoState = {
+  active: false,
+  tiers: [{ ...DEFAULT_TIER }],
+  message: "Add {amount} more to unlock a free gift!",
+  unlockedMessage: "🎁 You've unlocked a free gift!",
+  barColor: "#008060",
+  startsAt: "",
+  endsAt: "",
+};
+
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <div style={{ position: "relative" as const, width: 44, height: 24, cursor: "pointer" }} onClick={onToggle}>
+      <div style={{ width: 44, height: 24, borderRadius: 12, background: on ? "#008060" : "#d1d5db", transition: "background 0.2s" }} />
+      <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute" as const, top: 2, left: on ? 22 : 2, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+    </div>
+  );
+}
+
+function WidgetPreview({ promo, products }: { promo: PromoState; products: Product[] }) {
+  const barColor = promo.barColor || "#008060";
+  const sortedTiers = [...promo.tiers]
+    .filter(t => t.giftProductId)
+    .sort((a, b) => (Number(a.threshold) || 0) - (Number(b.threshold) || 0));
+
+  if (sortedTiers.length === 0) return null;
+
+  const highestThreshold = Number(sortedTiers[sortedTiers.length - 1].threshold) || 50;
+  // Preview at 40% progress
+  const previewTotal = highestThreshold * 0.4;
+  const pct = Math.min(100, (previewTotal / highestThreshold) * 100);
+  const remaining = Math.max(0, (Number(sortedTiers[0].threshold) || 50) - previewTotal);
+  const progressMsg = (promo.message || "Add {amount} more to unlock a free gift!")
+    .replace("{amount}", `$${remaining.toFixed(0)}`);
+
+  return (
+    <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1rem" }}>
+      <p style={{ margin: "0 0 1rem", fontWeight: 600, fontSize: "0.875rem", color: "#1a1a1a" }}>Widget Preview</p>
+      <div style={{ border: "1px solid #e4e5e7", borderRadius: "12px", padding: "1.25rem", background: "#fafafa" }}>
+        {sortedTiers.map((tier, i) => {
+          const gift = products.find(p => String(p.id) === tier.giftProductId);
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.85rem" }}>
+              {gift?.image?.src && <img src={gift.image.src} alt={gift.title} style={{ width: 44, height: 44, borderRadius: "8px", objectFit: "cover", border: "2px solid #e4e5e7", flexShrink: 0 }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{gift?.title || "Gift Product"}</p>
+                {gift?.variants?.[0]?.price && Number(gift.variants[0].price) > 0 && (
+                  <p style={{ margin: 0, fontSize: "0.78rem", color: "#6d7175" }}>Worth ${Number(gift.variants[0].price).toFixed(0)} — yours FREE!</p>
+                )}
+              </div>
+              <span style={{ fontSize: "0.72rem", fontWeight: 600, padding: "0.2rem 0.6rem", borderRadius: "20px", background: "#f1f1f1", color: "#6d7175", flexShrink: 0 }}>at ${tier.threshold}</span>
+            </div>
+          );
+        })}
+        <div style={{ background: "#f1f1f1", borderRadius: "999px", height: 10, position: "relative" as const, overflow: "visible", marginBottom: "0.75rem" }}>
+          <div style={{ width: `${pct}%`, height: "100%", borderRadius: "999px", background: barColor, transition: "width 0.5s" }} />
+          {sortedTiers.map((tier, i) => {
+            const markerPct = Math.min(99.5, ((Number(tier.threshold) || 50) / highestThreshold) * 100);
+            return (
+              <div key={i} style={{ position: "absolute" as const, left: `${markerPct}%`, top: "50%", transform: "translate(-50%,-50%)", width: 16, height: 16, borderRadius: "50%", background: "#d1d5db", border: "2px solid #fff", boxShadow: "0 1px 3px rgba(0,0,0,0.25)" }} />
+            );
+          })}
+        </div>
+        <p style={{ margin: 0, fontSize: "0.82rem", color: "#374151" }} dangerouslySetInnerHTML={{ __html: progressMsg.replace("$" + remaining.toFixed(0), `<strong style="color:${barColor}">$${remaining.toFixed(0)}</strong>`) }} />
+      </div>
+      <p style={{ margin: "0.5rem 0 0", fontSize: "0.75rem", color: "#6d7175" }}>Preview shown at ~40% progress</p>
+    </div>
+  );
+}
+
 function PromotionsTab() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [promo, setPromo] = useState<{
-    active: boolean; threshold: string; giftProductId: string;
-    giftVariantId: string; message: string;
-  }>({ active: false, threshold: "50", giftProductId: "", giftVariantId: "", message: "Add {amount} more to get a free gift!" });
+  const [promo, setPromo] = useState<PromoState>(DEFAULT_PROMO);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -510,12 +589,21 @@ function PromotionsTab() {
       fetch("/api/standalone/products").then(r => r.json()),
     ]).then(([p, pr]) => {
       if (p.promotion) {
+        const src = p.promotion;
+        // Migrate old flat format
+        const tiers: PromoTier[] = src.tiers?.map((t: { threshold: number; giftProductId: string; giftVariantId: string }) => ({
+          threshold: String(t.threshold),
+          giftProductId: String(t.giftProductId || ""),
+          giftVariantId: String(t.giftVariantId || ""),
+        })) ?? [{ threshold: String(src.threshold || "50"), giftProductId: src.giftProductId || "", giftVariantId: src.giftVariantId || "" }];
         setPromo({
-          active: p.promotion.active,
-          threshold: String(p.promotion.threshold),
-          giftProductId: p.promotion.giftProductId,
-          giftVariantId: p.promotion.giftVariantId,
-          message: p.promotion.message,
+          active: Boolean(src.active),
+          tiers,
+          message: src.message || DEFAULT_PROMO.message,
+          unlockedMessage: src.unlockedMessage || DEFAULT_PROMO.unlockedMessage,
+          barColor: src.barColor || DEFAULT_PROMO.barColor,
+          startsAt: src.startsAt || "",
+          endsAt: src.endsAt || "",
         });
       }
       setProducts(pr.products ?? []);
@@ -523,24 +611,49 @@ function PromotionsTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSave = async () => {
-    if (!promo.giftProductId) { setError("Select a gift product."); return; }
-    setSaving(true); setError(null); setSaved(false);
-    const gift = products.find(p => String(p.id) === promo.giftProductId);
+  const updateTier = (i: number, field: keyof PromoTier, val: string) => {
+    setPromo(p => {
+      const tiers = [...p.tiers];
+      tiers[i] = { ...tiers[i], [field]: val };
+      return { ...p, tiers };
+    });
+  };
 
-    // Get variant ID from already-fetched product data
-    const variantId = promo.giftVariantId || String(gift?.variants?.[0]?.id ?? "");
+  const addTier = () => {
+    if (promo.tiers.length >= 3) return;
+    setPromo(p => ({ ...p, tiers: [...p.tiers, { ...DEFAULT_TIER }] }));
+  };
+
+  const removeTier = (i: number) => {
+    setPromo(p => ({ ...p, tiers: p.tiers.filter((_, idx) => idx !== i) }));
+  };
+
+  const handleSave = async () => {
+    const validTiers = promo.tiers.filter(t => t.giftProductId);
+    if (validTiers.length === 0) { setError("Add at least one gift tier with a product."); return; }
+    setSaving(true); setError(null); setSaved(false);
+
+    const tiersPayload = promo.tiers.map(tier => {
+      const gift = products.find(p => String(p.id) === tier.giftProductId);
+      return {
+        threshold: Number(tier.threshold) || 50,
+        giftProductId: tier.giftProductId,
+        giftProductTitle: gift?.title ?? "",
+        giftProductImage: gift?.image?.src ?? "",
+        giftProductHandle: gift?.handle ?? "",
+        giftVariantId: tier.giftVariantId || String(gift?.variants?.[0]?.id ?? ""),
+        giftProductPrice: gift?.variants?.[0]?.price ?? "0",
+      };
+    });
 
     const body = {
       active: promo.active,
-      threshold: Number(promo.threshold) || 50,
-      giftProductId: promo.giftProductId,
-      giftProductTitle: gift?.title ?? "",
-      giftProductImage: gift?.image?.src ?? "",
-      giftProductHandle: gift?.handle ?? "",
-      giftVariantId: variantId,
-      giftProductPrice: gift?.variants?.[0]?.price ?? "0",
+      tiers: tiersPayload,
       message: promo.message,
+      unlockedMessage: promo.unlockedMessage,
+      barColor: promo.barColor,
+      startsAt: promo.startsAt,
+      endsAt: promo.endsAt,
     };
 
     const res = await fetch("/api/standalone/promotion", {
@@ -551,76 +664,137 @@ function PromotionsTab() {
     setSaving(false);
   };
 
-  const inputStyle = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
-  const labelStyle = { display: "block" as const, fontSize: "0.8rem", fontWeight: 600 as const, color: "#374151", marginBottom: "0.35rem" };
+  const inp: React.CSSProperties = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
+  const card: React.CSSProperties = { background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1rem" };
 
   if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
 
   return (
     <>
+      {/* Header */}
       <div style={{ marginBottom: "1.5rem", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Free Gift Promotion</h1>
-          <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Automatically offer a free gift when cart reaches a spend threshold</p>
+          <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Reward customers with a free gift when their cart reaches a spend milestone</p>
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", cursor: "pointer" }}>
-          <div style={{ position: "relative" as const }}>
-            <input type="checkbox" checked={promo.active} onChange={e => setPromo(p => ({ ...p, active: e.target.checked }))} style={{ opacity: 0, width: 0, height: 0, position: "absolute" as const }} />
-            <div style={{ width: 44, height: 24, borderRadius: 12, background: promo.active ? "#008060" : "#d1d5db", transition: "background 0.2s", cursor: "pointer" }} onClick={e => { e.preventDefault(); e.stopPropagation(); setPromo(p => ({ ...p, active: !p.active })); }}>
-              <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute" as const, top: 2, left: promo.active ? 22 : 2, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-            </div>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <Toggle on={promo.active} onToggle={() => setPromo(p => ({ ...p, active: !p.active }))} />
           <span style={{ fontSize: "0.875rem", fontWeight: 600, color: promo.active ? "#008060" : "#6d7175" }}>{promo.active ? "Active" : "Inactive"}</span>
-        </label>
+        </div>
       </div>
 
       {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
 
-      <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1rem" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+      {/* Gift Tiers */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
           <div>
-            <label style={labelStyle}>Spend threshold ({products[0] ? "store currency" : ""})</label>
-            <input type="number" min="1" style={inputStyle} value={promo.threshold} onChange={e => setPromo(p => ({ ...p, threshold: e.target.value }))} />
-            <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "#6d7175" }}>Cart must reach this amount to unlock the gift</p>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem", color: "#1a1a1a" }}>Gift Tiers</p>
+            <p style={{ margin: "0.15rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>Up to 3 milestones — each unlocks a different free gift</p>
           </div>
-          <div>
-            <label style={labelStyle}>Gift product</label>
-            <select style={inputStyle} value={promo.giftProductId} onChange={e => setPromo(p => ({ ...p, giftProductId: e.target.value, giftVariantId: "" }))}>
-              <option value="">Select product</option>
-              {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
-            </select>
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Progress bar message</label>
-            <input type="text" style={inputStyle} value={promo.message} onChange={e => setPromo(p => ({ ...p, message: e.target.value }))} />
-            <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "#6d7175" }}>Use {"{amount}"} to show remaining amount, e.g. "Add {"{amount}"} more for a free gift!"</p>
-          </div>
+          {promo.tiers.length < 3 && (
+            <button onClick={addTier} style={{ padding: "0.4rem 0.9rem", border: "1px solid #008060", borderRadius: "8px", background: "#fff", color: "#008060", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer" }}>
+              + Add Tier
+            </button>
+          )}
         </div>
 
-        {promo.giftProductId && (() => {
-          const gift = products.find(p => String(p.id) === promo.giftProductId);
-          return gift ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem", background: "#f9fafb", borderRadius: "8px", marginBottom: "1rem" }}>
-              {gift.image?.src && <img src={gift.image.src} alt={gift.title} style={{ width: 48, height: 48, borderRadius: "6px", objectFit: "cover" }} />}
+        {promo.tiers.map((tier, i) => (
+          <div key={i} style={{ border: "1px solid #e4e5e7", borderRadius: "10px", padding: "1rem", marginBottom: "0.75rem", background: "#fafafa" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tier {i + 1}</span>
+              {promo.tiers.length > 1 && (
+                <button onClick={() => removeTier(i)} style={{ border: "none", background: "none", color: "#c0392b", fontSize: "0.8rem", cursor: "pointer", padding: "0.2rem 0.4rem" }}>Remove</button>
+              )}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "0.75rem" }}>
               <div>
-                <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", color: "#1a1a1a" }}>{gift.title}</p>
-                <p style={{ margin: 0, fontSize: "0.8rem", color: "#6d7175" }}>Will be added free when threshold is met</p>
+                <label style={lbl}>Spend threshold</label>
+                <input type="number" min="1" style={inp} value={tier.threshold} onChange={e => updateTier(i, "threshold", e.target.value)} />
+              </div>
+              <div>
+                <label style={lbl}>Gift product</label>
+                <select style={inp} value={tier.giftProductId} onChange={e => updateTier(i, "giftProductId", e.target.value)}>
+                  <option value="">Select product</option>
+                  {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
+                </select>
               </div>
             </div>
-          ) : null;
-        })()}
-
-        <button onClick={handleSave} disabled={saving} style={{
-          padding: "0.6rem 1.5rem", background: saved ? "#1a6b3c" : "#008060", color: "#fff",
-          border: "none", borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600,
-          cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
-        }}>{saving ? "Saving…" : saved ? "✓ Saved!" : "Save Promotion"}</button>
+            {tier.giftProductId && (() => {
+              const gift = products.find(p => String(p.id) === tier.giftProductId);
+              return gift ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.75rem", padding: "0.6rem 0.75rem", background: "#f0fdf4", borderRadius: "8px" }}>
+                  {gift.image?.src && <img src={gift.image.src} alt={gift.title} style={{ width: 36, height: 36, borderRadius: "6px", objectFit: "cover" }} />}
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.8rem", color: "#1a1a1a" }}>{gift.title}</p>
+                    {gift.variants?.[0]?.price && (
+                      <p style={{ margin: 0, fontSize: "0.75rem", color: "#6d7175" }}>Worth ${Number(gift.variants[0].price).toFixed(2)} — free at ${tier.threshold}</p>
+                    )}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+          </div>
+        ))}
       </div>
 
+      {/* Messages */}
+      <div style={card}>
+        <p style={{ margin: "0 0 1rem", fontWeight: 700, fontSize: "0.95rem", color: "#1a1a1a" }}>Messages</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <div>
+            <label style={lbl}>Progress message</label>
+            <input type="text" style={inp} value={promo.message} onChange={e => setPromo(p => ({ ...p, message: e.target.value }))} />
+            <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#6d7175" }}>Use {"{amount}"} to show remaining spend</p>
+          </div>
+          <div>
+            <label style={lbl}>Unlocked message</label>
+            <input type="text" style={inp} value={promo.unlockedMessage} onChange={e => setPromo(p => ({ ...p, unlockedMessage: e.target.value }))} />
+            <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#6d7175" }}>Shown when all gifts are unlocked</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Appearance & Schedule */}
+      <div style={card}>
+        <p style={{ margin: "0 0 1rem", fontWeight: 700, fontSize: "0.95rem", color: "#1a1a1a" }}>Appearance & Schedule</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
+          <div>
+            <label style={lbl}>Bar color</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <input type="color" value={promo.barColor} onChange={e => setPromo(p => ({ ...p, barColor: e.target.value }))}
+                style={{ width: 40, height: 36, border: "1px solid #d1d5db", borderRadius: "6px", padding: 2, cursor: "pointer" }} />
+              <input type="text" value={promo.barColor} onChange={e => setPromo(p => ({ ...p, barColor: e.target.value }))}
+                style={{ ...inp, width: "auto", flex: 1 }} maxLength={7} />
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Start date (optional)</label>
+            <input type="datetime-local" style={inp} value={promo.startsAt ? promo.startsAt.slice(0, 16) : ""} onChange={e => setPromo(p => ({ ...p, startsAt: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+          </div>
+          <div>
+            <label style={lbl}>End date (optional)</label>
+            <input type="datetime-local" style={inp} value={promo.endsAt ? promo.endsAt.slice(0, 16) : ""} onChange={e => setPromo(p => ({ ...p, endsAt: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+          </div>
+        </div>
+      </div>
+
+      {/* Widget Preview */}
+      <WidgetPreview promo={promo} products={products} />
+
+      {/* Save */}
+      <button onClick={handleSave} disabled={saving} style={{
+        padding: "0.65rem 1.75rem", background: saved ? "#1a6b3c" : "#008060", color: "#fff",
+        border: "none", borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600,
+        cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, marginBottom: "1rem",
+      }}>{saving ? "Saving…" : saved ? "✓ Saved!" : "Save Promotion"}</button>
+
+      {/* Setup instructions */}
       <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "1rem 1.25rem" }}>
         <p style={{ margin: "0 0 0.5rem", fontWeight: 600, fontSize: "0.875rem", color: "#1a6b3c" }}>How to activate on your store</p>
         <ol style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.8rem", color: "#374151", lineHeight: 1.7 }}>
-          <li>Set up the promotion above and click Save</li>
+          <li>Configure tiers above and click <strong>Save Promotion</strong></li>
           <li>Go to <strong>Online Store → Themes → Customize → Cart page</strong></li>
           <li>Add the <strong>Free Gift Progress Bar</strong> block from Apps</li>
           <li>Toggle <strong>Active</strong> above to turn it on or off anytime</li>

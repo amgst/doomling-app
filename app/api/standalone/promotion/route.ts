@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
-import { getPromotion, savePromotion } from "@/lib/firebase/promotionStore";
+import { getPromotion, savePromotion, type PromotionTier } from "@/lib/firebase/promotionStore";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 
 export const runtime = "nodejs";
@@ -75,6 +75,20 @@ async function deleteShopifyDiscount(shop: string, token: string, discountId: st
   `, { id: discountId });
 }
 
+async function fetchVariantId(shop: string, token: string, productId: string): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://${shop}/admin/api/2024-01/products/${productId}.json?fields=variants`,
+      { headers: { "X-Shopify-Access-Token": token } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      return String(data.product?.variants?.[0]?.id ?? "");
+    }
+  } catch {}
+  return "";
+}
+
 export async function GET(req: NextRequest) {
   const shop = await getShop(req);
   if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -90,43 +104,35 @@ export async function POST(req: NextRequest) {
   const sessionId = `offline_${shop}`;
   const session = await firestoreSessionStorage.loadSession(sessionId);
 
-  // If variantId is missing but we have a product ID, fetch it from Shopify Admin API
-  if (!body.giftVariantId && body.giftProductId && session?.accessToken) {
-    try {
-      const res = await fetch(
-        `https://${shop}/admin/api/2024-01/products/${body.giftProductId}.json?fields=variants`,
-        { headers: { "X-Shopify-Access-Token": session.accessToken } }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        body.giftVariantId = String(data.product?.variants?.[0]?.id ?? "");
+  // Resolve variantIds for any tier missing them
+  if (session?.accessToken && Array.isArray(body.tiers)) {
+    for (const tier of body.tiers as PromotionTier[]) {
+      if (!tier.giftVariantId && tier.giftProductId) {
+        tier.giftVariantId = await fetchVariantId(shop, session.accessToken, tier.giftProductId);
       }
-    } catch {}
+    }
   }
 
-  // Read existing discountId before saving (merge won't delete it, but we need it for sync)
   const existing = await getPromotion(shop);
   await savePromotion(shop, body);
 
   // Sync Shopify Automatic Discount (best-effort)
   if (session?.accessToken) {
     try {
-      const config = JSON.stringify({
-        threshold: Number(body.threshold) || 50,
-        giftVariantId: body.giftVariantId,
-      });
+      const validTiers = (body.tiers as PromotionTier[] ?? [])
+        .filter(t => t.giftVariantId)
+        .map(t => ({ threshold: Number(t.threshold) || 50, giftVariantId: t.giftVariantId }));
 
-      if (body.active && body.giftVariantId) {
+      const config = JSON.stringify({ tiers: validTiers });
+
+      if (body.active && validTiers.length > 0) {
         if (existing.discountId) {
-          // Update metafields on the existing discount
           await updateDiscountConfig(shop, session.accessToken, existing.discountId, config);
         } else {
-          // Create a new Shopify Automatic Discount linked to the function
           const discountId = await createShopifyDiscount(shop, session.accessToken, config);
           if (discountId) await savePromotion(shop, { discountId });
         }
       } else if (!body.active && existing.discountId) {
-        // Remove the discount when promotion is deactivated
         await deleteShopifyDiscount(shop, session.accessToken, existing.discountId);
         await savePromotion(shop, { discountId: "" });
       }

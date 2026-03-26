@@ -10,40 +10,50 @@ import { ProductDiscountSelectionStrategy } from '../generated/api';
  * @returns {CartLinesDiscountsGenerateRunResult}
  */
 export function cartLinesDiscountsGenerateRun(input) {
-  // Read promotion config from discount metafield
   const meta = input.discount?.metafield;
   if (!meta?.value) return { operations: [] };
 
   let config;
   try { config = JSON.parse(meta.value); } catch { return { operations: [] }; }
 
-  const { threshold, giftVariantId } = config;
-  if (!threshold || !giftVariantId) return { operations: [] };
+  // Support both old flat format and new tiers format
+  let tiers = config.tiers;
+  if (!tiers && config.threshold && config.giftVariantId) {
+    tiers = [{ threshold: config.threshold, giftVariantId: config.giftVariantId }];
+  }
+  if (!tiers?.length) return { operations: [] };
 
-  const giftGid = `gid://shopify/ProductVariant/${giftVariantId}`;
+  // Collect all gift GIDs so we can exclude them from the threshold calculation
+  const giftGids = new Set(
+    tiers.map(t => `gid://shopify/ProductVariant/${t.giftVariantId}`)
+  );
 
-  // Find the gift line in cart
-  const giftLine = input.cart.lines.find(line => line.merchandise?.id === giftGid);
-  if (!giftLine) return { operations: [] };
-
-  // Sum subtotal of non-gift lines to check threshold
+  // Sum subtotal of non-gift lines
   const nonGiftSubtotal = input.cart.lines
-    .filter(line => line.merchandise?.id !== giftGid)
+    .filter(line => !giftGids.has(line.merchandise?.id))
     .reduce((sum, line) => sum + parseFloat(line.cost.subtotalAmount.amount), 0);
 
-  if (nonGiftSubtotal < parseFloat(threshold)) return { operations: [] };
+  const operations = [];
 
-  // Apply 100% discount to the gift line
-  return {
-    operations: [{
-      productDiscountsAdd: {
-        candidates: [{
-          message: 'Free Gift',
-          targets: [{ cartLine: { id: giftLine.id } }],
-          value: { percentage: { value: 100 } },
-        }],
-        selectionStrategy: ProductDiscountSelectionStrategy.First,
-      },
-    }],
-  };
+  for (const tier of tiers) {
+    if (!tier.giftVariantId) continue;
+    const giftGid = `gid://shopify/ProductVariant/${tier.giftVariantId}`;
+    const giftLine = input.cart.lines.find(line => line.merchandise?.id === giftGid);
+    if (!giftLine) continue;
+
+    if (nonGiftSubtotal >= parseFloat(tier.threshold)) {
+      operations.push({
+        productDiscountsAdd: {
+          candidates: [{
+            message: 'Free Gift',
+            targets: [{ cartLine: { id: giftLine.id } }],
+            value: { percentage: { value: 100 } },
+          }],
+          selectionStrategy: ProductDiscountSelectionStrategy.First,
+        },
+      });
+    }
+  }
+
+  return { operations };
 }
