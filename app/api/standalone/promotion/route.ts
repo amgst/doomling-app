@@ -20,14 +20,36 @@ async function gqlAdmin(shop: string, token: string, query: string, variables?: 
   return res.json();
 }
 
-// The function GID is stable and derived directly from the uid in shopify.extension.toml.
-// No need to query shopifyFunctions (which requires read_functions scope we don't have).
-const FUNCTION_UID = "ca9f669b-dd58-1d8c-2599-4e065cc68d8e310c87c1";
-const FUNCTION_GID = `gid://shopify/ShopifyFunction/${FUNCTION_UID}`;
+const EXTENSION_HANDLE = "upsale-discount";
+
+async function getFunctionGid(shop: string, token: string): Promise<string | null> {
+  const data = await gqlAdmin(shop, token, `{
+    shopifyFunctions(first: 25) {
+      nodes { id apiType handle }
+    }
+  }`);
+  const nodes: { id: string; apiType: string; handle: string }[] =
+    data?.data?.shopifyFunctions?.nodes ?? [];
+
+  // Prefer exact handle match, then fall back to any discount-type function from this app
+  const fn =
+    nodes.find(f => f.handle === EXTENSION_HANDLE) ??
+    nodes.find(f =>
+      ["discount", "cart_lines_discounts_generate_run", "CART_LINES_DISCOUNTS_GENERATE_RUN"]
+        .includes(f.apiType) ||
+      f.apiType?.toLowerCase().replace(/[-\.]/g, "_").includes("cart_lines_discounts")
+    );
+  return fn?.id ?? null;
+}
 
 async function createShopifyDiscount(
   shop: string, token: string, config: string
 ): Promise<{ discountId: string | null; error: string | null }> {
+  const functionId = await getFunctionGid(shop, token);
+  if (!functionId) {
+    return { discountId: null, error: "Shopify Function not found — run: shopify app deploy --allow-updates" };
+  }
+
   const data = await gqlAdmin(shop, token, `
     mutation CreateDiscount($input: DiscountAutomaticAppInput!) {
       discountAutomaticAppCreate(automaticAppDiscount: $input) {
@@ -38,7 +60,7 @@ async function createShopifyDiscount(
   `, {
     input: {
       title: "Upsale Free Gift",
-      functionId: FUNCTION_GID,
+      functionId,
       startsAt: "2020-01-01T00:00:00Z",
       metafields: [{ namespace: "upsale", key: "config", type: "json", value: config }],
     },
