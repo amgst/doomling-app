@@ -20,35 +20,13 @@ async function gqlAdmin(shop: string, token: string, query: string, variables?: 
   return res.json();
 }
 
-const EXTENSION_HANDLE = "upsale-discount";
-
-async function getFunctionGid(shop: string, token: string): Promise<string | null> {
-  const data = await gqlAdmin(shop, token, `{
-    shopifyFunctions(first: 25) {
-      nodes { id apiType handle }
-    }
-  }`);
-  const nodes: { id: string; apiType: string; handle: string }[] =
-    data?.data?.shopifyFunctions?.nodes ?? [];
-
-  // Prefer exact handle match, then fall back to any discount-type function from this app
-  const fn =
-    nodes.find(f => f.handle === EXTENSION_HANDLE) ??
-    nodes.find(f =>
-      ["discount", "cart_lines_discounts_generate_run", "CART_LINES_DISCOUNTS_GENERATE_RUN"]
-        .includes(f.apiType) ||
-      f.apiType?.toLowerCase().replace(/[-\.]/g, "_").includes("cart_lines_discounts")
-    );
-  return fn?.id ?? null;
-}
+// uid from extensions/upsale-discount/shopify.extension.toml — stable after first deploy
+const FUNCTION_GID = "gid://shopify/ShopifyFunction/ca9f669b-dd58-1d8c-2599-4e065cc68d8e310c87c1";
 
 async function createShopifyDiscount(
   shop: string, token: string, config: string
 ): Promise<{ discountId: string | null; error: string | null }> {
-  const functionId = await getFunctionGid(shop, token);
-  if (!functionId) {
-    return { discountId: null, error: "Shopify Function not found — run: shopify app deploy --allow-updates" };
-  }
+  const functionId = FUNCTION_GID;
 
   const data = await gqlAdmin(shop, token, `
     mutation CreateDiscount($input: DiscountAutomaticAppInput!) {
