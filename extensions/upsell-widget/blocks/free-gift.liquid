@@ -99,8 +99,6 @@
   var promotion = null;
   var prevUnlocked = [];
   var syncing = false;
-  var ownCartOp = false;
-  var opRetries = {};  // variantId → fail count for both add and remove
 
   var fmt = function (n) {
     try {
@@ -254,7 +252,7 @@
     renderUI(tiers, unlockedSet, nonGiftTotal);
     prevUnlocked = unlockedSet;
 
-    // Build add/remove ops — skip ops that have failed too many times
+    // Build add/remove ops
     var ops = [];
     for (var i = 0; i < tiers.length; i++) {
       var tier = tiers[i];
@@ -262,12 +260,11 @@
       var vid = String(tier.giftVariantId);
       var inCart = cartVids.indexOf(vid) !== -1;
       var shouldBeInCart = unlockedSet.indexOf(i) !== -1;
-      var retryKey = (shouldBeInCart ? 'add_' : 'rem_') + vid;
 
-      if (shouldBeInCart && !inCart && (opRetries[retryKey] || 0) < 3) {
-        ops.push({ type: 'add', variantId: vid, retryKey: retryKey });
-      } else if (!shouldBeInCart && inCart && cartKeys[vid] && (opRetries['rem_' + vid] || 0) < 3) {
-        ops.push({ type: 'remove', key: cartKeys[vid], retryKey: 'rem_' + vid });
+      if (shouldBeInCart && !inCart) {
+        ops.push({ type: 'add', variantId: vid });
+      } else if (!shouldBeInCart && inCart && cartKeys[vid]) {
+        ops.push({ type: 'remove', key: cartKeys[vid] });
       }
     }
 
@@ -279,6 +276,7 @@
       pending--;
       if (pending === 0) {
         syncing = false;
+        // Re-fetch cart and re-render to reflect new cart state
         fetchCart(function (updated) {
           if (!updated) return;
           var giftVidsInner = tiers.filter(function (t) { return t.giftVariantId; }).map(function (t) { return String(t.giftVariantId); });
@@ -298,7 +296,7 @@
           }
           prevUnlocked = newUnlocked;
           renderUI(tiers, newUnlocked, newNonGift);
-          // No refreshCartSections here — already called in op .then() to avoid double event firing
+          refreshCartSections(null);
         });
       }
     };
@@ -308,12 +306,15 @@
       'cart-notification-product', 'cart-notification-button'];
 
     function refreshCartSections(sectionsData) {
+      // If the cart op returned rendered sections, use them immediately
       if (sectionsData) {
         Object.keys(sectionsData).forEach(function (id) {
           var el = document.getElementById('shopify-section-' + id);
+          // Never replace the section that contains our own widget
           if (el && !el.contains(root)) el.outerHTML = sectionsData[id];
         });
       } else {
+        // Fallback: fetch fresh section HTML via Sections Rendering API
         fetch('/cart?sections=' + CART_SECTIONS.join(','))
           .then(function (r) { return r.json(); })
           .then(function (data) {
@@ -324,6 +325,7 @@
           })
           .catch(function () {});
       }
+      // Also fire events for themes with custom cart drawers
       document.dispatchEvent(new CustomEvent('cart:change', { bubbles: true }));
       document.dispatchEvent(new CustomEvent('cart:refresh', { bubbles: true }));
       document.dispatchEvent(new Event('cart:updated'));
@@ -331,45 +333,26 @@
 
     for (var o = 0; o < ops.length; o++) {
       (function (op) {
-        ownCartOp = true;
         if (op.type === 'add') {
           fetch('/cart/add.js', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: parseInt(op.variantId, 10), quantity: 1,
+              id: parseInt(op.variantId), quantity: 1,
               properties: { _free_gift: 'true', _upsale: 'true' },
               sections: CART_SECTIONS
             })
           }).then(function (r) { return r.json(); })
-            .then(function (data) {
-              ownCartOp = false;
-              opRetries[op.retryKey] = 0;
-              refreshCartSections(data.sections || null);
-              done();
-            })
-            .catch(function () {
-              ownCartOp = false;
-              opRetries[op.retryKey] = (opRetries[op.retryKey] || 0) + 1;
-              done();
-            });
+            .then(function (data) { refreshCartSections(data.sections || null); done(); })
+            .catch(done);
         } else {
           fetch('/cart/change.js', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: op.key, quantity: 0, sections: CART_SECTIONS })
           }).then(function (r) { return r.json(); })
-            .then(function (data) {
-              ownCartOp = false;
-              opRetries[op.retryKey] = 0;
-              refreshCartSections(data.sections || null);
-              done();
-            })
-            .catch(function () {
-              ownCartOp = false;
-              opRetries[op.retryKey] = (opRetries[op.retryKey] || 0) + 1;
-              done();
-            });
+            .then(function (data) { refreshCartSections(data.sections || null); done(); })
+            .catch(done);
         }
       })(ops[o]);
     }
@@ -378,8 +361,7 @@
   var updateTimer = null;
   function scheduleUpdate() {
     if (updateTimer) clearTimeout(updateTimer);
-    opRetries = {}; // reset retry counts on each new user-triggered cart change
-    updateTimer = setTimeout(function () { fetchCart(syncAndRender); }, 600);
+    updateTimer = setTimeout(function () { fetchCart(syncAndRender); }, 350);
   }
 
   // Fetch promotion config then initialise
@@ -414,18 +396,18 @@
   // Intercept XHR cart mutations for themes that don't fire custom events
   var _origXhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
-    if (!ownCartOp && typeof url === 'string' && /\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
+    if (typeof url === 'string' && /\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
       this.addEventListener('load', scheduleUpdate);
     }
     return _origXhrOpen.apply(this, arguments);
   };
 
-  // Intercept fetch cart mutations — skip our own ops to avoid double-triggering
+  // Intercept fetch cart mutations
   var _origFetch = window.fetch;
   window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : (input && input.url) || '';
     var result = _origFetch.apply(this, arguments);
-    if (!ownCartOp && /\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
+    if (/\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
       result.then(scheduleUpdate).catch(function () {});
     }
     return result;
