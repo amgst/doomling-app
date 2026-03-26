@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const fnRes = await fetch(`https://${shop}/admin/api/2024-01/graphql.json`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": session.accessToken },
-    body: JSON.stringify({ query: `{ shopifyFunctions(first: 25) { nodes { id apiType handle } } }` }),
+    body: JSON.stringify({ query: `{ shopifyFunctions(first: 25) { nodes { id apiType } } }` }),
   });
   const fnData = await fnRes.json();
 
