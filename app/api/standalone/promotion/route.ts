@@ -20,13 +20,26 @@ async function gqlAdmin(shop: string, token: string, query: string, variables?: 
   return res.json();
 }
 
-// uid from extensions/upsale-discount/shopify.extension.toml — stable after first deploy
-const FUNCTION_GID = "gid://shopify/ShopifyFunction/ca9f669b-dd58-1d8c-2599-4e065cc68d8e310c87c1";
+async function getFunctionGid(shop: string, token: string): Promise<string | null> {
+  const data = await gqlAdmin(shop, token, `{
+    shopifyFunctions(first: 25) { nodes { id apiType } }
+  }`);
+  const nodes: { id: string; apiType: string }[] = data?.data?.shopifyFunctions?.nodes ?? [];
+  // Match any discount-type function belonging to this app
+  const fn = nodes.find(f =>
+    f.apiType === "discount" ||
+    f.apiType?.toLowerCase().replace(/[-. ]/g, "_").includes("discount")
+  );
+  return fn ? `gid://shopify/ShopifyFunction/${fn.id}` : null;
+}
 
 async function createShopifyDiscount(
   shop: string, token: string, config: string
 ): Promise<{ discountId: string | null; error: string | null }> {
-  const functionId = FUNCTION_GID;
+  const functionId = await getFunctionGid(shop, token);
+  if (!functionId) {
+    return { discountId: null, error: "Shopify Function not found. Run: shopify app deploy --allow-updates" };
+  }
 
   const data = await gqlAdmin(shop, token, `
     mutation CreateDiscount($input: DiscountAutomaticAppInput!) {
