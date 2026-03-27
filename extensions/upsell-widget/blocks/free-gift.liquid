@@ -99,6 +99,7 @@
   var promotion = null;
   var prevUnlocked = [];
   var syncing = false;
+  var lastCartItems = [];
 
   var fmt = function (n) {
     try {
@@ -228,6 +229,7 @@
     var nonGiftTotal = 0;
     var cartVids = [];
     var cartKeys = {};
+    lastCartItems = cart ? cart.items.slice() : [];
     if (cart) {
       for (var i = 0; i < cart.items.length; i++) {
         var item = cart.items[i];
@@ -397,6 +399,53 @@
   var _origFetch = window.fetch;
   window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : (input && input.url) || '';
+
+    // For remove ops: immediately remove gifts in parallel using last known cart state
+    if (!syncing && /\/cart\/(change|update)(\.js)?/.test(url) && init && init.body && lastCartItems.length && promotion && promotion.tiers) {
+      try {
+        var reqBody = JSON.parse(init.body);
+        if (reqBody.quantity === 0 || reqBody.quantity === '0') {
+          var rtiers = promotion.tiers.slice().sort(function (a, b) { return a.threshold - b.threshold; });
+          var rgiftVids = rtiers.map(function (t) { return t.giftVariantId ? String(t.giftVariantId) : ''; }).filter(Boolean);
+          var removedId = String(reqBody.id);
+          var rNewNonGift = 0;
+          var rGiftsInCart = {};
+          for (var ri = 0; ri < lastCartItems.length; ri++) {
+            var rit = lastCartItems[ri];
+            if (String(rit.key) === removedId || String(rit.variant_id) === removedId) continue;
+            var rvid = String(rit.variant_id);
+            if (rgiftVids.indexOf(rvid) !== -1) rGiftsInCart[rvid] = rit.key;
+            else rNewNonGift += rit.line_price / 100;
+          }
+          var rOps = [];
+          for (var rj = 0; rj < rtiers.length; rj++) {
+            if (!rtiers[rj].giftVariantId) continue;
+            var rgvid = String(rtiers[rj].giftVariantId);
+            if (rGiftsInCart[rgvid] && rNewNonGift < rtiers[rj].threshold) {
+              rOps.push(rGiftsInCart[rgvid]);
+            }
+          }
+          if (rOps.length) {
+            syncing = true;
+            var rPending = rOps.length;
+            var rDone = function () {
+              rPending--;
+              if (rPending === 0) { syncing = false; scheduleUpdate(); }
+            };
+            for (var rk = 0; rk < rOps.length; rk++) {
+              (function (giftKey) {
+                _origFetch('/cart/change.js', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: giftKey, quantity: 0 })
+                }).then(rDone).catch(rDone);
+              })(rOps[rk]);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     var result = _origFetch.apply(this, arguments);
     if (/\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
       result.then(scheduleUpdate).catch(function () {});
