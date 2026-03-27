@@ -276,18 +276,16 @@
       pending--;
       if (pending === 0) {
         syncing = false;
-        // Re-fetch cart and re-render to reflect new cart state
+        // Cancel any pending scheduleUpdate to prevent stale-cart re-trigger
+        if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
+        // Re-fetch cart and re-render widget UI only (sections already refreshed above)
         fetchCart(function (updated) {
           if (!updated) return;
           var giftVidsInner = tiers.filter(function (t) { return t.giftVariantId; }).map(function (t) { return String(t.giftVariantId); });
           var newNonGift = 0;
-          var newVids = [];
-          var newKeys = {};
           for (var j = 0; j < updated.items.length; j++) {
             var it = updated.items[j];
             var v = String(it.variant_id);
-            newVids.push(v);
-            newKeys[v] = it.key;
             if (giftVidsInner.indexOf(v) === -1) newNonGift += it.line_price / 100;
           }
           var newUnlocked = [];
@@ -296,7 +294,6 @@
           }
           prevUnlocked = newUnlocked;
           renderUI(tiers, newUnlocked, newNonGift);
-          refreshCartSections(null);
         });
       }
     };
