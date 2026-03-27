@@ -333,7 +333,7 @@
     for (var o = 0; o < ops.length; o++) {
       (function (op) {
         if (op.type === 'add') {
-          fetch('/cart/add.js', {
+          _origFetch('/cart/add.js', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -345,7 +345,7 @@
             .then(function (data) { refreshCartSections(data.sections || null); done(); })
             .catch(done);
         } else {
-          fetch('/cart/change.js', {
+          _origFetch('/cart/change.js', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: op.key, quantity: 0, sections: CART_SECTIONS })
