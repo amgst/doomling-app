@@ -66,10 +66,14 @@ export default function DashboardShell({
   children,
   activeTab,
   shopDomain,
+  storeUrl,
+  adminUrl,
 }: {
   children: React.ReactNode;
   activeTab?: TabKey;
   shopDomain?: string;
+  storeUrl?: string;
+  adminUrl?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -111,27 +115,39 @@ export default function DashboardShell({
 
         {/* Store badge */}
         {shopDomain && (
-          <div style={{
-            margin: "0.75rem 1rem 0",
-            padding: "0.45rem 0.75rem",
-            background: "#f9fafb",
-            borderRadius: "8px",
-            border: "1px solid #e5e7eb",
-            fontSize: "0.78rem",
-            color: "#374151",
-            fontWeight: 500,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.4rem",
-            overflow: "hidden",
-          }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%", background: "#16a34a", flexShrink: 0,
-            }} />
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <a
+            href={storeUrl ?? `https://${shopDomain}`}
+            target="_blank"
+            rel="noreferrer"
+            title="Open online store"
+            style={{
+              margin: "0.75rem 1rem 0",
+              padding: "0.45rem 0.75rem",
+              background: "#f9fafb",
+              borderRadius: "8px",
+              border: "1px solid #e5e7eb",
+              fontSize: "0.78rem",
+              color: "#374151",
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              overflow: "hidden",
+              textDecoration: "none",
+              cursor: "pointer",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
+            onMouseLeave={e => (e.currentTarget.style.background = "#f9fafb")}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", flexShrink: 0 }} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
               {shopDomain.replace(".myshopify.com", "")}
             </span>
-          </div>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.5 }}>
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </a>
         )}
 
         {/* Nav */}
@@ -227,27 +243,35 @@ export default function DashboardShell({
           <p style={{ margin: 0, fontWeight: 600, fontSize: "0.95rem", color: "#111827" }}>
             {TABS.find(t => t.key === tab)?.label ?? "Dashboard"}
           </p>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <a
-              href="https://apps.shopify.com"
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                fontSize: "0.78rem",
-                color: "#6b7280",
-                textDecoration: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.3rem",
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            {adminUrl && (
+              <a href={adminUrl} target="_blank" rel="noreferrer" style={{
+                fontSize: "0.78rem", color: "#6b7280", textDecoration: "none",
+                display: "flex", alignItems: "center", gap: "0.3rem",
               }}
-            >
-              Online Store
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                <polyline points="15 3 21 3 21 9" />
-                <line x1="10" y1="14" x2="21" y2="3" />
-              </svg>
-            </a>
+                onMouseEnter={e => (e.currentTarget.style.color = "#111827")}
+                onMouseLeave={e => (e.currentTarget.style.color = "#6b7280")}
+              >
+                Shopify Admin
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            )}
+            {storeUrl && (
+              <a href={storeUrl} target="_blank" rel="noreferrer" style={{
+                fontSize: "0.78rem", color: "#6b7280", textDecoration: "none",
+                display: "flex", alignItems: "center", gap: "0.3rem",
+              }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#111827")}
+                onMouseLeave={e => (e.currentTarget.style.color = "#6b7280")}
+              >
+                Online Store
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            )}
           </div>
         </div>
 

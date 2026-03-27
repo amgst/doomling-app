@@ -112,7 +112,7 @@ function StatCard({ title, value, sub, trend }: { title: string; value: string; 
   );
 }
 
-function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => void }) {
+function OverviewTab({ days, setDays, storeName }: { days: string; setDays: (d: string) => void; storeName?: string }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -180,7 +180,7 @@ function OverviewTab({ days, setDays }: { days: string; setDays: (d: string) => 
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "#1a1a1a" }}>
-            Welcome back, Doomlings 👋
+            Welcome back{storeName ? `, ${storeName}` : ""} 👋
           </h1>
           <p style={{ margin: "0.3rem 0 0", color: "#6b7280", fontSize: "0.875rem" }}>
             Here&apos;s how your store is performing.
@@ -1025,6 +1025,13 @@ function PromotionsTab() {
   );
 }
 
+interface ShopInfo {
+  shop: string;
+  storeName: string;
+  storeUrl: string;
+  adminUrl: string;
+}
+
 const VALID_TABS = ["overview", "products", "upsells", "promotions", "stats"] as const;
 type Tab = typeof VALID_TABS[number];
 
@@ -1035,10 +1042,18 @@ export default function DashboardPage() {
   const tab = VALID_TABS.includes(tabFromPath) ? tabFromPath : "overview";
 
   const [days, setDays] = useState("30");
+  const [shopInfo, setShopInfo] = useState<ShopInfo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/standalone/me")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.shop) setShopInfo(d); })
+      .catch(() => {});
+  }, []);
 
   return (
-    <DashboardShell>
-      {tab === "overview" && <OverviewTab days={days} setDays={setDays} />}
+    <DashboardShell shopDomain={shopInfo?.shop} storeUrl={shopInfo?.storeUrl} adminUrl={shopInfo?.adminUrl}>
+      {tab === "overview" && <OverviewTab days={days} setDays={setDays} storeName={shopInfo?.storeName} />}
       {tab === "products" && <ProductsTab />}
       {tab === "upsells" && <UpsellsTab />}
       {tab === "promotions" && <PromotionsTab />}
