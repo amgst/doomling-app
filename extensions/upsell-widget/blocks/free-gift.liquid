@@ -99,6 +99,7 @@
   var promotion = null;
   var prevUnlocked = [];
   var syncing = false;
+  var lastOpTime = 0;
 
   var fmt = function (n) {
     try {
@@ -269,6 +270,7 @@
     }
 
     if (ops.length === 0 || syncing) return;
+    if (Date.now() - lastOpTime < 1000) return;
     syncing = true;
 
     var pending = ops.length;
@@ -276,6 +278,7 @@
       pending--;
       if (pending === 0) {
         syncing = false;
+        lastOpTime = Date.now();
         // Cancel any pending scheduleUpdate to prevent stale-cart re-trigger
         if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
         // Re-fetch cart and re-render widget UI only (sections already refreshed above)
@@ -383,12 +386,6 @@
       fetchCart(syncAndRender);
     })
     .catch(function () {});
-
-  // Cart change listeners (works across Dawn, Debut, and custom themes)
-  document.addEventListener('cart:change', scheduleUpdate);
-  document.addEventListener('cart:refresh', scheduleUpdate);
-  document.addEventListener('cart:updated', scheduleUpdate);
-  document.addEventListener('cart:update', scheduleUpdate);
 
   // Intercept XHR cart mutations for themes that don't fire custom events
   var _origXhrOpen = XMLHttpRequest.prototype.open;
