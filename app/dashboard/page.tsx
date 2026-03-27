@@ -672,7 +672,9 @@ function StatsTab() {
           </table>
         )}
       </div>
-
+    </>
+  );
+}
 
 interface ShopInfo {
   shop: string;
