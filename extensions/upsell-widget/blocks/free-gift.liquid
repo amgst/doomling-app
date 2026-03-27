@@ -276,9 +276,7 @@
       pending--;
       if (pending === 0) {
         syncing = false;
-        // Cancel any pending scheduleUpdate to prevent stale-cart re-trigger
-        if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
-        // Re-fetch cart and re-render widget UI only (sections already refreshed above)
+        // Re-fetch cart and re-render widget UI after ops complete
         fetchCart(function (updated) {
           if (!updated) return;
           var giftVidsInner = tiers.filter(function (t) { return t.giftVariantId; }).map(function (t) { return String(t.giftVariantId); });
@@ -355,12 +353,6 @@
     }
   }
 
-  var updateTimer = null;
-  function scheduleUpdate() {
-    if (updateTimer) clearTimeout(updateTimer);
-    updateTimer = setTimeout(function () { fetchCart(syncAndRender); }, 350);
-  }
-
   // Fetch promotion config then initialise
   fetch(apiBase + '/api/promotion?shop=' + encodeURIComponent(shop))
     .then(function (r) { return r.json(); })
@@ -384,25 +376,6 @@
     })
     .catch(function () {});
 
-  // Intercept XHR cart mutations for themes that don't fire custom events
-  var _origXhrOpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (method, url) {
-    if (typeof url === 'string' && /\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
-      this.addEventListener('load', scheduleUpdate);
-    }
-    return _origXhrOpen.apply(this, arguments);
-  };
-
-  // Intercept fetch cart mutations
-  var _origFetch = window.fetch;
-  window.fetch = function (input, init) {
-    var url = typeof input === 'string' ? input : (input && input.url) || '';
-    var result = _origFetch.apply(this, arguments);
-    if (/\/(add|change|update)(\.js)?/.test(url) && url.indexOf('/cart') !== -1) {
-      result.then(scheduleUpdate).catch(function () {});
-    }
-    return result;
-  };
 })();
 </script>
 
