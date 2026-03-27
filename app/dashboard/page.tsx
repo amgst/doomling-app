@@ -112,127 +112,21 @@ function StatCard({ title, value, sub, trend }: { title: string; value: string; 
   );
 }
 
-type CheckStatus = "ok" | "warn" | "error" | "loading";
-interface CheckItem { label: string; detail: string; status: CheckStatus; }
-
-function StatusIcon({ status }: { status: CheckStatus }) {
-  if (status === "loading") return <span style={{ display: "inline-block", width: 20, height: 20, borderRadius: "50%", border: "2px solid #d1d5db", borderTopColor: "#6b7280", animation: "spin 0.8s linear infinite" }} />;
-  if (status === "ok") return <span style={{ color: "#16a34a", fontSize: "1rem", lineHeight: 1 }}>✓</span>;
-  if (status === "warn") return <span style={{ color: "#d97706", fontSize: "1rem", lineHeight: 1 }}>⚠</span>;
-  return <span style={{ color: "#dc2626", fontSize: "1rem", lineHeight: 1 }}>✗</span>;
-}
-
 function AppHealthCheck({ storeName }: { storeName?: string }) {
-  const [checks, setChecks] = useState<CheckItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rules, setRules] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/standalone/promotion").then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch("/api/standalone/upsells").then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([promoData, upsellData]) => {
-      const items: CheckItem[] = [];
-
-      // 1. Store connected
-      items.push(storeName
-        ? { label: "Store connected", detail: `${storeName}.myshopify.com`, status: "ok" }
-        : { label: "Store connected", detail: "No store session found", status: "error" }
-      );
-
-      // 2. Free gift promotion
-      const promo = promoData?.promotion;
-      if (!promo) {
-        items.push({ label: "Free gift promotion", detail: "Not configured", status: "warn" });
-      } else if (!promo.active) {
-        items.push({ label: "Free gift promotion", detail: "Saved but inactive — toggle Active to enable", status: "warn" });
-      } else {
-        const tiers: { giftProductId?: string; giftVariantId?: string; threshold?: string }[] = promo.tiers ?? [];
-        const missingProduct = tiers.some(t => !t.giftProductId);
-        const missingVariant = tiers.some(t => t.giftProductId && !t.giftVariantId);
-        const missingThreshold = tiers.some(t => !t.threshold || Number(t.threshold) <= 0);
-        if (missingProduct) {
-          items.push({ label: "Free gift promotion", detail: "One or more tiers missing a gift product", status: "error" });
-        } else if (missingVariant) {
-          items.push({ label: "Free gift promotion", detail: "Variant ID not resolved — re-save the promotion to fix", status: "error" });
-        } else if (missingThreshold) {
-          items.push({ label: "Free gift promotion", detail: "One or more tiers have no spend threshold set", status: "error" });
-        } else {
-          items.push({ label: "Free gift promotion", detail: `Active · ${tiers.length} tier${tiers.length !== 1 ? "s" : ""} configured`, status: "ok" });
-        }
-      }
-
-      // 3. Gift variant IDs resolved
-      const tiers: { giftProductId?: string; giftVariantId?: string }[] = promo?.tiers ?? [];
-      const tiersWithProduct = tiers.filter(t => t.giftProductId);
-      if (tiersWithProduct.length === 0) {
-        items.push({ label: "Gift variant IDs", detail: "No gift products selected yet", status: "warn" });
-      } else {
-        const allResolved = tiersWithProduct.every(t => t.giftVariantId);
-        items.push(allResolved
-          ? { label: "Gift variant IDs", detail: `All ${tiersWithProduct.length} resolved — widget can add gifts to cart`, status: "ok" }
-          : { label: "Gift variant IDs", detail: "Some variant IDs missing — open Free Gift tab and re-save", status: "error" }
-        );
-      }
-
-      // 4. Upsell rules
-      const rules = upsellData?.rules ?? [];
-      if (rules.length === 0) {
-        items.push({ label: "Upsell rules", detail: "No upsell rules configured yet", status: "warn" });
-      } else {
-        items.push({ label: "Upsell rules", detail: `${rules.length} rule${rules.length !== 1 ? "s" : ""} active`, status: "ok" });
-      }
-
-      // 5. Widget installation reminder
-      items.push({ label: "Widget in theme", detail: "Manually verify: Theme Editor → Add block → Free Gift Progress Bar", status: "warn" });
-
-      setChecks(items);
-      setLoading(false);
-    });
+    fetch("/api/standalone/upsells").then(r => r.ok ? r.json() : null).catch(() => null)
+      .then(d => setRules(d?.rules?.length ?? 0));
   }, [storeName]);
 
-  const hasErrors = checks.some(c => c.status === "error");
-  const hasWarns = checks.some(c => c.status === "warn");
-  const overall = hasErrors ? "error" : hasWarns ? "warn" : "ok";
-  const overallColor = overall === "ok" ? "#16a34a" : overall === "warn" ? "#d97706" : "#dc2626";
-  const overallBg = overall === "ok" ? "#f0fdf4" : overall === "warn" ? "#fffbeb" : "#fff4f4";
-  const overallBorder = overall === "ok" ? "#bbf7d0" : overall === "warn" ? "#fde68a" : "#ffd2d2";
-  const overallLabel = overall === "ok" ? "All systems go" : overall === "warn" ? "Setup incomplete" : "Action required";
-
   return (
-    <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.75rem", overflow: "hidden" }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      {/* Header */}
-      <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: "0.9rem", color: "#1a1a1a" }}>App Health</p>
-          <p style={{ margin: "0.1rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>Check that everything is configured correctly</p>
-        </div>
-        {!loading && (
-          <span style={{ padding: "0.25rem 0.75rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600, background: overallBg, color: overallColor, border: `1px solid ${overallBorder}` }}>
-            {overallLabel}
-          </span>
-        )}
-      </div>
-      {/* Checks */}
-      <div style={{ padding: "0.5rem 0" }}>
-        {loading ? (
-          <div style={{ padding: "1.25rem 1.5rem", color: "#9ca3af", fontSize: "0.875rem" }}>Checking configuration…</div>
-        ) : checks.map((c, i) => (
-          <div key={i} style={{
-            display: "flex", alignItems: "flex-start", gap: "0.85rem",
-            padding: "0.7rem 1.5rem",
-            borderBottom: i < checks.length - 1 ? "1px solid #f9fafb" : "none",
-          }}>
-            <div style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-              <StatusIcon status={c.status} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: "0.855rem", fontWeight: 600, color: "#1a1a1a" }}>{c.label}</p>
-              <p style={{ margin: "0.1rem 0 0", fontSize: "0.78rem", color: c.status === "error" ? "#dc2626" : c.status === "warn" ? "#b45309" : "#6d7175" }}>{c.detail}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.75rem", padding: "1rem 1.5rem" }}>
+      <p style={{ margin: "0 0 0.5rem", fontWeight: 700, fontSize: "0.9rem", color: "#1a1a1a" }}>App Health</p>
+      <p style={{ margin: 0, fontSize: "0.82rem", color: "#6d7175" }}>
+        {storeName ? `✓ ${storeName}.myshopify.com connected` : "⚠ No store session"}{" · "}
+        {rules === null ? "Loading…" : rules > 0 ? `✓ ${rules} upsell rule${rules !== 1 ? "s" : ""} active` : "⚠ No upsell rules configured"}
+      </p>
     </div>
   );
 }
@@ -695,16 +589,13 @@ interface RuleStat {
   convRate: string;
 }
 
-interface GiftStat { shown: number; added: number; convRate: string; }
-
 function StatsTab() {
   const [rules, setRules] = useState<RuleStat[]>([]);
-  const [gift, setGift] = useState<GiftStat | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/standalone/stats").then(r => r.json())
-      .then(d => { setRules(d.rules ?? []); setGift(d.gift ?? null); })
+      .then(d => { setRules(d.rules ?? []); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -782,375 +673,6 @@ function StatsTab() {
         )}
       </div>
 
-      {/* Free gift stats */}
-      {gift && (
-        <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: "1.25rem" }}>
-          <p style={{ margin: "0 0 1rem", fontWeight: 600, color: "#1a1a1a" }}>Free Gift Promotion</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
-            {[
-              { label: "Times Shown", value: gift.shown },
-              { label: "Gifts Added", value: gift.added },
-              { label: "Conversion", value: gift.convRate },
-            ].map(c => (
-              <div key={c.label} style={{ textAlign: "center", padding: "1rem", background: "#f9fafb", borderRadius: "8px" }}>
-                <p style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#008060" }}>{c.value}</p>
-                <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", color: "#6d7175" }}>{c.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-interface PromoTier { threshold: string; giftProductId: string; giftVariantId: string; }
-interface PromoState {
-  active: boolean;
-  tiers: PromoTier[];
-  message: string;
-  unlockedMessage: string;
-  barColor: string;
-  startsAt: string;
-  endsAt: string;
-}
-
-const DEFAULT_TIER: PromoTier = { threshold: "50", giftProductId: "", giftVariantId: "" };
-const DEFAULT_PROMO: PromoState = {
-  active: false,
-  tiers: [{ ...DEFAULT_TIER }],
-  message: "Add {amount} more to unlock a free gift!",
-  unlockedMessage: "🎁 You've unlocked a free gift!",
-  barColor: "#008060",
-  startsAt: "",
-  endsAt: "",
-};
-
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <div style={{ position: "relative" as const, width: 44, height: 24, cursor: "pointer" }} onClick={onToggle}>
-      <div style={{ width: 44, height: 24, borderRadius: 12, background: on ? "#008060" : "#d1d5db", transition: "background 0.2s" }} />
-      <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute" as const, top: 2, left: on ? 22 : 2, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-    </div>
-  );
-}
-
-function WidgetPreview({ promo, products }: { promo: PromoState; products: Product[] }) {
-  const barColor = promo.barColor || "#008060";
-  const sortedTiers = [...promo.tiers]
-    .filter(t => t.giftProductId)
-    .sort((a, b) => (Number(a.threshold) || 0) - (Number(b.threshold) || 0));
-
-  if (sortedTiers.length === 0) return null;
-
-  const highestThreshold = Number(sortedTiers[sortedTiers.length - 1].threshold) || 50;
-  // Preview at 40% progress
-  const previewTotal = highestThreshold * 0.4;
-  const pct = Math.min(100, (previewTotal / highestThreshold) * 100);
-  const remaining = Math.max(0, (Number(sortedTiers[0].threshold) || 50) - previewTotal);
-  const progressMsg = (promo.message || "Add {amount} more to unlock a free gift!")
-    .replace("{amount}", `$${remaining.toFixed(0)}`);
-
-  return (
-    <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1rem" }}>
-      <p style={{ margin: "0 0 1rem", fontWeight: 600, fontSize: "0.875rem", color: "#1a1a1a" }}>Widget Preview</p>
-      <div style={{ border: "1px solid #e4e5e7", borderRadius: "12px", padding: "1.25rem", background: "#fafafa" }}>
-        {sortedTiers.map((tier, i) => {
-          const gift = products.find(p => String(p.id) === tier.giftProductId);
-          return (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.85rem" }}>
-              {gift?.image?.src && <img src={gift.image.src} alt={gift.title} style={{ width: 44, height: 44, borderRadius: "8px", objectFit: "cover", border: "2px solid #e4e5e7", flexShrink: 0 }} />}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{gift?.title || "Gift Product"}</p>
-                {gift?.variants?.[0]?.price && Number(gift.variants[0].price) > 0 && (
-                  <p style={{ margin: 0, fontSize: "0.78rem", color: "#6d7175" }}>Worth ${Number(gift.variants[0].price).toFixed(0)} — yours FREE!</p>
-                )}
-              </div>
-              <span style={{ fontSize: "0.72rem", fontWeight: 600, padding: "0.2rem 0.6rem", borderRadius: "20px", background: "#f1f1f1", color: "#6d7175", flexShrink: 0 }}>at ${tier.threshold}</span>
-            </div>
-          );
-        })}
-        <div style={{ background: "#f1f1f1", borderRadius: "999px", height: 10, position: "relative" as const, overflow: "visible", marginBottom: "0.75rem" }}>
-          <div style={{ width: `${pct}%`, height: "100%", borderRadius: "999px", background: barColor, transition: "width 0.5s" }} />
-          {sortedTiers.map((tier, i) => {
-            const markerPct = Math.min(99.5, ((Number(tier.threshold) || 50) / highestThreshold) * 100);
-            return (
-              <div key={i} style={{ position: "absolute" as const, left: `${markerPct}%`, top: "50%", transform: "translate(-50%,-50%)", width: 16, height: 16, borderRadius: "50%", background: "#d1d5db", border: "2px solid #fff", boxShadow: "0 1px 3px rgba(0,0,0,0.25)" }} />
-            );
-          })}
-        </div>
-        <p style={{ margin: 0, fontSize: "0.82rem", color: "#374151" }} dangerouslySetInnerHTML={{ __html: progressMsg.replace("$" + remaining.toFixed(0), `<strong style="color:${barColor}">$${remaining.toFixed(0)}</strong>`) }} />
-      </div>
-      <p style={{ margin: "0.5rem 0 0", fontSize: "0.75rem", color: "#6d7175" }}>Preview shown at ~40% progress</p>
-    </div>
-  );
-}
-
-function PromotionsTab() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [promo, setPromo] = useState<PromoState>(DEFAULT_PROMO);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<{ status: string; error?: string; discountId?: string } | null>(null);
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/standalone/promotion").then(r => r.json()),
-      fetch("/api/standalone/products").then(r => r.json()),
-    ]).then(([p, pr]) => {
-      if (p.promotion) {
-        const src = p.promotion;
-        // Migrate old flat format
-        const tiers: PromoTier[] = src.tiers?.map((t: { threshold: number; giftProductId: string; giftVariantId: string }) => ({
-          threshold: String(t.threshold),
-          giftProductId: String(t.giftProductId || ""),
-          giftVariantId: String(t.giftVariantId || ""),
-        })) ?? [{ threshold: String(src.threshold || "50"), giftProductId: src.giftProductId || "", giftVariantId: src.giftVariantId || "" }];
-        setPromo({
-          active: Boolean(src.active),
-          tiers,
-          message: src.message || DEFAULT_PROMO.message,
-          unlockedMessage: src.unlockedMessage || DEFAULT_PROMO.unlockedMessage,
-          barColor: src.barColor || DEFAULT_PROMO.barColor,
-          startsAt: src.startsAt || "",
-          endsAt: src.endsAt || "",
-        });
-      }
-      setProducts(pr.products ?? []);
-    }).catch(() => setError("Failed to load."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const updateTier = (i: number, field: keyof PromoTier, val: string) => {
-    setPromo(p => {
-      const tiers = [...p.tiers];
-      // Clear giftVariantId whenever the product changes so the server re-resolves it
-      tiers[i] = field === "giftProductId"
-        ? { ...tiers[i], giftProductId: val, giftVariantId: "" }
-        : { ...tiers[i], [field]: val };
-      return { ...p, tiers };
-    });
-  };
-
-  const addTier = () => {
-    if (promo.tiers.length >= 3) return;
-    setPromo(p => ({ ...p, tiers: [...p.tiers, { ...DEFAULT_TIER }] }));
-  };
-
-  const removeTier = (i: number) => {
-    setPromo(p => ({ ...p, tiers: p.tiers.filter((_, idx) => idx !== i) }));
-  };
-
-  const handleSave = async () => {
-    const validTiers = promo.tiers.filter(t => t.giftProductId);
-    if (validTiers.length === 0) { setError("Add at least one gift tier with a product."); return; }
-    setSaving(true); setError(null); setSaved(false);
-
-    const tiersPayload = promo.tiers.map(tier => {
-      const gift = products.find(p => String(p.id) === tier.giftProductId);
-      return {
-        threshold: Number(tier.threshold) || 50,
-        giftProductId: tier.giftProductId,
-        giftProductTitle: gift?.title ?? "",
-        giftProductImage: gift?.image?.src ?? "",
-        giftProductHandle: gift?.handle ?? "",
-        giftVariantId: tier.giftVariantId || String(gift?.variants?.[0]?.id ?? ""),
-        giftProductPrice: gift?.variants?.[0]?.price ?? "0",
-      };
-    });
-
-    const body = {
-      active: promo.active,
-      tiers: tiersPayload,
-      message: promo.message,
-      unlockedMessage: promo.unlockedMessage,
-      barColor: promo.barColor,
-      startsAt: promo.startsAt,
-      endsAt: promo.endsAt,
-    };
-
-    const res = await fetch("/api/standalone/promotion", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setSyncStatus(data.syncStatus ?? null);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 4000);
-    } else {
-      setError("Failed to save.");
-    }
-    setSaving(false);
-  };
-
-  const inp: React.CSSProperties = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
-  const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
-  const card: React.CSSProperties = { background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1rem" };
-
-  if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
-
-  return (
-    <>
-      {/* Header */}
-      <div style={{ marginBottom: "1.5rem", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Free Gift Promotion</h1>
-          <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Reward customers with a free gift when their cart reaches a spend milestone</p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          <Toggle on={promo.active} onToggle={() => setPromo(p => ({ ...p, active: !p.active }))} />
-          <span style={{ fontSize: "0.875rem", fontWeight: 600, color: promo.active ? "#008060" : "#6d7175" }}>{promo.active ? "Active" : "Inactive"}</span>
-        </div>
-      </div>
-
-      {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
-
-      {/* Discount sync status */}
-      {syncStatus && (() => {
-        const s = syncStatus;
-        if (s.status === "created" || s.status === "updated") {
-          return (
-            <div style={{ background: "#e3f1df", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.875rem", color: "#1a6b3c" }}>
-              ✓ Shopify discount {s.status === "created" ? "created" : "updated"} successfully — gift will be free at checkout.
-            </div>
-          );
-        }
-        if (s.status === "error") {
-          return (
-            <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.875rem", color: "#c0392b" }}>
-              <strong>Discount sync failed:</strong> {s.error}
-            </div>
-          );
-        }
-        if (s.status === "skipped") {
-          return (
-            <div style={{ background: "#fefce8", border: "1px solid #fde68a", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.875rem", color: "#92400e" }}>
-              Promotion saved. Discount sync was skipped (promotion is inactive or no gift product set).
-            </div>
-          );
-        }
-        return null;
-      })()}
-
-      {/* Gift Tiers */}
-      <div style={card}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-          <div>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem", color: "#1a1a1a" }}>Gift Tiers</p>
-            <p style={{ margin: "0.15rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>Up to 3 milestones — each unlocks a different free gift</p>
-          </div>
-          {promo.tiers.length < 3 && (
-            <button onClick={addTier} style={{ padding: "0.4rem 0.9rem", border: "1px solid #008060", borderRadius: "8px", background: "#fff", color: "#008060", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer" }}>
-              + Add Tier
-            </button>
-          )}
-        </div>
-
-        {promo.tiers.map((tier, i) => (
-          <div key={i} style={{ border: "1px solid #e4e5e7", borderRadius: "10px", padding: "1rem", marginBottom: "0.75rem", background: "#fafafa" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tier {i + 1}</span>
-              {promo.tiers.length > 1 && (
-                <button onClick={() => removeTier(i)} style={{ border: "none", background: "none", color: "#c0392b", fontSize: "0.8rem", cursor: "pointer", padding: "0.2rem 0.4rem" }}>Remove</button>
-              )}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "0.75rem" }}>
-              <div>
-                <label style={lbl}>Spend threshold</label>
-                <input type="number" min="1" style={inp} value={tier.threshold} onChange={e => updateTier(i, "threshold", e.target.value)} />
-              </div>
-              <div>
-                <label style={lbl}>Gift product</label>
-                <select style={inp} value={tier.giftProductId} onChange={e => updateTier(i, "giftProductId", e.target.value)}>
-                  <option value="">Select product</option>
-                  {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
-                </select>
-              </div>
-            </div>
-            {tier.giftProductId && (() => {
-              const gift = products.find(p => String(p.id) === tier.giftProductId);
-              return gift ? (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.75rem", padding: "0.6rem 0.75rem", background: "#f0fdf4", borderRadius: "8px" }}>
-                  {gift.image?.src && <img src={gift.image.src} alt={gift.title} style={{ width: 36, height: 36, borderRadius: "6px", objectFit: "cover" }} />}
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.8rem", color: "#1a1a1a" }}>{gift.title}</p>
-                    {gift.variants?.[0]?.price && (
-                      <p style={{ margin: 0, fontSize: "0.75rem", color: "#6d7175" }}>Worth ${Number(gift.variants[0].price).toFixed(2)} — free at ${tier.threshold}</p>
-                    )}
-                  </div>
-                </div>
-              ) : null;
-            })()}
-          </div>
-        ))}
-      </div>
-
-      {/* Messages */}
-      <div style={card}>
-        <p style={{ margin: "0 0 1rem", fontWeight: 700, fontSize: "0.95rem", color: "#1a1a1a" }}>Messages</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-          <div>
-            <label style={lbl}>Progress message</label>
-            <input type="text" style={inp} value={promo.message} onChange={e => setPromo(p => ({ ...p, message: e.target.value }))} />
-            <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#6d7175" }}>Use {"{amount}"} to show remaining spend</p>
-          </div>
-          <div>
-            <label style={lbl}>Unlocked message</label>
-            <input type="text" style={inp} value={promo.unlockedMessage} onChange={e => setPromo(p => ({ ...p, unlockedMessage: e.target.value }))} />
-            <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#6d7175" }}>Shown when all gifts are unlocked</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Appearance & Schedule */}
-      <div style={card}>
-        <p style={{ margin: "0 0 1rem", fontWeight: 700, fontSize: "0.95rem", color: "#1a1a1a" }}>Appearance & Schedule</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
-          <div>
-            <label style={lbl}>Bar color</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <input type="color" value={promo.barColor} onChange={e => setPromo(p => ({ ...p, barColor: e.target.value }))}
-                style={{ width: 40, height: 36, border: "1px solid #d1d5db", borderRadius: "6px", padding: 2, cursor: "pointer" }} />
-              <input type="text" value={promo.barColor} onChange={e => setPromo(p => ({ ...p, barColor: e.target.value }))}
-                style={{ ...inp, width: "auto", flex: 1 }} maxLength={7} />
-            </div>
-          </div>
-          <div>
-            <label style={lbl}>Start date (optional)</label>
-            <input type="datetime-local" style={inp} value={promo.startsAt ? promo.startsAt.slice(0, 16) : ""} onChange={e => setPromo(p => ({ ...p, startsAt: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
-          </div>
-          <div>
-            <label style={lbl}>End date (optional)</label>
-            <input type="datetime-local" style={inp} value={promo.endsAt ? promo.endsAt.slice(0, 16) : ""} onChange={e => setPromo(p => ({ ...p, endsAt: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
-          </div>
-        </div>
-      </div>
-
-      {/* Widget Preview */}
-      <WidgetPreview promo={promo} products={products} />
-
-      {/* Save */}
-      <button onClick={handleSave} disabled={saving} style={{
-        padding: "0.65rem 1.75rem", background: saved ? "#1a6b3c" : "#008060", color: "#fff",
-        border: "none", borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600,
-        cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, marginBottom: "1rem",
-      }}>{saving ? "Saving…" : saved ? "✓ Saved!" : "Save Promotion"}</button>
-
-      {/* Setup instructions */}
-      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "1rem 1.25rem" }}>
-        <p style={{ margin: "0 0 0.5rem", fontWeight: 600, fontSize: "0.875rem", color: "#1a6b3c" }}>How to activate on your store</p>
-        <ol style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.8rem", color: "#374151", lineHeight: 1.7 }}>
-          <li>Configure tiers above and click <strong>Save Promotion</strong></li>
-          <li>Go to <strong>Online Store → Themes → Customize → Cart page</strong></li>
-          <li>Add the <strong>Free Gift Progress Bar</strong> block from Apps</li>
-          <li>Toggle <strong>Active</strong> above to turn it on or off anytime</li>
-        </ol>
-      </div>
-    </>
-  );
-}
 
 interface ShopInfo {
   shop: string;
@@ -1159,7 +681,7 @@ interface ShopInfo {
   adminUrl: string;
 }
 
-const VALID_TABS = ["overview", "products", "upsells", "promotions", "stats"] as const;
+const VALID_TABS = ["overview", "products", "upsells", "stats"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
@@ -1183,8 +705,7 @@ export default function DashboardPage() {
       {tab === "overview" && <OverviewTab days={days} setDays={setDays} storeName={shopInfo?.storeName} />}
       {tab === "products" && <ProductsTab />}
       {tab === "upsells" && <UpsellsTab />}
-      {tab === "promotions" && <PromotionsTab />}
-      {tab === "stats" && <StatsTab />}
+{tab === "stats" && <StatsTab />}
     </DashboardShell>
   );
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
 import { listUpsells } from "@/lib/firebase/upsellStore";
-import { getRuleStats, getGiftStats } from "@/lib/firebase/statsStore";
+import { getRuleStats } from "@/lib/firebase/statsStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,17 +13,13 @@ export async function GET(req: NextRequest) {
 
   const rules = await listUpsells(shop);
   const ruleIds = rules.map((r) => r.id);
-  const [ruleStats, giftStats] = await Promise.all([
-    getRuleStats(shop, ruleIds),
-    getGiftStats(shop),
-  ]);
+  const ruleStats = await getRuleStats(shop, ruleIds);
 
-  // Merge rule info with stats
   const merged = ruleStats.map((s) => {
     const rule = rules.find((r) => r.id === s.ruleId);
     const upsellProductTitle = rule?.upsellProducts?.map(p => p.title).join(", ") ?? "";
     return { ...s, triggerProductTitle: rule?.triggerProductTitle ?? "", upsellProductTitle };
   });
 
-  return NextResponse.json({ rules: merged, gift: giftStats });
+  return NextResponse.json({ rules: merged });
 }

@@ -58,19 +58,3 @@ export async function getRuleStats(
   return results;
 }
 
-export interface GiftStat {
-  shown: number;
-  added: number;
-  convRate: string;
-}
-
-export async function getGiftStats(shop: string): Promise<GiftStat> {
-  const snap = await getDocs(collection(getDb(), "upsell_stats", shop, "gift", "summary", "days"));
-  let shown = 0, added = 0;
-  snap.docs.forEach((d) => {
-    const data = d.data();
-    shown += (data.gift_shown as number) || 0;
-    added += (data.gift_added as number) || 0;
-  });
-  return { shown, added, convRate: shown > 0 ? ((added / shown) * 100).toFixed(1) + "%" : "—" };
-}
