@@ -112,6 +112,131 @@ function StatCard({ title, value, sub, trend }: { title: string; value: string; 
   );
 }
 
+type CheckStatus = "ok" | "warn" | "error" | "loading";
+interface CheckItem { label: string; detail: string; status: CheckStatus; }
+
+function StatusIcon({ status }: { status: CheckStatus }) {
+  if (status === "loading") return <span style={{ display: "inline-block", width: 20, height: 20, borderRadius: "50%", border: "2px solid #d1d5db", borderTopColor: "#6b7280", animation: "spin 0.8s linear infinite" }} />;
+  if (status === "ok") return <span style={{ color: "#16a34a", fontSize: "1rem", lineHeight: 1 }}>✓</span>;
+  if (status === "warn") return <span style={{ color: "#d97706", fontSize: "1rem", lineHeight: 1 }}>⚠</span>;
+  return <span style={{ color: "#dc2626", fontSize: "1rem", lineHeight: 1 }}>✗</span>;
+}
+
+function AppHealthCheck({ storeName }: { storeName?: string }) {
+  const [checks, setChecks] = useState<CheckItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/standalone/promotion").then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch("/api/standalone/upsells").then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([promoData, upsellData]) => {
+      const items: CheckItem[] = [];
+
+      // 1. Store connected
+      items.push(storeName
+        ? { label: "Store connected", detail: `${storeName}.myshopify.com`, status: "ok" }
+        : { label: "Store connected", detail: "No store session found", status: "error" }
+      );
+
+      // 2. Free gift promotion
+      const promo = promoData?.promotion;
+      if (!promo) {
+        items.push({ label: "Free gift promotion", detail: "Not configured", status: "warn" });
+      } else if (!promo.active) {
+        items.push({ label: "Free gift promotion", detail: "Saved but inactive — toggle Active to enable", status: "warn" });
+      } else {
+        const tiers: { giftProductId?: string; giftVariantId?: string; threshold?: string }[] = promo.tiers ?? [];
+        const missingProduct = tiers.some(t => !t.giftProductId);
+        const missingVariant = tiers.some(t => t.giftProductId && !t.giftVariantId);
+        const missingThreshold = tiers.some(t => !t.threshold || Number(t.threshold) <= 0);
+        if (missingProduct) {
+          items.push({ label: "Free gift promotion", detail: "One or more tiers missing a gift product", status: "error" });
+        } else if (missingVariant) {
+          items.push({ label: "Free gift promotion", detail: "Variant ID not resolved — re-save the promotion to fix", status: "error" });
+        } else if (missingThreshold) {
+          items.push({ label: "Free gift promotion", detail: "One or more tiers have no spend threshold set", status: "error" });
+        } else {
+          items.push({ label: "Free gift promotion", detail: `Active · ${tiers.length} tier${tiers.length !== 1 ? "s" : ""} configured`, status: "ok" });
+        }
+      }
+
+      // 3. Gift variant IDs resolved
+      const tiers: { giftProductId?: string; giftVariantId?: string }[] = promo?.tiers ?? [];
+      const tiersWithProduct = tiers.filter(t => t.giftProductId);
+      if (tiersWithProduct.length === 0) {
+        items.push({ label: "Gift variant IDs", detail: "No gift products selected yet", status: "warn" });
+      } else {
+        const allResolved = tiersWithProduct.every(t => t.giftVariantId);
+        items.push(allResolved
+          ? { label: "Gift variant IDs", detail: `All ${tiersWithProduct.length} resolved — widget can add gifts to cart`, status: "ok" }
+          : { label: "Gift variant IDs", detail: "Some variant IDs missing — open Free Gift tab and re-save", status: "error" }
+        );
+      }
+
+      // 4. Upsell rules
+      const rules = upsellData?.rules ?? [];
+      if (rules.length === 0) {
+        items.push({ label: "Upsell rules", detail: "No upsell rules configured yet", status: "warn" });
+      } else {
+        items.push({ label: "Upsell rules", detail: `${rules.length} rule${rules.length !== 1 ? "s" : ""} active`, status: "ok" });
+      }
+
+      // 5. Widget installation reminder
+      items.push({ label: "Widget in theme", detail: "Manually verify: Theme Editor → Add block → Free Gift Progress Bar", status: "warn" });
+
+      setChecks(items);
+      setLoading(false);
+    });
+  }, [storeName]);
+
+  const hasErrors = checks.some(c => c.status === "error");
+  const hasWarns = checks.some(c => c.status === "warn");
+  const overall = hasErrors ? "error" : hasWarns ? "warn" : "ok";
+  const overallColor = overall === "ok" ? "#16a34a" : overall === "warn" ? "#d97706" : "#dc2626";
+  const overallBg = overall === "ok" ? "#f0fdf4" : overall === "warn" ? "#fffbeb" : "#fff4f4";
+  const overallBorder = overall === "ok" ? "#bbf7d0" : overall === "warn" ? "#fde68a" : "#ffd2d2";
+  const overallLabel = overall === "ok" ? "All systems go" : overall === "warn" ? "Setup incomplete" : "Action required";
+
+  return (
+    <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.75rem", overflow: "hidden" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      {/* Header */}
+      <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: "0.9rem", color: "#1a1a1a" }}>App Health</p>
+          <p style={{ margin: "0.1rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>Check that everything is configured correctly</p>
+        </div>
+        {!loading && (
+          <span style={{ padding: "0.25rem 0.75rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600, background: overallBg, color: overallColor, border: `1px solid ${overallBorder}` }}>
+            {overallLabel}
+          </span>
+        )}
+      </div>
+      {/* Checks */}
+      <div style={{ padding: "0.5rem 0" }}>
+        {loading ? (
+          <div style={{ padding: "1.25rem 1.5rem", color: "#9ca3af", fontSize: "0.875rem" }}>Checking configuration…</div>
+        ) : checks.map((c, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "flex-start", gap: "0.85rem",
+            padding: "0.7rem 1.5rem",
+            borderBottom: i < checks.length - 1 ? "1px solid #f9fafb" : "none",
+          }}>
+            <div style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+              <StatusIcon status={c.status} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: "0.855rem", fontWeight: 600, color: "#1a1a1a" }}>{c.label}</p>
+              <p style={{ margin: "0.1rem 0 0", fontSize: "0.78rem", color: c.status === "error" ? "#dc2626" : c.status === "warn" ? "#b45309" : "#6d7175" }}>{c.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OverviewTab({ days, setDays, storeName }: { days: string; setDays: (d: string) => void; storeName?: string }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -192,6 +317,8 @@ function OverviewTab({ days, setDays, storeName }: { days: string; setDays: (d: 
           style={{ height: 52, opacity: 0.15, pointerEvents: "none" }}
         />
       </div>
+
+      <AppHealthCheck storeName={storeName} />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
