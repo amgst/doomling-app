@@ -1,0 +1,29 @@
+query CartTransformInput {
+  cart {
+    cost {
+      totalAmount {
+        currencyCode
+      }
+    }
+    lines {
+      id
+      quantity
+      cost {
+        amountPerQuantity {
+          amount
+          currencyCode
+        }
+      }
+      merchandise {
+        ... on ProductVariant {
+          id
+        }
+      }
+    }
+  }
+  cartTransform {
+    metafield(namespace: "upsale", key: "gift_config") {
+      value
+    }
+  }
+}

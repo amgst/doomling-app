@@ -1,0 +1,21 @@
+api_version = "2026-01"
+
+[[extensions]]
+name = "Gift With Product"
+handle = "gift-with-product"
+uid = "7751c1f5-70be-642c-1251-07c881b6cbd640fcfe4a"
+type = "function"
+description = "Automatically adds a free gift when a specific product variant is in the cart. Gift is removed when the main product is removed."
+
+  [[extensions.targeting]]
+  target = "cart.transform.run"
+  input_query = "src/run.graphql"
+  export = "run"
+
+  [[extensions.metafields]]
+  namespace = "upsale"
+  key = "gift_config"
+
+  [extensions.build]
+  command = "npm exec -- shopify app function build"
+  path = "dist/function.wasm"
