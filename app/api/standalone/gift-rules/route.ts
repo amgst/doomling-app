@@ -5,7 +5,7 @@ import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const NS = "upsale";
+const NS = "gwp";
 const KEY = "gift_config";
 
 async function shopifyGraphql(shop: string, accessToken: string, query: string, variables?: Record<string, unknown>) {
@@ -30,11 +30,6 @@ async function getSession(req: NextRequest) {
   return session;
 }
 
-async function getShopId(shop: string, accessToken: string): Promise<string | null> {
-  const data = await shopifyGraphql(shop, accessToken, `query { shop { id } }`);
-  return data?.data?.shop?.id ?? null;
-}
-
 export interface GiftRule {
   mainVariantId: string;
   giftVariantId: string;
@@ -47,22 +42,18 @@ export async function GET(req: NextRequest) {
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
     query {
       shop {
-        plain: metafield(namespace: "${NS}", key: "${KEY}") { value namespace key }
-        appScoped: metafield(namespace: "$app:${NS}", key: "${KEY}") { value namespace key }
+        metafield(namespace: "${NS}", key: "${KEY}") { value }
       }
     }
   `);
 
-  const plain = data?.data?.shop?.plain;
-  const appScoped = data?.data?.shop?.appScoped;
-  // prefer $app:upsale (app-owned), fall back to plain upsale
-  const raw: string | undefined = (appScoped ?? plain)?.value;
+  const raw: string | undefined = data?.data?.shop?.metafield?.value;
   let rules: GiftRule[] = [];
   if (raw) {
     try { rules = JSON.parse(raw).rules ?? []; } catch { /* ignore */ }
   }
 
-  return NextResponse.json({ rules, _debug: { plain, appScoped } });
+  return NextResponse.json({ rules });
 }
 
 export async function PUT(req: NextRequest) {
@@ -76,38 +67,35 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const shopId = await getShopId(session.shop, session.accessToken!);
-  if (!shopId) {
-    return NextResponse.json({ error: "Could not get Shop ID" }, { status: 500 });
-  }
+  const shopData = await shopifyGraphql(session.shop, session.accessToken!, `query { shop { id } }`);
+  const shopId: string | undefined = shopData?.data?.shop?.id;
+  if (!shopId) return NextResponse.json({ error: "Could not get Shop ID" }, { status: 500 });
 
   const value = JSON.stringify({ rules: body.rules });
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
     mutation SetMeta($ownerId: ID!, $value: String!) {
-      metafieldsSet(metafields: [
-        { ownerId: $ownerId, namespace: "${NS}", key: "${KEY}", type: "json", value: $value },
-        { ownerId: $ownerId, namespace: "$app:${NS}", key: "${KEY}", type: "json", value: $value }
-      ]) {
-        metafields { id namespace key }
+      metafieldsSet(metafields: [{
+        ownerId: $ownerId
+        namespace: "${NS}"
+        key: "${KEY}"
+        type: "json"
+        value: $value
+      }]) {
+        metafields { id }
         userErrors { field message }
       }
     }
   `, { ownerId: shopId, value });
 
-  const errors: { field: string; message: string }[] =
-    data?.data?.metafieldsSet?.userErrors ?? [];
+  const errors: { field: string; message: string }[] = data?.data?.metafieldsSet?.userErrors ?? [];
   if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0].message, shopId }, { status: 400 });
+    return NextResponse.json({ error: errors[0].message }, { status: 400 });
   }
 
   const written = data?.data?.metafieldsSet?.metafields ?? [];
   if (written.length === 0) {
-    return NextResponse.json({
-      error: "Metafield write returned no result",
-      topLevelErrors: data?.errors ?? null,
-      shopId,
-    }, { status: 500 });
+    return NextResponse.json({ error: "Metafield write failed", details: data?.errors ?? null }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules, writtenTo: written });
+  return NextResponse.json({ ok: true, rules: body.rules });
 }

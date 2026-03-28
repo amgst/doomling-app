@@ -11,7 +11,7 @@ query CartTransformInput {
     }
   }
   shop {
-    metafield(namespace: "upsale", key: "gift_config") {
+    metafield(namespace: "gwp", key: "gift_config") {
       value
     }
   }
