@@ -114,5 +114,23 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: errors[0].message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules });
+  const writtenIds = data?.data?.metafieldsSet?.metafields ?? [];
+  if (writtenIds.length === 0) {
+    // Mutation returned no userErrors but also wrote nothing — surface raw response
+    return NextResponse.json({ error: "Metafield write returned no result", debug: data }, { status: 500 });
+  }
+
+  // Read back immediately to confirm persistence
+  const readBack = await shopifyGraphql(session.shop, session.accessToken!, `
+    query GetMeta($id: ID!) {
+      node(id: $id) {
+        ... on ShopifyFunction {
+          metafield(namespace: "${NS}", key: "${KEY}") { value }
+        }
+      }
+    }
+  `, { id: fnId });
+
+  const readValue = readBack?.data?.node?.metafield?.value;
+  return NextResponse.json({ ok: true, rules: body.rules, debug: { writtenIds, readBack: readValue } });
 }
