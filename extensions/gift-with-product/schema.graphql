@@ -5,9 +5,14 @@ schema {
 type Input {
   cart: Cart!
   cartTransform: CartTransform!
+  shop: Shop!
 }
 
 type CartTransform {
+  metafield(namespace: String!, key: String!): Metafield
+}
+
+type Shop {
   metafield(namespace: String!, key: String!): Metafield
 }
 

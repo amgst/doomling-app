@@ -28,7 +28,7 @@
  * @returns {{ operations: object[] }}
  */
 export function run(input) {
-  const meta = input.cartTransform?.metafield;
+  const meta = input.shop?.metafield;
   if (!meta?.value) return { operations: [] };
 
   let config;

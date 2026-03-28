@@ -10,7 +10,7 @@ query CartTransformInput {
       }
     }
   }
-  cartTransform {
+  shop {
     metafield(namespace: "upsale", key: "gift_config") {
       value
     }

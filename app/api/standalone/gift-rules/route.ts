@@ -5,7 +5,6 @@ import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const FUNCTION_TITLE = "Gift With Product";
 const NS = "upsale";
 const KEY = "gift_config";
 
@@ -31,57 +30,9 @@ async function getSession(req: NextRequest) {
   return session;
 }
 
-async function findOrCreateCartTransformId(
-  shop: string,
-  accessToken: string
-): Promise<{ id: string | null; source: string; debug?: unknown }> {
-  // 1. Find the ShopifyFunction UUID
-  const fnData = await shopifyGraphql(shop, accessToken, `
-    query { shopifyFunctions(first: 25) { nodes { id title } } }
-  `);
-  const fns: { id: string; title: string }[] = fnData?.data?.shopifyFunctions?.nodes ?? [];
-  const fn =
-    fns.find((f) => f.title === FUNCTION_TITLE) ??
-    fns.find((f) => f.title.toLowerCase().includes("gift"));
-
-  if (!fn) return { id: null, source: "fn_not_found", debug: { fns, fnErrors: fnData?.errors } };
-
-  const fnGid = fn.id.startsWith("gid://")
-    ? fn.id
-    : `gid://shopify/ShopifyFunction/${fn.id}`;
-
-  // 2. Find existing CartTransform (Shopify only returns this app's transforms)
-  const ctData = await shopifyGraphql(shop, accessToken, `
-    query { cartTransforms(first: 10) { nodes { id } } }
-  `);
-  const ctErrors = ctData?.errors ?? null;
-  const transforms: { id: string }[] = ctData?.data?.cartTransforms?.nodes ?? [];
-
-  if (transforms.length > 0) return { id: transforms[0].id, source: "found_existing" };
-
-  // 3. No CartTransform found — try to create one
-  const createData = await shopifyGraphql(shop, accessToken, `
-    mutation CreateCT($fnId: String!) {
-      cartTransformCreate(functionId: $fnId) {
-        cartTransform { id }
-        userErrors { field message code }
-      }
-    }
-  `, { fnId: fnGid });
-
-  const created = createData?.data?.cartTransformCreate?.cartTransform;
-  const createErrors = createData?.data?.cartTransformCreate?.userErrors ?? [];
-  const createTopErrors = createData?.errors ?? null;
-
-  if (!created) {
-    return {
-      id: null,
-      source: "create_failed",
-      debug: { fnGid, ctErrors, ctNodes: transforms, createErrors, createTopErrors },
-    };
-  }
-
-  return { id: created.id, source: "created_new" };
+async function getShopId(shop: string, accessToken: string): Promise<string | null> {
+  const data = await shopifyGraphql(shop, accessToken, `query { shop { id } }`);
+  return data?.data?.shop?.id ?? null;
 }
 
 export interface GiftRule {
@@ -93,18 +44,18 @@ export async function GET(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id: ctId, source, debug } = await findOrCreateCartTransformId(session.shop, session.accessToken!);
-  if (!ctId) return NextResponse.json({ rules: [], ctSource: source, debug });
+  const shopId = await getShopId(session.shop, session.accessToken!);
+  if (!shopId) return NextResponse.json({ rules: [] });
 
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
     query GetMeta($id: ID!) {
       node(id: $id) {
-        ... on CartTransform {
+        ... on Shop {
           metafield(namespace: "${NS}", key: "${KEY}") { value }
         }
       }
     }
-  `, { id: ctId });
+  `, { id: shopId });
 
   const raw: string | undefined = data?.data?.node?.metafield?.value;
   let rules: GiftRule[] = [];
@@ -126,9 +77,9 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { id: ctId, source: ctSource, debug: ctDebug } = await findOrCreateCartTransformId(session.shop, session.accessToken!);
-  if (!ctId) {
-    return NextResponse.json({ error: "Could not find or create CartTransform", ctSource, debug: ctDebug }, { status: 500 });
+  const shopId = await getShopId(session.shop, session.accessToken!);
+  if (!shopId) {
+    return NextResponse.json({ error: "Could not get Shop ID" }, { status: 500 });
   }
 
   const value = JSON.stringify({ rules: body.rules });
@@ -141,26 +92,24 @@ export async function PUT(req: NextRequest) {
         type: "json"
         value: $value
       }]) {
-        metafields { id namespace key }
-        userErrors { field message code }
+        metafields { id }
+        userErrors { field message }
       }
     }
-  `, { ownerId: ctId, value });
+  `, { ownerId: shopId, value });
 
   const errors: { field: string; message: string }[] =
     data?.data?.metafieldsSet?.userErrors ?? [];
   if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0].message, ctId, ctSource }, { status: 400 });
+    return NextResponse.json({ error: errors[0].message }, { status: 400 });
   }
 
   const written = data?.data?.metafieldsSet?.metafields ?? [];
   if (written.length === 0) {
     return NextResponse.json({
       error: "Metafield write returned no result",
-      ctId,
-      ctSource,
       topLevelErrors: data?.errors ?? null,
-      mutationResponse: data?.data?.metafieldsSet ?? null,
+      shopId,
     }, { status: 500 });
   }
 
