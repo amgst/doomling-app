@@ -10,10 +10,13 @@ const NS = "upsale";
 const KEY = "gift_config";
 
 async function findFunctionId(client: InstanceType<ReturnType<typeof getShopify>["clients"]["Graphql"]>): Promise<string | null> {
-  const res = await client.request<{ shopifyFunctions: { nodes: { id: string; handle: string }[] } }>(
-    `query { shopifyFunctions(first: 25) { nodes { id handle } } }`
+  const res = await client.request<{ shopifyFunctions: { nodes: { id: string; title: string }[] } }>(
+    `query { shopifyFunctions(first: 25) { nodes { id title } } }`
   );
-  const node = (res.data?.shopifyFunctions?.nodes ?? []).find((n) => n.handle === FUNCTION_HANDLE);
+  const nodes = res.data?.shopifyFunctions?.nodes ?? [];
+  const node =
+    nodes.find((n) => n.title === "Gift With Product") ??
+    nodes.find((n) => n.title.toLowerCase().includes("gift"));
   return node?.id ?? null;
 }
 

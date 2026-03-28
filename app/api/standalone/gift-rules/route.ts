@@ -10,7 +10,7 @@ const NS = "upsale";
 const KEY = "gift_config";
 
 async function shopifyGraphql(shop: string, accessToken: string, query: string, variables?: Record<string, unknown>) {
-  const res = await fetch(`https://${shop}/admin/api/2024-01/graphql.json`, {
+  const res = await fetch(`https://${shop}/admin/api/2025-01/graphql.json`, {
     method: "POST",
     headers: {
       "X-Shopify-Access-Token": accessToken,
@@ -33,14 +33,14 @@ async function getSession(req: NextRequest) {
 
 async function findFunctionId(shop: string, accessToken: string): Promise<{ id: string | null; allHandles: string[]; rawResponse?: unknown }> {
   const raw = await shopifyGraphql(shop, accessToken, `
-    query { shopifyFunctions(first: 25) { nodes { id handle apiType } } }
+    query { shopifyFunctions(first: 25) { nodes { id title apiType } } }
   `);
-  const nodes: { id: string; handle: string; apiType: string }[] = raw?.data?.shopifyFunctions?.nodes ?? [];
-  const allHandles = nodes.map((n) => n.handle);
+  const nodes: { id: string; title: string; apiType: string }[] = raw?.data?.shopifyFunctions?.nodes ?? [];
+  const allTitles = nodes.map((n) => `${n.title} (${n.apiType})`);
   const match =
-    nodes.find((n) => n.handle === FUNCTION_HANDLE) ??
-    nodes.find((n) => n.handle.includes("gift"));
-  return { id: match?.id ?? null, allHandles, rawResponse: raw };
+    nodes.find((n) => n.title === "Gift With Product") ??
+    nodes.find((n) => n.title.toLowerCase().includes("gift"));
+  return { id: match?.id ?? null, allHandles: allTitles, rawResponse: raw };
 }
 
 export interface GiftRule {
