@@ -9,8 +9,7 @@ const FUNCTION_TITLE = "Gift With Product";
 const NS = "upsale";
 const KEY = "gift_config";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function findOrCreateCartTransformId(client: any): Promise<{ id: string | null; debug?: unknown }> {
+async function findOrCreateCartTransformId(client: { request: <T>(query: string, opts?: { variables?: Record<string, unknown> }) => Promise<{ data?: T }> }): Promise<{ id: string | null; debug?: unknown }> {
   // 1. Find the ShopifyFunction UUID
   const fnData = await client.request<{ shopifyFunctions: { nodes: { id: string; title: string }[] } }>(
     `query { shopifyFunctions(first: 25) { nodes { id title } } }`
