@@ -14,7 +14,7 @@ function run_default(userfunction) {
 
 // extensions/gift-with-product/src/run.js
 function run(input) {
-  const meta = input.cartTransform?.metafield;
+  const meta = input.shop?.metafield;
   if (!meta?.value) return { operations: [] };
   let config;
   try {
