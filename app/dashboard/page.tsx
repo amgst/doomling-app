@@ -32,7 +32,12 @@ interface Product {
   handle: string;
   status: string;
   image: { src: string } | null;
-  variants: { id: number; price: string }[];
+  variants: { id: number; title: string; price: string }[];
+}
+
+interface GiftRule {
+  mainVariantId: string;
+  giftVariantId: string;
 }
 
 interface UpsellProduct {
@@ -683,7 +688,216 @@ interface ShopInfo {
   adminUrl: string;
 }
 
-const VALID_TABS = ["overview", "products", "upsells", "stats"] as const;
+function GiftTab() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [rules, setRules] = useState<GiftRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [draft, setDraft] = useState<GiftRule>({ mainVariantId: "", giftVariantId: "" });
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/standalone/products").then(r => {
+        if (r.status === 401) { window.location.href = "/"; throw new Error("unauth"); }
+        return r.json();
+      }),
+      fetch("/api/standalone/gift-rules").then(r => r.json()),
+    ])
+      .then(([p, g]) => {
+        setProducts(p.products ?? []);
+        setRules(g.rules ?? []);
+      })
+      .catch(e => { if (e.message !== "unauth") setError("Failed to load data."); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Build a flat list of variant options from all products
+  const variantOptions: { variantId: string; label: string }[] = products.flatMap(p =>
+    p.variants.map(v => ({
+      variantId: String(v.id),
+      label: p.variants.length > 1
+        ? `${p.title} — ${v.title} ($${v.price})`
+        : `${p.title} ($${v.price})`,
+    }))
+  );
+
+  const labelFor = (variantId: string) =>
+    variantOptions.find(o => o.variantId === variantId)?.label ?? `Variant ${variantId}`;
+
+  const addRule = () => {
+    if (!draft.mainVariantId || !draft.giftVariantId) {
+      setError("Select both a main variant and a gift variant.");
+      return;
+    }
+    if (draft.mainVariantId === draft.giftVariantId) {
+      setError("Main and gift variants must be different.");
+      return;
+    }
+    if (rules.some(r => r.mainVariantId === draft.mainVariantId)) {
+      setError("A rule for this main variant already exists.");
+      return;
+    }
+    setRules(prev => [...prev, { ...draft }]);
+    setDraft({ mainVariantId: "", giftVariantId: "" });
+    setError(null);
+  };
+
+  const removeRule = (i: number) => setRules(prev => prev.filter((_, idx) => idx !== i));
+
+  const saveRules = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      const res = await fetch("/api/standalone/gift-rules", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rules }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sel: React.CSSProperties = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
+
+  if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
+
+  return (
+    <>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Gift Rules</h1>
+        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>
+          Automatically add a free gift to the cart when a specific product variant is added.
+        </p>
+      </div>
+
+      {error && (
+        <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>
+          {error}
+        </div>
+      )}
+      {success && (
+        <div style={{ background: "#f0faf7", border: "1px solid #b7dfce", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#008060", fontSize: "0.875rem" }}>
+          Gift rules saved successfully.
+        </div>
+      )}
+
+      {/* Add rule form */}
+      <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.5rem" }}>
+        <p style={{ margin: "0 0 1.25rem", fontWeight: 700, color: "#1a1a1a", fontSize: "0.95rem" }}>Add New Rule</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+          <div>
+            <label style={lbl}>When this variant is added to cart…</label>
+            <select
+              style={sel}
+              value={draft.mainVariantId}
+              onChange={e => setDraft(d => ({ ...d, mainVariantId: e.target.value }))}
+            >
+              <option value="">Select main product variant</option>
+              {variantOptions.map(o => (
+                <option key={o.variantId} value={o.variantId}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>…automatically add this gift variant (free)</label>
+            <select
+              style={sel}
+              value={draft.giftVariantId}
+              onChange={e => setDraft(d => ({ ...d, giftVariantId: e.target.value }))}
+            >
+              <option value="">Select gift product variant</option>
+              {variantOptions
+                .filter(o => o.variantId !== draft.mainVariantId)
+                .map(o => (
+                  <option key={o.variantId} value={o.variantId}>{o.label}</option>
+                ))}
+            </select>
+          </div>
+        </div>
+        <button
+          onClick={addRule}
+          style={{ padding: "0.6rem 1.25rem", background: "#008060", color: "#fff", border: "none", borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer" }}
+        >
+          + Add Rule
+        </button>
+      </div>
+
+      {/* Rules list */}
+      <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: "1.5rem" }}>
+        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e4e5e7", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p style={{ margin: 0, fontWeight: 600, color: "#1a1a1a" }}>Active Rules ({rules.length})</p>
+          <button
+            onClick={saveRules}
+            disabled={saving}
+            style={{ padding: "0.45rem 1.1rem", background: saving ? "#9ca3af" : "#008060", color: "#fff", border: "none", borderRadius: "8px", fontSize: "0.82rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}
+          >
+            {saving ? "Saving…" : "Save Rules"}
+          </button>
+        </div>
+
+        {rules.length === 0 ? (
+          <p style={{ padding: "2.5rem", textAlign: "center", color: "#6d7175", margin: 0 }}>
+            No gift rules yet. Add one above.
+          </p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
+                <th style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>When this variant is in cart</th>
+                <th style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>Gift variant added free</th>
+                <th style={{ padding: "0.75rem 1rem" }} />
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((rule, i) => (
+                <tr key={i} style={{ borderBottom: i < rules.length - 1 ? "1px solid #f1f1f1" : "none" }}>
+                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a" }}>
+                    {labelFor(rule.mainVariantId)}
+                  </td>
+                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                      <span style={{ background: "#e3f1df", color: "#1a6b3c", fontSize: "0.72rem", fontWeight: 600, padding: "0.15rem 0.45rem", borderRadius: "20px" }}>FREE</span>
+                      {labelFor(rule.giftVariantId)}
+                    </span>
+                  </td>
+                  <td style={{ padding: "0.85rem 1rem", textAlign: "right" }}>
+                    <button
+                      onClick={() => removeRule(i)}
+                      style={{ padding: "0.3rem 0.75rem", background: "#fff", color: "#c0392b", border: "1px solid #ffd2d2", borderRadius: "6px", fontSize: "0.8rem", cursor: "pointer" }}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.9rem 1.1rem" }}>
+        <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280", lineHeight: 1.5 }}>
+          <strong>How it works:</strong> The cart transform function runs on every cart update. When a main variant is detected,
+          the gift variant is automatically added at $0. If the main product is removed, the gift is removed too.
+          Changes here update the live Shopify function config immediately after saving.
+        </p>
+      </div>
+    </>
+  );
+}
+
+const VALID_TABS = ["overview", "products", "upsells", "stats", "gift"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
@@ -707,7 +921,8 @@ export default function DashboardPage() {
       {tab === "overview" && <OverviewTab days={days} setDays={setDays} storeName={shopInfo?.storeName} />}
       {tab === "products" && <ProductsTab />}
       {tab === "upsells" && <UpsellsTab />}
-{tab === "stats" && <StatsTab />}
+      {tab === "stats" && <StatsTab />}
+      {tab === "gift" && <GiftTab />}
     </DashboardShell>
   );
 }
