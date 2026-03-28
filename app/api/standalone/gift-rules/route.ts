@@ -10,7 +10,7 @@ const NS = "upsale";
 const KEY = "gift_config";
 
 async function shopifyGraphql(shop: string, accessToken: string, query: string, variables?: Record<string, unknown>) {
-  const res = await fetch(`https://${shop}/admin/api/2025-01/graphql.json`, {
+  const res = await fetch(`https://${shop}/admin/api/2026-01/graphql.json`, {
     method: "POST",
     headers: {
       "X-Shopify-Access-Token": accessToken,
@@ -31,15 +31,10 @@ async function getSession(req: NextRequest) {
   return session;
 }
 
-/**
- * Cart Transform functions store their config on a CartTransform object,
- * not directly on the ShopifyFunction. We find or create that CartTransform
- * and use its GID as the metafield owner.
- */
 async function findOrCreateCartTransformId(
   shop: string,
   accessToken: string
-): Promise<{ id: string | null; debug?: unknown }> {
+): Promise<{ id: string | null; source: string; debug?: unknown }> {
   // 1. Find the ShopifyFunction UUID
   const fnData = await shopifyGraphql(shop, accessToken, `
     query { shopifyFunctions(first: 25) { nodes { id title } } }
@@ -49,7 +44,7 @@ async function findOrCreateCartTransformId(
     fns.find((f) => f.title === FUNCTION_TITLE) ??
     fns.find((f) => f.title.toLowerCase().includes("gift"));
 
-  if (!fn) return { id: null, debug: { step: "function_not_found", fns, raw: fnData } };
+  if (!fn) return { id: null, source: "fn_not_found", debug: { fns, fnErrors: fnData?.errors } };
 
   const fnGid = fn.id.startsWith("gid://")
     ? fn.id
@@ -59,15 +54,16 @@ async function findOrCreateCartTransformId(
   const ctData = await shopifyGraphql(shop, accessToken, `
     query { cartTransforms(first: 25) { nodes { id functionId } } }
   `);
+  const ctErrors = ctData?.errors;
   const transforms: { id: string; functionId: string }[] =
     ctData?.data?.cartTransforms?.nodes ?? [];
   const existing = transforms.find(
     (t) => t.functionId === fnGid || t.functionId?.includes(fn.id)
   );
 
-  if (existing) return { id: existing.id };
+  if (existing) return { id: existing.id, source: "found_existing" };
 
-  // 3. No CartTransform exists yet — create one
+  // 3. No CartTransform found — try to create one
   const createData = await shopifyGraphql(shop, accessToken, `
     mutation CreateCT($fnId: ID!) {
       cartTransformCreate(functionId: $fnId) {
@@ -81,10 +77,14 @@ async function findOrCreateCartTransformId(
   const createErrors = createData?.data?.cartTransformCreate?.userErrors ?? [];
 
   if (!created || createErrors.length > 0) {
-    return { id: null, debug: { step: "create_failed", createErrors, raw: createData } };
+    return {
+      id: null,
+      source: "create_failed",
+      debug: { fnGid, ctErrors, transforms, createErrors, createRaw: createData },
+    };
   }
 
-  return { id: created.id };
+  return { id: created.id, source: "created_new" };
 }
 
 export interface GiftRule {
@@ -96,8 +96,8 @@ export async function GET(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id: ctId, debug } = await findOrCreateCartTransformId(session.shop, session.accessToken!);
-  if (!ctId) return NextResponse.json({ rules: [], debug });
+  const { id: ctId, source, debug } = await findOrCreateCartTransformId(session.shop, session.accessToken!);
+  if (!ctId) return NextResponse.json({ rules: [], ctSource: source, debug });
 
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
     query GetMeta($id: ID!) {
@@ -129,9 +129,9 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { id: ctId, debug } = await findOrCreateCartTransformId(session.shop, session.accessToken!);
+  const { id: ctId, source: ctSource, debug: ctDebug } = await findOrCreateCartTransformId(session.shop, session.accessToken!);
   if (!ctId) {
-    return NextResponse.json({ error: "Could not find or create CartTransform", debug }, { status: 500 });
+    return NextResponse.json({ error: "Could not find or create CartTransform", ctSource, debug: ctDebug }, { status: 500 });
   }
 
   const value = JSON.stringify({ rules: body.rules });
@@ -144,8 +144,8 @@ export async function PUT(req: NextRequest) {
         type: "json"
         value: $value
       }]) {
-        metafields { id }
-        userErrors { field message }
+        metafields { id namespace key }
+        userErrors { field message code }
       }
     }
   `, { ownerId: ctId, value });
@@ -153,12 +153,18 @@ export async function PUT(req: NextRequest) {
   const errors: { field: string; message: string }[] =
     data?.data?.metafieldsSet?.userErrors ?? [];
   if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0].message }, { status: 400 });
+    return NextResponse.json({ error: errors[0].message, ctId, ctSource }, { status: 400 });
   }
 
   const written = data?.data?.metafieldsSet?.metafields ?? [];
   if (written.length === 0) {
-    return NextResponse.json({ error: "Write returned no result", debug: data }, { status: 500 });
+    return NextResponse.json({
+      error: "Metafield write returned no result",
+      ctId,
+      ctSource,
+      topLevelErrors: data?.errors ?? null,
+      mutationResponse: data?.data?.metafieldsSet ?? null,
+    }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, rules: body.rules });
