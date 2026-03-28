@@ -5,7 +5,7 @@ import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const FUNCTION_HANDLE = "gift-with-product";
+const FUNCTION_TITLE = "Gift With Product";
 const NS = "upsale";
 const KEY = "gift_config";
 
@@ -31,18 +31,60 @@ async function getSession(req: NextRequest) {
   return session;
 }
 
-async function findFunctionId(shop: string, accessToken: string): Promise<{ id: string | null; allHandles: string[]; rawResponse?: unknown }> {
-  const raw = await shopifyGraphql(shop, accessToken, `
-    query { shopifyFunctions(first: 25) { nodes { id title apiType } } }
+/**
+ * Cart Transform functions store their config on a CartTransform object,
+ * not directly on the ShopifyFunction. We find or create that CartTransform
+ * and use its GID as the metafield owner.
+ */
+async function findOrCreateCartTransformId(
+  shop: string,
+  accessToken: string
+): Promise<{ id: string | null; debug?: unknown }> {
+  // 1. Find the ShopifyFunction UUID
+  const fnData = await shopifyGraphql(shop, accessToken, `
+    query { shopifyFunctions(first: 25) { nodes { id title } } }
   `);
-  const nodes: { id: string; title: string; apiType: string }[] = raw?.data?.shopifyFunctions?.nodes ?? [];
-  const allTitles = nodes.map((n) => `${n.title} (${n.apiType})`);
-  const match =
-    nodes.find((n) => n.title === "Gift With Product") ??
-    nodes.find((n) => n.title.toLowerCase().includes("gift"));
-  // Construct full GID — shopifyFunctions returns a raw UUID, not a prefixed GID
-  const id = match ? (match.id.startsWith("gid://") ? match.id : `gid://shopify/ShopifyFunction/${match.id}`) : null;
-  return { id, allHandles: allTitles, rawResponse: raw };
+  const fns: { id: string; title: string }[] = fnData?.data?.shopifyFunctions?.nodes ?? [];
+  const fn =
+    fns.find((f) => f.title === FUNCTION_TITLE) ??
+    fns.find((f) => f.title.toLowerCase().includes("gift"));
+
+  if (!fn) return { id: null, debug: { step: "function_not_found", fns, raw: fnData } };
+
+  const fnGid = fn.id.startsWith("gid://")
+    ? fn.id
+    : `gid://shopify/ShopifyFunction/${fn.id}`;
+
+  // 2. Find existing CartTransform for this function
+  const ctData = await shopifyGraphql(shop, accessToken, `
+    query { cartTransforms(first: 25) { nodes { id functionId } } }
+  `);
+  const transforms: { id: string; functionId: string }[] =
+    ctData?.data?.cartTransforms?.nodes ?? [];
+  const existing = transforms.find(
+    (t) => t.functionId === fnGid || t.functionId?.includes(fn.id)
+  );
+
+  if (existing) return { id: existing.id };
+
+  // 3. No CartTransform exists yet — create one
+  const createData = await shopifyGraphql(shop, accessToken, `
+    mutation CreateCT($fnId: ID!) {
+      cartTransformCreate(functionId: $fnId) {
+        cartTransform { id functionId }
+        userErrors { field message code }
+      }
+    }
+  `, { fnId: fnGid });
+
+  const created = createData?.data?.cartTransformCreate?.cartTransform;
+  const createErrors = createData?.data?.cartTransformCreate?.userErrors ?? [];
+
+  if (!created || createErrors.length > 0) {
+    return { id: null, debug: { step: "create_failed", createErrors, raw: createData } };
+  }
+
+  return { id: created.id };
 }
 
 export interface GiftRule {
@@ -54,18 +96,18 @@ export async function GET(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id: fnId, allHandles, rawResponse } = await findFunctionId(session.shop, session.accessToken!);
-  if (!fnId) return NextResponse.json({ rules: [], debug: { message: "Function not found", allHandles, rawResponse } });
+  const { id: ctId, debug } = await findOrCreateCartTransformId(session.shop, session.accessToken!);
+  if (!ctId) return NextResponse.json({ rules: [], debug });
 
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
     query GetMeta($id: ID!) {
       node(id: $id) {
-        ... on ShopifyFunction {
+        ... on CartTransform {
           metafield(namespace: "${NS}", key: "${KEY}") { value }
         }
       }
     }
-  `, { id: fnId });
+  `, { id: ctId });
 
   const raw: string | undefined = data?.data?.node?.metafield?.value;
   let rules: GiftRule[] = [];
@@ -87,12 +129,9 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { id: fnId, allHandles } = await findFunctionId(session.shop, session.accessToken!);
-  if (!fnId) {
-    return NextResponse.json(
-      { error: `Function not found. Available handles: ${allHandles.join(", ") || "none"}` },
-      { status: 404 }
-    );
+  const { id: ctId, debug } = await findOrCreateCartTransformId(session.shop, session.accessToken!);
+  if (!ctId) {
+    return NextResponse.json({ error: "Could not find or create CartTransform", debug }, { status: 500 });
   }
 
   const value = JSON.stringify({ rules: body.rules });
@@ -109,30 +148,18 @@ export async function PUT(req: NextRequest) {
         userErrors { field message }
       }
     }
-  `, { ownerId: fnId, value });
+  `, { ownerId: ctId, value });
 
-  const errors: { field: string; message: string }[] = data?.data?.metafieldsSet?.userErrors ?? [];
+  const errors: { field: string; message: string }[] =
+    data?.data?.metafieldsSet?.userErrors ?? [];
   if (errors.length > 0) {
     return NextResponse.json({ error: errors[0].message }, { status: 400 });
   }
 
-  const writtenIds = data?.data?.metafieldsSet?.metafields ?? [];
-  if (writtenIds.length === 0) {
-    // Mutation returned no userErrors but also wrote nothing — surface raw response
-    return NextResponse.json({ error: "Metafield write returned no result", debug: data }, { status: 500 });
+  const written = data?.data?.metafieldsSet?.metafields ?? [];
+  if (written.length === 0) {
+    return NextResponse.json({ error: "Write returned no result", debug: data }, { status: 500 });
   }
 
-  // Read back immediately to confirm persistence
-  const readBack = await shopifyGraphql(session.shop, session.accessToken!, `
-    query GetMeta($id: ID!) {
-      node(id: $id) {
-        ... on ShopifyFunction {
-          metafield(namespace: "${NS}", key: "${KEY}") { value }
-        }
-      }
-    }
-  `, { id: fnId });
-
-  const readValue = readBack?.data?.node?.metafield?.value;
-  return NextResponse.json({ ok: true, rules: body.rules, debug: { writtenIds, readBack: readValue } });
+  return NextResponse.json({ ok: true, rules: body.rules });
 }
