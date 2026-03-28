@@ -47,18 +47,22 @@ export async function GET(req: NextRequest) {
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
     query {
       shop {
-        metafield(namespace: "${NS}", key: "${KEY}") { value }
+        plain: metafield(namespace: "${NS}", key: "${KEY}") { value namespace key }
+        appScoped: metafield(namespace: "$app:${NS}", key: "${KEY}") { value namespace key }
       }
     }
   `);
 
-  const raw: string | undefined = data?.data?.shop?.metafield?.value;
+  const plain = data?.data?.shop?.plain;
+  const appScoped = data?.data?.shop?.appScoped;
+  // prefer $app:upsale (app-owned), fall back to plain upsale
+  const raw: string | undefined = (appScoped ?? plain)?.value;
   let rules: GiftRule[] = [];
   if (raw) {
     try { rules = JSON.parse(raw).rules ?? []; } catch { /* ignore */ }
   }
 
-  return NextResponse.json({ rules });
+  return NextResponse.json({ rules, _debug: { plain, appScoped } });
 }
 
 export async function PUT(req: NextRequest) {
@@ -80,14 +84,11 @@ export async function PUT(req: NextRequest) {
   const value = JSON.stringify({ rules: body.rules });
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
     mutation SetMeta($ownerId: ID!, $value: String!) {
-      metafieldsSet(metafields: [{
-        ownerId: $ownerId
-        namespace: "${NS}"
-        key: "${KEY}"
-        type: "json"
-        value: $value
-      }]) {
-        metafields { id }
+      metafieldsSet(metafields: [
+        { ownerId: $ownerId, namespace: "${NS}", key: "${KEY}", type: "json", value: $value },
+        { ownerId: $ownerId, namespace: "$app:${NS}", key: "${KEY}", type: "json", value: $value }
+      ]) {
+        metafields { id namespace key }
         userErrors { field message }
       }
     }
@@ -96,7 +97,7 @@ export async function PUT(req: NextRequest) {
   const errors: { field: string; message: string }[] =
     data?.data?.metafieldsSet?.userErrors ?? [];
   if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0].message }, { status: 400 });
+    return NextResponse.json({ error: errors[0].message, shopId }, { status: 400 });
   }
 
   const written = data?.data?.metafieldsSet?.metafields ?? [];
@@ -108,5 +109,5 @@ export async function PUT(req: NextRequest) {
     }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules });
+  return NextResponse.json({ ok: true, rules: body.rules, writtenTo: written });
 }
