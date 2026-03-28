@@ -17,5 +17,5 @@ description = "Automatically adds a free gift when a specific product variant is
   key = "gift_config"
 
   [extensions.build]
-  command = "npm run build"
+  command = ""
   path = "dist/function.wasm"
