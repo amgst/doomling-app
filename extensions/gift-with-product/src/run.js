@@ -24,13 +24,8 @@
  * "sticky" you would need a cart attribute set by a theme extension to signal
  * user intent, which can then be read in this function.
  *
- * @typedef {import("../generated/api").InputQuery}  RunInput
- * @typedef {import("../generated/api").FunctionRunResult} FunctionRunResult
- */
-
-/**
- * @param {RunInput} input
- * @returns {FunctionRunResult}
+ * @param {object} input
+ * @returns {{ operations: object[] }}
  */
 export function run(input) {
   const meta = input.cartTransform?.metafield;
@@ -47,9 +42,6 @@ export function run(input) {
   if (!Array.isArray(rules) || rules.length === 0) return { operations: [] };
 
   const lines = input.cart.lines;
-  const currency =
-    input.cart.cost?.totalAmount?.currencyCode ?? 'USD';
-
   const operations = [];
 
   for (const rule of rules) {
@@ -61,19 +53,10 @@ export function run(input) {
     // Find the main product line (should be at most one after Shopify consolidates)
     const mainLine = lines.find((l) => l.merchandise?.id === mainGid);
 
-    // Gift is already present as a standalone line — skip to avoid duplicates.
-    // (When expand runs, the gift appears as a component, not a standalone line,
-    //  so this check primarily guards against the gift being added via storefront API.)
+    // Gift is already present — skip to avoid duplicates.
     const giftAlreadyPresent = lines.some((l) => l.merchandise?.id === giftGid);
 
     if (!mainLine || giftAlreadyPresent) continue;
-
-    // Preserve the main product's original unit price so the customer is not
-    // overcharged. The gift component is added at $0.
-    const mainUnitAmount =
-      mainLine.cost?.amountPerQuantity?.amount ?? '0.00';
-    const mainUnitCurrency =
-      mainLine.cost?.amountPerQuantity?.currencyCode ?? currency;
 
     operations.push({
       expand: {
@@ -82,22 +65,12 @@ export function run(input) {
           {
             merchandiseId: mainGid,
             quantity: mainLine.quantity,
-            price: {
-              fixedPricePerUnit: {
-                amount: mainUnitAmount,
-                currencyCode: mainUnitCurrency,
-              },
-            },
+            price: { percentageDecrease: { value: 0 } },
           },
           {
             merchandiseId: giftGid,
             quantity: mainLine.quantity,
-            price: {
-              fixedPricePerUnit: {
-                amount: '0.00',
-                currencyCode: currency,
-              },
-            },
+            price: { percentageDecrease: { value: 100 } },
           },
         ],
       },
