@@ -50,24 +50,20 @@ async function findOrCreateCartTransformId(
     ? fn.id
     : `gid://shopify/ShopifyFunction/${fn.id}`;
 
-  // 2. Find existing CartTransform for this function
+  // 2. Find existing CartTransform (Shopify only returns this app's transforms)
   const ctData = await shopifyGraphql(shop, accessToken, `
-    query { cartTransforms(first: 25) { nodes { id functionId } } }
+    query { cartTransforms(first: 10) { nodes { id } } }
   `);
-  const ctErrors = ctData?.errors;
-  const transforms: { id: string; functionId: string }[] =
-    ctData?.data?.cartTransforms?.nodes ?? [];
-  const existing = transforms.find(
-    (t) => t.functionId === fnGid || t.functionId?.includes(fn.id)
-  );
+  const ctErrors = ctData?.errors ?? null;
+  const transforms: { id: string }[] = ctData?.data?.cartTransforms?.nodes ?? [];
 
-  if (existing) return { id: existing.id, source: "found_existing" };
+  if (transforms.length > 0) return { id: transforms[0].id, source: "found_existing" };
 
   // 3. No CartTransform found — try to create one
   const createData = await shopifyGraphql(shop, accessToken, `
     mutation CreateCT($fnId: String!) {
       cartTransformCreate(functionId: $fnId) {
-        cartTransform { id functionId }
+        cartTransform { id }
         userErrors { field message code }
       }
     }
@@ -75,12 +71,13 @@ async function findOrCreateCartTransformId(
 
   const created = createData?.data?.cartTransformCreate?.cartTransform;
   const createErrors = createData?.data?.cartTransformCreate?.userErrors ?? [];
+  const createTopErrors = createData?.errors ?? null;
 
-  if (!created || createErrors.length > 0) {
+  if (!created) {
     return {
       id: null,
       source: "create_failed",
-      debug: { fnGid, ctErrors, transforms, createErrors, createRaw: createData },
+      debug: { fnGid, ctErrors, ctNodes: transforms, createErrors, createTopErrors },
     };
   }
 
