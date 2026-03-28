@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
       ["state", state],
       ["isOnline", false],
       ["accessToken", access_token],
-      ["scope", "write_orders,write_products,read_products,read_customers,read_analytics,write_discounts,read_discounts"],
+      ["scope", "write_orders,write_products,read_products,read_customers,read_analytics,write_discounts,read_discounts,read_cart_transforms,write_cart_transforms"],
     ]);
     await firestoreSessionStorage.storeSession(session);
 
