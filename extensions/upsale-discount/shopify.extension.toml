@@ -1,26 +1,25 @@
 api_version = "2026-01"
 
 [[extensions]]
-name = "t:name"
 handle = "upsale-discount"
+name = "t:name"
 type = "function"
-uid = "ca9f669b-dd58-1d8c-2599-4e065cc68d8e310c87c1"
 description = "t:description"
 
   [[extensions.targeting]]
   target = "cart.lines.discounts.generate.run"
   input_query = "src/cart_lines_discounts_generate_run.graphql"
-  export = "cart-lines-discounts-generate-run"
+  export = "cartLinesDiscountsGenerateRun"
 
   [[extensions.targeting]]
   target = "cart.delivery-options.discounts.generate.run"
   input_query = "src/cart_delivery_options_discounts_generate_run.graphql"
-  export = "cart-delivery-options-discounts-generate-run"
+  export = "cartDeliveryOptionsDiscountsGenerateRun"
 
   [[extensions.metafields]]
   namespace = "upsale"
   key = "config"
 
   [extensions.build]
-  command = ""
+  command = "npm run build"
   path = "dist/function.wasm"
