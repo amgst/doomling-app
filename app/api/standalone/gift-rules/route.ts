@@ -40,7 +40,7 @@ async function findFunctionId(shop: string, accessToken: string): Promise<{ id: 
   // Try exact match first, then partial match (handle contains our name)
   const match =
     nodes.find((n) => n.handle === FUNCTION_HANDLE) ??
-    nodes.find((n) => n.handle.includes("gift"));
+    nodes.find((n) => n.handle.includes("gift-with-product"));
   return { id: match?.id ?? null, allHandles };
 }
 

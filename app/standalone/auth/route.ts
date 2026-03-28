@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SCOPES = "write_orders,read_products,read_customers,read_analytics,write_discounts,read_discounts";
+const SCOPES = "write_orders,write_products,read_products,read_customers,read_analytics,write_discounts,read_discounts";
 
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get("shop") ?? "";
