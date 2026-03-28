@@ -31,17 +31,16 @@ async function getSession(req: NextRequest) {
   return session;
 }
 
-async function findFunctionId(shop: string, accessToken: string): Promise<{ id: string | null; allHandles: string[] }> {
-  const data = await shopifyGraphql(shop, accessToken, `
+async function findFunctionId(shop: string, accessToken: string): Promise<{ id: string | null; allHandles: string[]; rawResponse?: unknown }> {
+  const raw = await shopifyGraphql(shop, accessToken, `
     query { shopifyFunctions(first: 25) { nodes { id handle apiType } } }
   `);
-  const nodes: { id: string; handle: string; apiType: string }[] = data?.data?.shopifyFunctions?.nodes ?? [];
+  const nodes: { id: string; handle: string; apiType: string }[] = raw?.data?.shopifyFunctions?.nodes ?? [];
   const allHandles = nodes.map((n) => n.handle);
-  // Try exact match first, then partial match (handle contains our name)
   const match =
     nodes.find((n) => n.handle === FUNCTION_HANDLE) ??
-    nodes.find((n) => n.handle.includes("gift-with-product"));
-  return { id: match?.id ?? null, allHandles };
+    nodes.find((n) => n.handle.includes("gift"));
+  return { id: match?.id ?? null, allHandles, rawResponse: raw };
 }
 
 export interface GiftRule {
@@ -53,8 +52,8 @@ export async function GET(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id: fnId, allHandles } = await findFunctionId(session.shop, session.accessToken!);
-  if (!fnId) return NextResponse.json({ rules: [], debug: { message: "Function not found", allHandles } });
+  const { id: fnId, allHandles, rawResponse } = await findFunctionId(session.shop, session.accessToken!);
+  if (!fnId) return NextResponse.json({ rules: [], debug: { message: "Function not found", allHandles, rawResponse } });
 
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
     query GetMeta($id: ID!) {
