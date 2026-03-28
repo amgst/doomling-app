@@ -20,6 +20,8 @@ export function getShopify(): Shopify {
       "read_products",
       "read_customers",
       "read_analytics",
+      "read_cart_transforms",
+      "write_cart_transforms",
     ],
     hostName: (process.env.HOST ?? "").replace(/^https?:\/\//, ""),
     apiVersion: LATEST_API_VERSION,

@@ -65,7 +65,7 @@ async function findOrCreateCartTransformId(
 
   // 3. No CartTransform found — try to create one
   const createData = await shopifyGraphql(shop, accessToken, `
-    mutation CreateCT($fnId: ID!) {
+    mutation CreateCT($fnId: String!) {
       cartTransformCreate(functionId: $fnId) {
         cartTransform { id functionId }
         userErrors { field message code }

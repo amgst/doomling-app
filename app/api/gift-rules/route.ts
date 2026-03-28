@@ -43,7 +43,7 @@ async function findOrCreateCartTransformId(client: { request: <T>(query: string,
       userErrors: { field: string; message: string; code: string }[];
     };
   }>(
-    `mutation CreateCT($fnId: ID!) {
+    `mutation CreateCT($fnId: String!) {
       cartTransformCreate(functionId: $fnId) {
         cartTransform { id functionId }
         userErrors { field message code }
