@@ -44,20 +44,15 @@ export async function GET(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const shopId = await getShopId(session.shop, session.accessToken!);
-  if (!shopId) return NextResponse.json({ rules: [] });
-
   const data = await shopifyGraphql(session.shop, session.accessToken!, `
-    query GetMeta($id: ID!) {
-      node(id: $id) {
-        ... on Shop {
-          metafield(namespace: "${NS}", key: "${KEY}") { value }
-        }
+    query {
+      shop {
+        metafield(namespace: "${NS}", key: "${KEY}") { value }
       }
     }
-  `, { id: shopId });
+  `);
 
-  const raw: string | undefined = data?.data?.node?.metafield?.value;
+  const raw: string | undefined = data?.data?.shop?.metafield?.value;
   let rules: GiftRule[] = [];
   if (raw) {
     try { rules = JSON.parse(raw).rules ?? []; } catch { /* ignore */ }

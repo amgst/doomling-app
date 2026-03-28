@@ -20,22 +20,15 @@ export async function GET(req: NextRequest) {
   const shopify = getShopify();
   const client = new shopify.clients.Graphql({ session: session! });
 
-  const shopRes = await client.request<{ shop: { id: string } }>(`query { shop { id } }`);
-  const shopId = shopRes.data?.shop?.id;
-  if (!shopId) return NextResponse.json({ rules: [] });
-
-  const res = await client.request<{ node: { metafield?: { value: string } } }>(
-    `query GetMeta($id: ID!) {
-      node(id: $id) {
-        ... on Shop {
-          metafield(namespace: "${NS}", key: "${KEY}") { value }
-        }
+  const res = await client.request<{ shop: { metafield?: { value: string } } }>(
+    `query {
+      shop {
+        metafield(namespace: "${NS}", key: "${KEY}") { value }
       }
-    }`,
-    { variables: { id: shopId } }
+    }`
   );
 
-  const raw = res.data?.node?.metafield?.value;
+  const raw = res.data?.shop?.metafield?.value;
   let rules: GiftRule[] = [];
   if (raw) {
     try { rules = JSON.parse(raw).rules ?? []; } catch { /* ignore */ }
