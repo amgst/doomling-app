@@ -17,7 +17,8 @@ async function findFunctionId(client: InstanceType<ReturnType<typeof getShopify>
   const node =
     nodes.find((n) => n.title === "Gift With Product") ??
     nodes.find((n) => n.title.toLowerCase().includes("gift"));
-  return node?.id ?? null;
+  if (!node) return null;
+  return node.id.startsWith("gid://") ? node.id : `gid://shopify/ShopifyFunction/${node.id}`;
 }
 
 export interface GiftRule {

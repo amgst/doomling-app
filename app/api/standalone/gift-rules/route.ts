@@ -40,7 +40,9 @@ async function findFunctionId(shop: string, accessToken: string): Promise<{ id: 
   const match =
     nodes.find((n) => n.title === "Gift With Product") ??
     nodes.find((n) => n.title.toLowerCase().includes("gift"));
-  return { id: match?.id ?? null, allHandles: allTitles, rawResponse: raw };
+  // Construct full GID — shopifyFunctions returns a raw UUID, not a prefixed GID
+  const id = match ? (match.id.startsWith("gid://") ? match.id : `gid://shopify/ShopifyFunction/${match.id}`) : null;
+  return { id, allHandles: allTitles, rawResponse: raw };
 }
 
 export interface GiftRule {
