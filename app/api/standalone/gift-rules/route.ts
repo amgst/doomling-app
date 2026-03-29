@@ -78,8 +78,9 @@ export async function PUT(req: NextRequest) {
       let ctId: string | null = transforms[0]?.id ?? null;
 
       // 3. Create CartTransform if none exists
+      let createData: Record<string, unknown> | null = null;
       if (!ctId) {
-        const createData = await shopifyGraphql(session.shop, session.accessToken!, `
+        createData = await shopifyGraphql(session.shop, session.accessToken!, `
           mutation CreateCT($fnId: String!) {
             cartTransformCreate(functionId: $fnId) {
               cartTransform { id }
@@ -87,11 +88,19 @@ export async function PUT(req: NextRequest) {
             }
           }
         `, { fnId: fnGid });
-        ctId = createData?.data?.cartTransformCreate?.cartTransform?.id ?? null;
+        ctId = (createData as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
       }
 
       if (!ctId) {
-        syncStatus = { error: "Could not find or create CartTransform" };
+        syncStatus = {
+          error: "Could not find or create CartTransform",
+          fnGid,
+          ctQuery: ctData,
+          transforms,
+          createData,
+          createErrors: (createData as any)?.data?.cartTransformCreate?.userErrors ?? null,
+          createTopErrors: (createData as any)?.errors ?? null,
+        };
       } else {
         // 4. Write config to CartTransform metafield
         const value = JSON.stringify({ rules: body.rules });
