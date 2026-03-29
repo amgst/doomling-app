@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
+import { getGiftRules, setGiftRules, GiftRule } from "@/lib/firebase/giftRuleStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,29 +31,13 @@ async function getSession(req: NextRequest) {
   return session;
 }
 
-export interface GiftRule {
-  mainVariantId: string;
-  giftVariantId: string;
-}
+export { GiftRule };
 
 export async function GET(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const data = await shopifyGraphql(session.shop, session.accessToken!, `
-    query {
-      shop {
-        metafield(namespace: "${NS}", key: "${KEY}") { value }
-      }
-    }
-  `);
-
-  const raw: string | undefined = data?.data?.shop?.metafield?.value;
-  let rules: GiftRule[] = [];
-  if (raw) {
-    try { rules = JSON.parse(raw).rules ?? []; } catch { /* ignore */ }
-  }
-
+  const rules = await getGiftRules(session.shop);
   return NextResponse.json({ rules });
 }
 
@@ -67,34 +52,32 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const shopData = await shopifyGraphql(session.shop, session.accessToken!, `query { shop { id } }`);
-  const shopId: string | undefined = shopData?.data?.shop?.id;
-  if (!shopId) return NextResponse.json({ error: "Could not get Shop ID" }, { status: 500 });
+  // Save to Firebase (source of truth for dashboard)
+  await setGiftRules(session.shop, body.rules);
 
-  const value = JSON.stringify({ rules: body.rules });
-  const data = await shopifyGraphql(session.shop, session.accessToken!, `
-    mutation SetMeta($ownerId: ID!, $value: String!) {
-      metafieldsSet(metafields: [{
-        ownerId: $ownerId
-        namespace: "${NS}"
-        key: "${KEY}"
-        type: "json"
-        value: $value
-      }]) {
-        metafields { id }
-        userErrors { field message }
-      }
+  // Sync to Shopify metafield so the cart function can read it
+  try {
+    const shopData = await shopifyGraphql(session.shop, session.accessToken!, `query { shop { id } }`);
+    const shopId: string | undefined = shopData?.data?.shop?.id;
+    if (shopId) {
+      const value = JSON.stringify({ rules: body.rules });
+      await shopifyGraphql(session.shop, session.accessToken!, `
+        mutation SetMeta($ownerId: ID!, $value: String!) {
+          metafieldsSet(metafields: [{
+            ownerId: $ownerId
+            namespace: "${NS}"
+            key: "${KEY}"
+            type: "json"
+            value: $value
+          }]) {
+            metafields { id }
+            userErrors { field message }
+          }
+        }
+      `, { ownerId: shopId, value });
     }
-  `, { ownerId: shopId, value });
-
-  const errors: { field: string; message: string }[] = data?.data?.metafieldsSet?.userErrors ?? [];
-  if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0].message }, { status: 400 });
-  }
-
-  const written = data?.data?.metafieldsSet?.metafields ?? [];
-  if (written.length === 0) {
-    return NextResponse.json({ error: "Metafield write failed", details: data?.errors ?? null }, { status: 500 });
+  } catch {
+    // Sync failure doesn't block the save — Firebase has the data
   }
 
   return NextResponse.json({ ok: true, rules: body.rules });
