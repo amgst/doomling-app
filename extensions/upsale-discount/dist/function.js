@@ -1,4 +1,4 @@
-// node_modules/@shopify/shopify_function/run.ts
+// extensions/upsale-discount/node_modules/@shopify/shopify_function/run.ts
 function run_default(userfunction) {
   try {
     ShopifyFunction;
