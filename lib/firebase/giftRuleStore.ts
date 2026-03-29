@@ -15,5 +15,17 @@ export async function getGiftRules(shop: string): Promise<GiftRule[]> {
 
 export async function setGiftRules(shop: string, rules: GiftRule[]): Promise<void> {
   const ref = doc(getDb(), "gift_rules", shop);
-  await setDoc(ref, { rules, updatedAt: serverTimestamp() });
+  await setDoc(ref, { rules, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+export async function getCartTransformId(shop: string): Promise<string | null> {
+  const ref = doc(getDb(), "gift_rules", shop);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  return (snap.data().cartTransformId as string) ?? null;
+}
+
+export async function setCartTransformId(shop: string, ctId: string): Promise<void> {
+  const ref = doc(getDb(), "gift_rules", shop);
+  await setDoc(ref, { cartTransformId: ctId }, { merge: true });
 }

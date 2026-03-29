@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
-import { getGiftRules, setGiftRules, GiftRule } from "@/lib/firebase/giftRuleStore";
+import { getGiftRules, setGiftRules, getCartTransformId, setCartTransformId, GiftRule } from "@/lib/firebase/giftRuleStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,15 +73,19 @@ export async function PUT(req: NextRequest) {
       // Use plain UUID — cartTransformCreate expects UUID, not GID
       const fnUuid = fn.id.replace(/^gid:\/\/shopify\/ShopifyFunction\//, "");
 
-      // 2. Find existing CartTransform
-      const ctData = await shopifyGraphql(session.shop, session.accessToken!, `
-        query { cartTransforms(first: 10) { nodes { id } } }
-      `);
-      const transforms: { id: string }[] = ctData?.data?.cartTransforms?.nodes ?? [];
-      let ctId: string | null = transforms[0]?.id ?? null;
+      // 2. Use cached CartTransform ID from Firebase, or query/create
+      let ctId: string | null = await getCartTransformId(session.shop);
 
-      // 3. Create CartTransform if none exists
       if (!ctId) {
+        // Try Shopify query first
+        const ctData = await shopifyGraphql(session.shop, session.accessToken!, `
+          query { cartTransforms(first: 10) { nodes { id } } }
+        `);
+        ctId = ctData?.data?.cartTransforms?.nodes?.[0]?.id ?? null;
+      }
+
+      if (!ctId) {
+        // Create CartTransform
         const createData = await shopifyGraphql(session.shop, session.accessToken!, `
           mutation CreateCT($fnId: String!) {
             cartTransformCreate(functionId: $fnId) {
@@ -91,12 +95,14 @@ export async function PUT(req: NextRequest) {
           }
         `, { fnId: fnUuid });
         ctId = (createData as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
-        if (!ctId) {
-          syncStatus = {
-            error: "Could not create CartTransform",
-            userErrors: (createData as any)?.data?.cartTransformCreate?.userErrors ?? [],
-          };
+        const userErrors = (createData as any)?.data?.cartTransformCreate?.userErrors ?? [];
+        // "already registered" means it exists — still a success, but we can't get the ID this way
+        if (!ctId && userErrors.some((e: any) => e.message?.includes("already registered"))) {
+          syncStatus = { error: "CartTransform already exists but ID unknown. Re-save to retry after clearing cache." };
+        } else if (!ctId) {
+          syncStatus = { error: "Could not create CartTransform", userErrors };
         }
+        if (ctId) await setCartTransformId(session.shop, ctId);
       }
 
       if (ctId) {
