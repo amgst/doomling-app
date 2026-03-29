@@ -5,7 +5,7 @@ import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const NS = "gwp";
+const NS = "$app:gwp";
 const KEY = "gift_config";
 
 async function shopifyGraphql(shop: string, accessToken: string, query: string, variables?: Record<string, unknown>) {

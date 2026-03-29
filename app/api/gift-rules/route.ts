@@ -5,7 +5,7 @@ import { getShopify } from "@/lib/shopify/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const NS = "gwp";
+const NS = "$app:gwp";
 const KEY = "gift_config";
 
 export interface GiftRule {
