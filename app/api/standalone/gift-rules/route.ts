@@ -58,6 +58,12 @@ export async function PUT(req: NextRequest) {
   // Sync config to CartTransform metafield so the cart function can read it
   let syncStatus: unknown = "not_attempted";
   try {
+    // 0. Check which app this access token belongs to
+    const appData = await shopifyGraphql(session.shop, session.accessToken!, `
+      query { currentAppInstallation { app { id apiKey title } } }
+    `);
+    const tokenAppInfo = appData?.data?.currentAppInstallation?.app ?? null;
+
     // 1. Find the ShopifyFunction belonging to THIS app by apiKey
     const fnData = await shopifyGraphql(session.shop, session.accessToken!, `
       query { shopifyFunctions(first: 25) { nodes { id title app { apiKey } } } }
@@ -68,7 +74,7 @@ export async function PUT(req: NextRequest) {
     const ourFns = ourApiKey ? fns.filter((f) => f.app?.apiKey === ourApiKey) : fns;
     const fn = ourFns.find((f) => f.title === "Gift With Product") ?? ourFns.find((f) => f.title.toLowerCase().includes("gift"));
     // Debug: include all found functions in error output
-    const fnDebug = { ourApiKey, allFns: fns, ourFns };
+    const fnDebug = { tokenAppInfo, ourApiKey, allFns: fns, ourFns };
 
     if (!fn) {
       syncStatus = { error: "ShopifyFunction not found", ...fnDebug };
