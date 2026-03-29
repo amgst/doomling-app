@@ -58,35 +58,20 @@ export async function PUT(req: NextRequest) {
   // Sync config to CartTransform metafield so the cart function can read it
   let syncStatus: unknown = "not_attempted";
   try {
-    // 0. Check which app this access token belongs to
-    const appData = await shopifyGraphql(session.shop, session.accessToken!, `
-      query { currentAppInstallation { app { id apiKey title } } }
-    `);
-    const tokenAppInfo = appData?.data?.currentAppInstallation?.app ?? null;
-
-    // 1. Find the ShopifyFunction belonging to THIS app by apiKey
+    // 1. Find the gift-with-product ShopifyFunction for this app
     const fnData = await shopifyGraphql(session.shop, session.accessToken!, `
       query { shopifyFunctions(first: 25) { nodes { id title app { apiKey } } } }
     `);
     const fns: { id: string; title: string; app: { apiKey: string } }[] = fnData?.data?.shopifyFunctions?.nodes ?? [];
     const ourApiKey = process.env.SHOPIFY_API_KEY ?? "";
-    // Only consider functions that belong to our app
     const ourFns = ourApiKey ? fns.filter((f) => f.app?.apiKey === ourApiKey) : fns;
     const fn = ourFns.find((f) => f.title === "Gift With Product") ?? ourFns.find((f) => f.title.toLowerCase().includes("gift"));
-    // Debug: include all found functions in error output
-    const fnDebug = { tokenAppInfo, ourApiKey, allFns: fns, ourFns };
 
     if (!fn) {
-      syncStatus = { error: "ShopifyFunction not found", ...fnDebug };
+      syncStatus = { error: "ShopifyFunction not found", fns };
     } else {
-      const fnGid = fn.id.startsWith("gid://") ? fn.id : `gid://shopify/ShopifyFunction/${fn.id}`;
-      // Also try plain UUID in case GID format is wrong
+      // Use plain UUID — cartTransformCreate expects UUID, not GID
       const fnUuid = fn.id.replace(/^gid:\/\/shopify\/ShopifyFunction\//, "");
-
-      // Verify the GID is resolvable
-      const nodeData = await shopifyGraphql(session.shop, session.accessToken!, `
-        query CheckNode($id: ID!) { node(id: $id) { id __typename } }
-      `, { id: fnGid });
 
       // 2. Find existing CartTransform
       const ctData = await shopifyGraphql(session.shop, session.accessToken!, `
@@ -96,49 +81,25 @@ export async function PUT(req: NextRequest) {
       let ctId: string | null = transforms[0]?.id ?? null;
 
       // 3. Create CartTransform if none exists
-      let createData: Record<string, unknown> | null = null;
-      let createDataUuid: Record<string, unknown> | null = null;
       if (!ctId) {
-        // Try with full GID first
-        createData = await shopifyGraphql(session.shop, session.accessToken!, `
+        const createData = await shopifyGraphql(session.shop, session.accessToken!, `
           mutation CreateCT($fnId: String!) {
             cartTransformCreate(functionId: $fnId) {
               cartTransform { id }
               userErrors { field message }
             }
           }
-        `, { fnId: fnGid });
+        `, { fnId: fnUuid });
         ctId = (createData as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
-
-        // If GID failed, try plain UUID
         if (!ctId) {
-          createDataUuid = await shopifyGraphql(session.shop, session.accessToken!, `
-            mutation CreateCT2($fnId: String!) {
-              cartTransformCreate(functionId: $fnId) {
-                cartTransform { id }
-                userErrors { field message }
-              }
-            }
-          `, { fnId: fnUuid });
-          ctId = (createDataUuid as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
+          syncStatus = {
+            error: "Could not create CartTransform",
+            userErrors: (createData as any)?.data?.cartTransformCreate?.userErrors ?? [],
+          };
         }
       }
 
-      if (!ctId) {
-        syncStatus = {
-          error: "Could not find or create CartTransform",
-          fnGid,
-          fnUuid,
-          nodeCheck: nodeData?.data?.node ?? null,
-          ...fnDebug,
-          ctQuery: ctData,
-          transforms,
-          createDataGid: createData,
-          createDataUuid,
-          createErrorsGid: (createData as any)?.data?.cartTransformCreate?.userErrors ?? null,
-          createErrorsUuid: (createDataUuid as any)?.data?.cartTransformCreate?.userErrors ?? null,
-        };
-      } else {
+      if (ctId) {
         // 4. Write config to CartTransform metafield
         const value = JSON.stringify({ rules: body.rules });
         const syncData = await shopifyGraphql(session.shop, session.accessToken!, `
