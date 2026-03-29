@@ -55,33 +55,67 @@ export async function PUT(req: NextRequest) {
   // Save to Firebase (source of truth for dashboard)
   await setGiftRules(session.shop, body.rules);
 
-  // Sync to Shopify metafield so the cart function can read it
+  // Sync config to CartTransform metafield so the cart function can read it
   let syncStatus: unknown = "not_attempted";
   try {
-    const shopData = await shopifyGraphql(session.shop, session.accessToken!, `query { shop { id } }`);
-    const shopId: string | undefined = shopData?.data?.shop?.id;
-    if (shopId) {
-      const value = JSON.stringify({ rules: body.rules });
-      const syncData = await shopifyGraphql(session.shop, session.accessToken!, `
-        mutation SetMeta($ownerId: ID!, $value: String!) {
-          metafieldsSet(metafields: [{
-            ownerId: $ownerId
-            namespace: "${NS}"
-            key: "${KEY}"
-            type: "json"
-            value: $value
-          }]) {
-            metafields { id namespace key }
-            userErrors { field message }
+    // 1. Find the ShopifyFunction by title
+    const fnData = await shopifyGraphql(session.shop, session.accessToken!, `
+      query { shopifyFunctions(first: 25) { nodes { id title } } }
+    `);
+    const fns: { id: string; title: string }[] = fnData?.data?.shopifyFunctions?.nodes ?? [];
+    const fn = fns.find((f) => f.title === "Gift With Product") ?? fns.find((f) => f.title.toLowerCase().includes("gift"));
+
+    if (!fn) {
+      syncStatus = { error: "ShopifyFunction not found", fns };
+    } else {
+      const fnGid = fn.id.startsWith("gid://") ? fn.id : `gid://shopify/ShopifyFunction/${fn.id}`;
+
+      // 2. Find existing CartTransform
+      const ctData = await shopifyGraphql(session.shop, session.accessToken!, `
+        query { cartTransforms(first: 10) { nodes { id } } }
+      `);
+      const transforms: { id: string }[] = ctData?.data?.cartTransforms?.nodes ?? [];
+      let ctId: string | null = transforms[0]?.id ?? null;
+
+      // 3. Create CartTransform if none exists
+      if (!ctId) {
+        const createData = await shopifyGraphql(session.shop, session.accessToken!, `
+          mutation CreateCT($fnId: String!) {
+            cartTransformCreate(functionId: $fnId) {
+              cartTransform { id }
+              userErrors { field message }
+            }
           }
-        }
-      `, { ownerId: shopId, value });
-      syncStatus = {
-        shopId,
-        metafields: syncData?.data?.metafieldsSet?.metafields ?? [],
-        userErrors: syncData?.data?.metafieldsSet?.userErrors ?? [],
-        topErrors: syncData?.errors ?? null,
-      };
+        `, { fnId: fnGid });
+        ctId = createData?.data?.cartTransformCreate?.cartTransform?.id ?? null;
+      }
+
+      if (!ctId) {
+        syncStatus = { error: "Could not find or create CartTransform" };
+      } else {
+        // 4. Write config to CartTransform metafield
+        const value = JSON.stringify({ rules: body.rules });
+        const syncData = await shopifyGraphql(session.shop, session.accessToken!, `
+          mutation SetMeta($ownerId: ID!, $value: String!) {
+            metafieldsSet(metafields: [{
+              ownerId: $ownerId
+              namespace: "${NS}"
+              key: "${KEY}"
+              type: "json"
+              value: $value
+            }]) {
+              metafields { id }
+              userErrors { field message }
+            }
+          }
+        `, { ownerId: ctId, value });
+        syncStatus = {
+          ctId,
+          metafields: syncData?.data?.metafieldsSet?.metafields ?? [],
+          userErrors: syncData?.data?.metafieldsSet?.userErrors ?? [],
+          topErrors: syncData?.errors ?? null,
+        };
+      }
     }
   } catch (e) {
     syncStatus = { error: e instanceof Error ? e.message : String(e) };

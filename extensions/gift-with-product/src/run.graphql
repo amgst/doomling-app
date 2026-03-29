@@ -10,7 +10,7 @@ query CartTransformInput {
       }
     }
   }
-  shop {
+  cartTransform {
     metafield(namespace: "gwp", key: "gift_config") {
       value
     }

@@ -28,7 +28,7 @@
  * @returns {{ operations: object[] }}
  */
 export function run(input) {
-  const meta = input.shop?.metafield;
+  const meta = input.cartTransform?.metafield;
 
   if (!meta?.value) {
     console.error("[GWP] No metafield found on shop. namespace=gwp key=gift_config — has the app saved rules and synced to Shopify?");
