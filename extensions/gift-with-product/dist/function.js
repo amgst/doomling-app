@@ -15,16 +15,26 @@ function run_default(userfunction) {
 // extensions/gift-with-product/src/run.js
 function run(input) {
   const meta = input.shop?.metafield;
-  if (!meta?.value) return { operations: [] };
+  if (!meta?.value) {
+    console.error("[GWP] No metafield found on shop. namespace=gwp key=gift_config \u2014 has the app saved rules and synced to Shopify?");
+    return { operations: [] };
+  }
   let config;
   try {
     config = JSON.parse(meta.value);
   } catch {
+    console.error("[GWP] Failed to parse metafield JSON:", meta.value);
     return { operations: [] };
   }
   const rules = config.rules;
-  if (!Array.isArray(rules) || rules.length === 0) return { operations: [] };
+  if (!Array.isArray(rules) || rules.length === 0) {
+    console.error("[GWP] No rules found in config:", JSON.stringify(config));
+    return { operations: [] };
+  }
+  console.error("[GWP] Loaded", rules.length, "rule(s)");
   const lines = input.cart.lines;
+  const cartVariantIds = lines.map((l) => l.merchandise?.id);
+  console.error("[GWP] Cart variants:", JSON.stringify(cartVariantIds));
   const operations = [];
   for (const rule of rules) {
     if (!rule.mainVariantId || !rule.giftVariantId) continue;
@@ -32,6 +42,7 @@ function run(input) {
     const giftGid = `gid://shopify/ProductVariant/${rule.giftVariantId}`;
     const mainLine = lines.find((l) => l.merchandise?.id === mainGid);
     const giftAlreadyPresent = lines.some((l) => l.merchandise?.id === giftGid);
+    console.error(`[GWP] Rule: main=${mainGid} gift=${giftGid} | mainInCart=${!!mainLine} giftAlready=${giftAlreadyPresent}`);
     if (!mainLine || giftAlreadyPresent) continue;
     operations.push({
       expand: {
@@ -51,6 +62,7 @@ function run(input) {
       }
     });
   }
+  console.error("[GWP] Returning", operations.length, "operation(s)");
   return { operations };
 }
 

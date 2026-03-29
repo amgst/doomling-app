@@ -1,0 +1,18 @@
+{
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/0",
+        "quantity": 1,
+        "merchandise": {
+          "id": "gid://shopify/ProductVariant/42280989655087"
+        }
+      }
+    ]
+  },
+  "shop": {
+    "metafield": {
+      "value": "{\"rules\":[{\"mainVariantId\":\"42280989655087\",\"giftVariantId\":\"42280989687855\"}]}"
+    }
+  }
+}
