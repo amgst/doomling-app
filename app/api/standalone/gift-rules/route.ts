@@ -56,12 +56,13 @@ export async function PUT(req: NextRequest) {
   await setGiftRules(session.shop, body.rules);
 
   // Sync to Shopify metafield so the cart function can read it
+  let syncStatus: unknown = "not_attempted";
   try {
     const shopData = await shopifyGraphql(session.shop, session.accessToken!, `query { shop { id } }`);
     const shopId: string | undefined = shopData?.data?.shop?.id;
     if (shopId) {
       const value = JSON.stringify({ rules: body.rules });
-      await shopifyGraphql(session.shop, session.accessToken!, `
+      const syncData = await shopifyGraphql(session.shop, session.accessToken!, `
         mutation SetMeta($ownerId: ID!, $value: String!) {
           metafieldsSet(metafields: [{
             ownerId: $ownerId
@@ -70,15 +71,21 @@ export async function PUT(req: NextRequest) {
             type: "json"
             value: $value
           }]) {
-            metafields { id }
+            metafields { id namespace key }
             userErrors { field message }
           }
         }
       `, { ownerId: shopId, value });
+      syncStatus = {
+        shopId,
+        metafields: syncData?.data?.metafieldsSet?.metafields ?? [],
+        userErrors: syncData?.data?.metafieldsSet?.userErrors ?? [],
+        topErrors: syncData?.errors ?? null,
+      };
     }
-  } catch {
-    // Sync failure doesn't block the save — Firebase has the data
+  } catch (e) {
+    syncStatus = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules });
+  return NextResponse.json({ ok: true, rules: body.rules, sync: syncStatus });
 }
