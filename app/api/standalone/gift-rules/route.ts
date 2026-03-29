@@ -6,7 +6,7 @@ import { getGiftRules, setGiftRules, GiftRule } from "@/lib/firebase/giftRuleSto
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const NS = "$app:gwp";
+const NS = "gwp";
 const KEY = "gift_config";
 
 async function shopifyGraphql(shop: string, accessToken: string, query: string, variables?: Record<string, unknown>) {
