@@ -80,6 +80,13 @@ export async function PUT(req: NextRequest) {
       syncStatus = { error: "ShopifyFunction not found", ...fnDebug };
     } else {
       const fnGid = fn.id.startsWith("gid://") ? fn.id : `gid://shopify/ShopifyFunction/${fn.id}`;
+      // Also try plain UUID in case GID format is wrong
+      const fnUuid = fn.id.replace(/^gid:\/\/shopify\/ShopifyFunction\//, "");
+
+      // Verify the GID is resolvable
+      const nodeData = await shopifyGraphql(session.shop, session.accessToken!, `
+        query CheckNode($id: ID!) { node(id: $id) { id __typename } }
+      `, { id: fnGid });
 
       // 2. Find existing CartTransform
       const ctData = await shopifyGraphql(session.shop, session.accessToken!, `
@@ -90,7 +97,9 @@ export async function PUT(req: NextRequest) {
 
       // 3. Create CartTransform if none exists
       let createData: Record<string, unknown> | null = null;
+      let createDataUuid: Record<string, unknown> | null = null;
       if (!ctId) {
+        // Try with full GID first
         createData = await shopifyGraphql(session.shop, session.accessToken!, `
           mutation CreateCT($fnId: String!) {
             cartTransformCreate(functionId: $fnId) {
@@ -100,18 +109,34 @@ export async function PUT(req: NextRequest) {
           }
         `, { fnId: fnGid });
         ctId = (createData as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
+
+        // If GID failed, try plain UUID
+        if (!ctId) {
+          createDataUuid = await shopifyGraphql(session.shop, session.accessToken!, `
+            mutation CreateCT2($fnId: String!) {
+              cartTransformCreate(functionId: $fnId) {
+                cartTransform { id }
+                userErrors { field message }
+              }
+            }
+          `, { fnId: fnUuid });
+          ctId = (createDataUuid as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
+        }
       }
 
       if (!ctId) {
         syncStatus = {
           error: "Could not find or create CartTransform",
           fnGid,
+          fnUuid,
+          nodeCheck: nodeData?.data?.node ?? null,
           ...fnDebug,
           ctQuery: ctData,
           transforms,
-          createData,
-          createErrors: (createData as any)?.data?.cartTransformCreate?.userErrors ?? null,
-          createTopErrors: (createData as any)?.errors ?? null,
+          createDataGid: createData,
+          createDataUuid,
+          createErrorsGid: (createData as any)?.data?.cartTransformCreate?.userErrors ?? null,
+          createErrorsUuid: (createDataUuid as any)?.data?.cartTransformCreate?.userErrors ?? null,
         };
       } else {
         // 4. Write config to CartTransform metafield
