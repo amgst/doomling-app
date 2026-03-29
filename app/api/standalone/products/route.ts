@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const res = await fetch(
     `https://${shop}/admin/api/2024-01/products.json?limit=50&fields=id,title,handle,status,variants,image`,
-    { headers: { "X-Shopify-Access-Token": session.accessToken } }
+    { headers: { "X-Shopify-Access-Token": session.accessToken }, cache: "no-store" }
   );
 
   if (!res.ok) {
