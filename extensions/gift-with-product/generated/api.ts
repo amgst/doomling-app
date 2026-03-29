@@ -41,7 +41,6 @@ export type Input = {
   __typename?: 'Input';
   cart: Cart;
   cartTransform: CartTransform;
-  shop: Shop;
 };
 
 export type Merchandise = ProductVariant;
@@ -70,4 +69,4 @@ export type ShopMetafieldArgs = {
 export type CartTransformInputVariables = Exact<{ [key: string]: never; }>;
 
 
-export type CartTransformInput = { __typename?: 'Input', cart: { __typename?: 'Cart', lines: Array<{ __typename?: 'CartLine', id: string, quantity: number, merchandise: { __typename?: 'ProductVariant', id: string } }> }, shop: { __typename?: 'Shop', metafield?: { __typename?: 'Metafield', value: string } | null } };
+export type CartTransformInput = { __typename?: 'Input', cart: { __typename?: 'Cart', lines: Array<{ __typename?: 'CartLine', id: string, quantity: number, merchandise: { __typename?: 'ProductVariant', id: string } }> }, cartTransform: { __typename?: 'CartTransform', metafield?: { __typename?: 'Metafield', value: string } | null } };

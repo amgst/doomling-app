@@ -14,7 +14,7 @@ function run_default(userfunction) {
 
 // extensions/gift-with-product/src/run.js
 function run(input) {
-  const meta = input.shop?.metafield;
+  const meta = input.cartTransform?.metafield;
   if (!meta?.value) {
     console.error("[GWP] No metafield found on shop. namespace=gwp key=gift_config \u2014 has the app saved rules and synced to Shopify?");
     return { operations: [] };
