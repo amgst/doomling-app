@@ -31,7 +31,7 @@ async function getSession(req: NextRequest) {
   return session;
 }
 
-export { GiftRule };
+export type { GiftRule };
 
 export async function GET(req: NextRequest) {
   const session = await getSession(req);
