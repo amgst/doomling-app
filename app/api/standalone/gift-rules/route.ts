@@ -58,15 +58,20 @@ export async function PUT(req: NextRequest) {
   // Sync config to CartTransform metafield so the cart function can read it
   let syncStatus: unknown = "not_attempted";
   try {
-    // 1. Find the ShopifyFunction by title
+    // 1. Find the ShopifyFunction belonging to THIS app by apiKey
     const fnData = await shopifyGraphql(session.shop, session.accessToken!, `
-      query { shopifyFunctions(first: 25) { nodes { id title } } }
+      query { shopifyFunctions(first: 25) { nodes { id title app { apiKey } } } }
     `);
-    const fns: { id: string; title: string }[] = fnData?.data?.shopifyFunctions?.nodes ?? [];
-    const fn = fns.find((f) => f.title === "Gift With Product") ?? fns.find((f) => f.title.toLowerCase().includes("gift"));
+    const fns: { id: string; title: string; app: { apiKey: string } }[] = fnData?.data?.shopifyFunctions?.nodes ?? [];
+    const ourApiKey = process.env.SHOPIFY_API_KEY ?? "";
+    // Only consider functions that belong to our app
+    const ourFns = ourApiKey ? fns.filter((f) => f.app?.apiKey === ourApiKey) : fns;
+    const fn = ourFns.find((f) => f.title === "Gift With Product") ?? ourFns.find((f) => f.title.toLowerCase().includes("gift"));
+    // Debug: include all found functions in error output
+    const fnDebug = { ourApiKey, allFns: fns, ourFns };
 
     if (!fn) {
-      syncStatus = { error: "ShopifyFunction not found", fns };
+      syncStatus = { error: "ShopifyFunction not found", ...fnDebug };
     } else {
       const fnGid = fn.id.startsWith("gid://") ? fn.id : `gid://shopify/ShopifyFunction/${fn.id}`;
 
@@ -95,6 +100,7 @@ export async function PUT(req: NextRequest) {
         syncStatus = {
           error: "Could not find or create CartTransform",
           fnGid,
+          ...fnDebug,
           ctQuery: ctData,
           transforms,
           createData,
