@@ -983,17 +983,17 @@ function ProductPicker({
         </div>
       )}
       <select
-        style={{ ...selStyle, marginBottom: selectedProduct && selectedProduct.variants.length > 1 ? "0.5rem" : "0" }}
+        style={{ ...selStyle, marginBottom: (selectedProduct?.variants?.length ?? 0) > 1 ? "0.5rem" : "0" }}
         value={selectedProductId}
         onChange={e => onProductChange(e.target.value)}
       >
         <option value="">Select product…</option>
         {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
       </select>
-      {selectedProduct && selectedProduct.variants.length > 1 && (
+      {(selectedProduct?.variants?.length ?? 0) > 1 && (
         <select style={selStyle} value={selectedVariantId} onChange={e => onVariantChange(e.target.value)}>
           <option value="">Select variant…</option>
-          {selectedProduct.variants.map(v => (
+          {selectedProduct!.variants.map(v => (
             <option key={v.id} value={String(v.id)}>{v.title} — ${v.price}</option>
           ))}
         </select>
@@ -1033,26 +1033,32 @@ function GiftUpsellTab() {
   const handleMainProductChange = (pid: string) => {
     setMainProductId(pid);
     const p = products.find(pr => String(pr.id) === pid);
-    setMainVariantId(p?.variants[0] ? String(p.variants[0].id) : "");
+    const firstVariant = p?.variants?.[0];
+    setMainVariantId(firstVariant ? String(firstVariant.id) : "");
   };
 
   const handleGiftProductChange = (pid: string) => {
     setGiftProductId(pid);
     const p = products.find(pr => String(pr.id) === pid);
-    setGiftVariantId(p?.variants[0] ? String(p.variants[0].id) : "");
+    const firstVariant = p?.variants?.[0];
+    setGiftVariantId(firstVariant ? String(firstVariant.id) : "");
   };
 
   const getProductForVariant = (variantId: string) => {
     for (const p of products) {
-      const v = p.variants.find(vr => String(vr.id) === variantId);
+      const v = (p.variants ?? []).find(vr => String(vr.id) === variantId);
       if (v) return { product: p, variant: v };
     }
     return null;
   };
 
   const addRule = () => {
-    if (!mainVariantId || !giftVariantId) {
+    if (!mainProductId || !giftProductId) {
       setError("Select both a main product and a gift product.");
+      return;
+    }
+    if (!mainVariantId || !giftVariantId) {
+      setError("One of the selected products has no variants — cannot create a rule.");
       return;
     }
     if (mainVariantId === giftVariantId) {
@@ -1228,7 +1234,7 @@ function GiftUpsellTab() {
                       <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {main?.product.title ?? `Variant ${rule.mainVariantId}`}
                       </p>
-                      {main && main.product.variants.length > 1 && (
+                      {main && (main.product.variants?.length ?? 0) > 1 && (
                         <p style={{ margin: 0, fontSize: "0.75rem", color: "#6d7175" }}>{main.variant.title} — ${main.variant.price}</p>
                       )}
                       <span style={{ fontSize: "0.68rem", color: "#9ca3af" }}>Main product</span>
@@ -1257,7 +1263,7 @@ function GiftUpsellTab() {
                       <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {gift?.product.title ?? `Variant ${rule.giftVariantId}`}
                       </p>
-                      {gift && gift.product.variants.length > 1 && (
+                      {gift && (gift.product.variants?.length ?? 0) > 1 && (
                         <p style={{ margin: 0, fontSize: "0.75rem", color: "#6d7175" }}>{gift.variant.title}</p>
                       )}
                       <span style={{ fontSize: "0.68rem", color: "#16a34a", fontWeight: 600 }}>Added at $0.00</span>
