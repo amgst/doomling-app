@@ -695,6 +695,8 @@ function GiftTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugData, setDebugData] = useState<unknown>(null);
   const [draft, setDraft] = useState<GiftRule>({ mainVariantId: "", giftVariantId: "" });
 
   useEffect(() => {
@@ -764,6 +766,22 @@ function GiftTab() {
       setError(e instanceof Error ? e.message : "Failed to save.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const runDebug = async () => {
+    setDebugLoading(true);
+    setDebugData(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/standalone/gift-rules/debug");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      setDebugData(data);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to run debug.");
+    } finally {
+      setDebugLoading(false);
     }
   };
 
@@ -837,13 +855,22 @@ function GiftTab() {
       <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: "1.5rem" }}>
         <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e4e5e7", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <p style={{ margin: 0, fontWeight: 600, color: "#1a1a1a" }}>Active Rules ({rules.length})</p>
-          <button
-            onClick={saveRules}
-            disabled={saving}
-            style={{ padding: "0.45rem 1.1rem", background: saving ? "#9ca3af" : "#008060", color: "#fff", border: "none", borderRadius: "8px", fontSize: "0.82rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}
-          >
-            {saving ? "Saving…" : "Save Rules"}
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={runDebug}
+              disabled={debugLoading}
+              style={{ padding: "0.45rem 1rem", background: debugLoading ? "#e5e7eb" : "#fff", color: "#374151", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.82rem", fontWeight: 600, cursor: debugLoading ? "not-allowed" : "pointer" }}
+            >
+              {debugLoading ? "Debugging…" : "Run Debug"}
+            </button>
+            <button
+              onClick={saveRules}
+              disabled={saving}
+              style={{ padding: "0.45rem 1.1rem", background: saving ? "#9ca3af" : "#008060", color: "#fff", border: "none", borderRadius: "8px", fontSize: "0.82rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}
+            >
+              {saving ? "Saving…" : "Save Rules"}
+            </button>
+          </div>
         </div>
 
         {rules.length === 0 ? (
@@ -885,6 +912,23 @@ function GiftTab() {
           </table>
         )}
       </div>
+
+      {debugData && (
+        <div style={{ background: "#0b0f1a", color: "#e5e7eb", borderRadius: "10px", padding: "1rem 1.25rem", marginBottom: "1.5rem", overflowX: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>Debug Output</p>
+            <button
+              onClick={() => setDebugData(null)}
+              style={{ padding: "0.25rem 0.6rem", background: "transparent", color: "#9ca3af", border: "1px solid #374151", borderRadius: "6px", fontSize: "0.75rem", cursor: "pointer" }}
+            >
+              Clear
+            </button>
+          </div>
+          <pre style={{ margin: 0, fontSize: "0.78rem", lineHeight: 1.5 }}>
+            {JSON.stringify(debugData, null, 2)}
+          </pre>
+        </div>
+      )}
 
       <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.9rem 1.1rem" }}>
         <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280", lineHeight: 1.5 }}>
