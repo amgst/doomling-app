@@ -59,17 +59,20 @@ export async function PUT(req: NextRequest) {
   let syncStatus: unknown = "not_attempted";
   try {
     // 1. Get function UUID from env var (set to the uid in shopify.extension.toml)
-    const fnUuid = process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? "";
-    if (!fnUuid) {
-      syncStatus = { error: "SHOPIFY_GIFT_FUNCTION_UUID env var not set" };
-    } else {
+      const fnUuidRaw = process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? "";
+      if (!fnUuidRaw) {
+        syncStatus = { error: "SHOPIFY_GIFT_FUNCTION_UUID env var not set" };
+      } else {
+        const fnUuid = fnUuidRaw.replace(/^gid:\/\/shopify\/Function\//, "");
+        const fnGid = fnUuidRaw.startsWith("gid://shopify/Function/")
+          ? fnUuidRaw
+          : `gid://shopify/Function/${fnUuid}`;
 
-      // 2. Use cached CartTransform ID from Firebase, or query/create
-      let ctId: string | null = await getCartTransformId(session.shop);
+        // 2. Use cached CartTransform ID from Firebase, or query/create
+        let ctId: string | null = await getCartTransformId(session.shop);
 
-      const matchesFn = (functionId: string | null | undefined) =>
-        functionId === fnUuid || functionId === `gid://shopify/Function/${fnUuid}`;
-
+        const matchesFn = (functionId: string | null | undefined) =>
+          functionId === fnUuid || functionId === fnGid;
       const fetchTransforms = async () => {
         const ctData = await shopifyGraphql(session.shop, session.accessToken!, `
           query { cartTransforms(first: 25) { nodes { id functionId } } }
@@ -93,7 +96,7 @@ export async function PUT(req: NextRequest) {
               userErrors { field message }
             }
           }
-        `, { fnId: fnUuid });
+        `, { fnId: fnGid });
         ctId = (createData as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
         const userErrors = (createData as any)?.data?.cartTransformCreate?.userErrors ?? [];
         if (!ctId && userErrors.length > 0) {

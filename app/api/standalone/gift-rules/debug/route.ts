@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const firebaseRules = await getGiftRules(shop);
   const cachedCtId = await getCartTransformId(shop);
 
-  const fnUuid = process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? null;
+  const fnUuidRaw = process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? null;
 
   const ctData = await shopifyGraphql(shop, session.accessToken, `
     query {
@@ -46,9 +46,16 @@ export async function GET(req: NextRequest) {
   let metafieldParsed: unknown = null;
   let metafieldParseError: string | null = null;
 
+  const fnUuid = fnUuidRaw?.replace(/^gid:\/\/shopify\/Function\//, "");
+  const fnGid = fnUuidRaw && fnUuidRaw.startsWith("gid://shopify/Function/")
+    ? fnUuidRaw
+    : fnUuidRaw
+      ? `gid://shopify/Function/${fnUuid}`
+      : null;
+
   const matchesFn = (functionId: string | null | undefined) =>
-    functionId && fnUuid
-      ? functionId === fnUuid || functionId === `gid://shopify/Function/${fnUuid}`
+    fnUuid && fnGid
+      ? functionId === fnUuid || functionId === fnGid
       : false;
 
   const matchedTransform = transforms.find((t: any) => matchesFn(t.functionId));
