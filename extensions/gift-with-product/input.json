@@ -5,14 +5,14 @@
         "id": "gid://shopify/CartLine/0",
         "quantity": 1,
         "merchandise": {
-          "id": "gid://shopify/ProductVariant/42280989655087"
+          "id": "gid://shopify/ProductVariant/47328155533506"
         }
       }
     ]
   },
-  "shop": {
+  "cartTransform": {
     "metafield": {
-      "value": "{\"rules\":[{\"mainVariantId\":\"42280989655087\",\"giftVariantId\":\"42280989687855\"}]}"
+      "value": "{\"rules\":[{\"mainVariantId\":\"47328155533506\",\"giftVariantId\":\"47328155566274\"}]}"
     }
   }
 }
