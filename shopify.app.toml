@@ -1,4 +1,4 @@
-name = "upsale"
+name = "Upsallerapp"
 client_id = "d758557fe11ba3e2d67c0376240d16c8"
 application_url = "https://upsale-cyan.vercel.app"
 embedded = true
