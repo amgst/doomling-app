@@ -11,7 +11,7 @@
  *  - Duplicate gifts are prevented: if a gift variant is already present as a
  *    standalone line the expand is skipped for that rule.
  *
- * Metafield config (namespace: "upsale", key: "gift_config"):
+ * Metafield config (namespace: "gwp", key: "gift_config"):
  *   {
  *     "rules": [
  *       { "mainVariantId": "12345678901", "giftVariantId": "98765432109" }
