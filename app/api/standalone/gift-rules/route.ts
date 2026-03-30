@@ -58,20 +58,11 @@ export async function PUT(req: NextRequest) {
   // Sync config to CartTransform metafield so the cart function can read it
   let syncStatus: unknown = "not_attempted";
   try {
-    // 1. Find the gift-with-product ShopifyFunction for this app
-    const fnData = await shopifyGraphql(session.shop, session.accessToken!, `
-      query { shopifyFunctions(first: 25) { nodes { id title app { apiKey } } } }
-    `);
-    const fns: { id: string; title: string; app: { apiKey: string } }[] = fnData?.data?.shopifyFunctions?.nodes ?? [];
-    const ourApiKey = process.env.SHOPIFY_API_KEY ?? "";
-    const ourFns = ourApiKey ? fns.filter((f) => f.app?.apiKey === ourApiKey) : fns;
-    const fn = ourFns.find((f) => f.title === "Gift With Product") ?? ourFns.find((f) => f.title.toLowerCase().includes("gift"));
-
-    if (!fn) {
-      syncStatus = { error: "ShopifyFunction not found", fns };
+    // 1. Get function UUID from env var (set to the uid in shopify.extension.toml)
+    const fnUuid = process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? "";
+    if (!fnUuid) {
+      syncStatus = { error: "SHOPIFY_GIFT_FUNCTION_UUID env var not set" };
     } else {
-      // Use plain UUID — cartTransformCreate expects UUID, not GID
-      const fnUuid = fn.id.replace(/^gid:\/\/shopify\/ShopifyFunction\//, "");
 
       // 2. Use cached CartTransform ID from Firebase, or query/create
       let ctId: string | null = await getCartTransformId(session.shop);
