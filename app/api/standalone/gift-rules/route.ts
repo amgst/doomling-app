@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 const NS = "gwp";
 const KEY = "gift_config";
+const DEFAULT_FUNCTION_HANDLE = "gift-with-product";
 
 async function shopifyGraphql(shop: string, accessToken: string, query: string, variables?: Record<string, unknown>) {
   const res = await fetch(`https://${shop}/admin/api/2026-01/graphql.json`, {
@@ -58,54 +59,112 @@ export async function PUT(req: NextRequest) {
   // Sync config to CartTransform metafield so the cart function can read it
   let syncStatus: unknown = "not_attempted";
   try {
-    // 1. Get function UUID from env var (set to the uid in shopify.extension.toml)
-      const fnUuidRaw = process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? "";
-      if (!fnUuidRaw) {
-        syncStatus = { error: "SHOPIFY_GIFT_FUNCTION_UUID env var not set" };
-      } else {
-        const fnUuid = fnUuidRaw.replace(/^gid:\/\/shopify\/Function\//, "");
-        const fnGid = fnUuidRaw.startsWith("gid://shopify/Function/")
-          ? fnUuidRaw
-          : `gid://shopify/Function/${fnUuid}`;
+    // 1) Prefer function handle (defined in `extensions/gift-with-product/shopify.extension.toml`)
+    // NOTE: `extensions[].uid` is NOT a Shopify Function id (gid://shopify/Function/...), it's an extension UID.
+    const fnHandle = (process.env.SHOPIFY_GIFT_FUNCTION_HANDLE ?? DEFAULT_FUNCTION_HANDLE).trim();
+    const fnIdRaw = (process.env.SHOPIFY_GIFT_FUNCTION_ID ?? "").trim();
+    const deprecatedUid = (process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? "").trim();
 
-        // 2. Use cached CartTransform ID from Firebase, or query/create
-        let ctId: string | null = await getCartTransformId(session.shop);
+    if (!fnHandle && !fnIdRaw) {
+      syncStatus = {
+        error: "No function identifier configured",
+        help: {
+          recommended: `Set SHOPIFY_GIFT_FUNCTION_HANDLE=${DEFAULT_FUNCTION_HANDLE}`,
+          optional: "Or set SHOPIFY_GIFT_FUNCTION_ID to the deployed function gid://shopify/Function/...",
+          note: "SHOPIFY_GIFT_FUNCTION_UUID is deprecated; it is the extension UID, not a function id.",
+        },
+      };
+    } else if (deprecatedUid && !fnIdRaw && fnHandle === DEFAULT_FUNCTION_HANDLE) {
+      // Surface the common misconfiguration explicitly (extension UID mistaken for function ID)
+      syncStatus = {
+        warning: "SHOPIFY_GIFT_FUNCTION_UUID is set but ignored",
+        note: "This value is an extension UID, not a Shopify Function id. Using function handle instead.",
+        using: { functionHandle: fnHandle },
+      };
+    }
 
-        const matchesFn = (functionId: string | null | undefined) =>
-          functionId === fnUuid || functionId === fnGid;
+    if (typeof syncStatus === "object" && (syncStatus as any)?.error) {
+      // skip
+    } else {
+      // 2. Use cached CartTransform ID from Firebase, or query/create
+      let ctId: string | null = await getCartTransformId(session.shop);
+
+      const fnGid = fnIdRaw
+        ? fnIdRaw.startsWith("gid://shopify/Function/")
+          ? fnIdRaw
+          : `gid://shopify/Function/${fnIdRaw.replace(/^gid:\/\/shopify\/Function\//, "")}`
+        : null;
+
+      const matchesFn = (functionId: string | null | undefined) =>
+        !!fnGid && (functionId === fnGid || functionId === fnGid.replace(/^gid:\/\/shopify\/Function\//, ""));
+
       const fetchTransforms = async () => {
-        const ctData = await shopifyGraphql(session.shop, session.accessToken!, `
-          query { cartTransforms(first: 25) { nodes { id functionId } } }
-        `);
+        const ctData = await shopifyGraphql(
+          session.shop,
+          session.accessToken!,
+          `
+            query GetCTs {
+              cartTransforms(first: 25) {
+                nodes {
+                  id
+                  functionId
+                  metafield(namespace: "${NS}", key: "${KEY}") { id }
+                }
+              }
+            }
+          `,
+        );
         return ctData?.data?.cartTransforms?.nodes ?? [];
       };
 
       if (!ctId) {
         const transforms = await fetchTransforms();
-        const match = transforms.find((t: any) => matchesFn(t.functionId));
-        ctId = match?.id ?? null;
+        const matchByMeta = transforms.find((t: any) => !!t?.metafield?.id);
+        const matchByFn = transforms.find((t: any) => matchesFn(t.functionId));
+        ctId = (matchByMeta?.id ?? matchByFn?.id ?? null) as string | null;
         if (ctId) await setCartTransformId(session.shop, ctId);
       }
 
       if (!ctId) {
         // Create CartTransform
-        const createData = await shopifyGraphql(session.shop, session.accessToken!, `
-          mutation CreateCT($fnId: String!) {
-            cartTransformCreate(functionId: $fnId) {
-              cartTransform { id }
-              userErrors { field message }
-            }
-          }
-        `, { fnId: fnGid });
+        const createData = await shopifyGraphql(
+          session.shop,
+          session.accessToken!,
+          fnGid
+            ? `
+              mutation CreateCT($fnId: String!) {
+                cartTransformCreate(functionId: $fnId) {
+                  cartTransform { id }
+                  userErrors { field message code }
+                }
+              }
+            `
+            : `
+              mutation CreateCT($fnHandle: String!) {
+                cartTransformCreate(functionHandle: $fnHandle) {
+                  cartTransform { id }
+                  userErrors { field message code }
+                }
+              }
+            `,
+          fnGid ? { fnId: fnGid } : { fnHandle },
+        );
         ctId = (createData as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
         const userErrors = (createData as any)?.data?.cartTransformCreate?.userErrors ?? [];
         if (!ctId && userErrors.length > 0) {
           const transforms = await fetchTransforms();
-          const match = transforms.find((t: any) => matchesFn(t.functionId));
-          ctId = match?.id ?? null;
+          const matchByMeta = transforms.find((t: any) => !!t?.metafield?.id);
+          const matchByFn = transforms.find((t: any) => matchesFn(t.functionId));
+          ctId = (matchByMeta?.id ?? matchByFn?.id ?? null) as string | null;
         }
         if (!ctId && userErrors.length > 0) {
-          syncStatus = { error: "Could not create CartTransform", userErrors };
+          syncStatus = {
+            error: "Could not create CartTransform",
+            userErrors,
+            using: fnGid ? { functionId: fnGid } : { functionHandle: fnHandle },
+            hint:
+              "If this says the function was not found, deploy/release the function in THIS app and reinstall the app on the store.",
+          };
         }
         if (ctId) await setCartTransformId(session.shop, ctId);
       }
