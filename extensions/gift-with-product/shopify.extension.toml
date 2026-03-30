@@ -13,7 +13,7 @@ description = "Automatically adds a free gift when a specific product variant is
   export = "run"
 
   [[extensions.metafields]]
-  namespace = "upsale"
+  namespace = "gwp"
   key = "gift_config"
 
   [extensions.build]
