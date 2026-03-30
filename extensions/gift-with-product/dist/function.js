@@ -56,7 +56,8 @@ function run(input) {
           {
             merchandiseId: giftGid,
             quantity: mainLine.quantity,
-            price: { percentageDecrease: { value: 100 } }
+            price: { percentageDecrease: { value: 100 } },
+            attributes: [{ key: "_gwp", value: "1" }]
           }
         ]
       }

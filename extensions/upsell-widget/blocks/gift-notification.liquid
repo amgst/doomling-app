@@ -1,0 +1,410 @@
+{% comment %} Gift with Purchase — Cart Notification Block {% endcomment %}
+
+{%- comment -%}
+  SSR pass: collect any gift line items (marked with _gwp=1 property by CartTransform).
+  This renders immediately on the cart PAGE (full-page render).
+  The JavaScript block below handles the cart DRAWER and any AJAX cart updates.
+{%- endcomment -%}
+
+{%- assign gwp_has_gift = false -%}
+{%- assign gwp_gift_data = '' -%}
+{%- for item in cart.items -%}
+  {%- if item.properties['_gwp'] == '1' -%}
+    {%- assign gwp_has_gift = true -%}
+    {%- assign gwp_img = '' -%}
+    {%- if item.image -%}
+      {%- assign gwp_img = item.image | image_url: width: 80 -%}
+    {%- endif -%}
+    {%- assign gwp_gift_data = gwp_gift_data | append: item.product_title | append: ':::' | append: gwp_img | append: '|||' -%}
+  {%- endif -%}
+{%- endfor -%}
+
+<div
+  id="gwp-notif-root"
+  data-notification-text="{{ settings.notification_text | default: "You've earned a free gift!" | escape }}"
+  data-toast-text="{{ settings.toast_text | default: "Free gift added!" | escape }}"
+>
+
+<style>
+#gwp-notif-root * { box-sizing: border-box; }
+
+.gwp-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.gwp-banner-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-left: 4px solid #16a34a;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  animation: gwp-slidein 0.3s ease;
+}
+
+@keyframes gwp-slidein {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.gwp-banner-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #d1fae5;
+}
+
+.gwp-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #dcfce7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.gwp-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.gwp-banner-text strong {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #15803d;
+  margin: 0 0 0.1rem;
+}
+
+.gwp-banner-text span {
+  font-size: 0.8rem;
+  color: #166534;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.gwp-banner-free-badge {
+  flex-shrink: 0;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+
+#gwp-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 99999;
+  background: #fff;
+  border: 1px solid #bbf7d0;
+  border-left: 4px solid #16a34a;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(22, 163, 74, 0.12);
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 310px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transform: translateY(calc(100% + 2.5rem));
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.25s ease;
+  pointer-events: none;
+}
+
+#gwp-toast.gwp-toast--visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.gwp-toast-emoji {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.gwp-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.gwp-toast-body strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #15803d;
+  margin: 0 0 0.1rem;
+}
+
+.gwp-toast-body span {
+  font-size: 0.78rem;
+  color: #4b5563;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gwp-toast-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+  flex-shrink: 0;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.gwp-toast-close:hover {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+@media (max-width: 480px) {
+  #gwp-toast {
+    left: 0.75rem;
+    right: 0.75rem;
+    max-width: none;
+    bottom: 0.75rem;
+  }
+}
+</style>
+
+{%- comment -%} SSR banner — rendered on cart page full-page load {%- endcomment -%}
+{%- if gwp_has_gift -%}
+  {%- assign gwp_entries = gwp_gift_data | split: '|||' -%}
+  <div class="gwp-banner" id="gwp-banner-ssr">
+    {%- for gwp_entry in gwp_entries -%}
+      {%- if gwp_entry != '' -%}
+        {%- assign gwp_parts = gwp_entry | split: ':::' -%}
+        {%- assign gwp_title = gwp_parts[0] -%}
+        {%- assign gwp_img_url = gwp_parts[1] -%}
+        <div class="gwp-banner-item">
+          {%- if gwp_img_url != '' -%}
+            <img class="gwp-banner-img" src="{{ gwp_img_url }}" alt="{{ gwp_title | escape }}" loading="lazy" width="44" height="44" />
+          {%- else -%}
+            <span class="gwp-banner-icon">🎁</span>
+          {%- endif -%}
+          <div class="gwp-banner-text">
+            <strong>{{ settings.notification_text | default: "You've earned a free gift!" }}</strong>
+            <span>{{ gwp_title }} added to your cart for free.</span>
+          </div>
+          <span class="gwp-banner-free-badge">FREE</span>
+        </div>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+{%- endif -%}
+
+{%- comment -%} JS-powered banner — shown for cart drawer & AJAX updates {%- endcomment -%}
+<div class="gwp-banner" id="gwp-banner-js" style="display:none;"></div>
+
+{%- comment -%} Toast — fixed overlay, auto-dismisses after 5s {%- endcomment -%}
+<div id="gwp-toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+</div><!-- #gwp-notif-root -->
+
+<script>
+(function () {
+  var root = document.getElementById('gwp-notif-root');
+  if (!root) return;
+
+  var PROP_KEY = '_gwp';
+  var PROP_VAL = '1';
+  var notifText = root.dataset.notificationText || "You\u2019ve earned a free gift!";
+  var toastText  = root.dataset.toastText  || "Free gift added!";
+
+  // Per-session dedup: only show toast once per gift variant per session
+  var seenKey = 'gwp_seen_v1';
+  var seen;
+  try { seen = new Set(JSON.parse(sessionStorage.getItem(seenKey) || '[]')); }
+  catch (e) { seen = new Set(); }
+
+  function persistSeen() {
+    try { sessionStorage.setItem(seenKey, JSON.stringify(Array.from(seen))); } catch (e) {}
+  }
+
+  // ── Banner rendering ──────────────────────────────────────────────────────
+
+  function renderBanner(gifts) {
+    var jsBanner  = document.getElementById('gwp-banner-js');
+    var ssrBanner = document.getElementById('gwp-banner-ssr');
+
+    if (gifts.length === 0) {
+      if (jsBanner)  jsBanner.style.display  = 'none';
+      if (ssrBanner) ssrBanner.style.display = 'none';
+      return;
+    }
+
+    // SSR banner already has the correct content — leave it visible
+    if (ssrBanner && ssrBanner.offsetParent !== null) return;
+
+    if (!jsBanner) return;
+
+    jsBanner.innerHTML = gifts.map(function (item) {
+      var imgTag = '';
+      if (item.featured_image && item.featured_image.url) {
+        // Append Shopify image sizing param
+        var imgSrc = item.featured_image.url.split('?')[0] + '?width=80';
+        imgTag = '<img class="gwp-banner-img" src="' + imgSrc + '" alt="" loading="lazy" width="44" height="44" />';
+      } else {
+        imgTag = '<span class="gwp-banner-icon">&#127873;</span>';
+      }
+      return (
+        '<div class="gwp-banner-item">' +
+          imgTag +
+          '<div class="gwp-banner-text">' +
+            '<strong>' + notifText + '</strong>' +
+            '<span>' + item.product_title + ' added to your cart for free.</span>' +
+          '</div>' +
+          '<span class="gwp-banner-free-badge">FREE</span>' +
+        '</div>'
+      );
+    }).join('');
+
+    jsBanner.style.display = 'flex';
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+
+  function showToast(gift) {
+    var key = String(gift.variant_id);
+    if (seen.has(key)) return;
+    seen.add(key);
+    persistSeen();
+
+    var toast = document.getElementById('gwp-toast');
+    if (!toast) return;
+
+    toast.innerHTML =
+      '<span class="gwp-toast-emoji">&#127873;</span>' +
+      '<div class="gwp-toast-body">' +
+        '<strong>' + toastText + '</strong>' +
+        '<span>' + gift.product_title + '</span>' +
+      '</div>' +
+      '<button class="gwp-toast-close" aria-label="Dismiss">&#10005;</button>';
+
+    toast.querySelector('.gwp-toast-close').addEventListener('click', function () {
+      toast.classList.remove('gwp-toast--visible');
+    });
+
+    // Double-rAF forces browser to paint the initial transform before transitioning
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        toast.classList.add('gwp-toast--visible');
+      });
+    });
+
+    setTimeout(function () {
+      toast.classList.remove('gwp-toast--visible');
+    }, 5000);
+  }
+
+  // ── Cart check ────────────────────────────────────────────────────────────
+
+  var pendingCheck = 0;
+
+  function checkCart(delay) {
+    var token = ++pendingCheck;
+    setTimeout(function () {
+      if (token !== pendingCheck) return;
+      fetch('/cart.js', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (cart) {
+          if (token !== pendingCheck) return;
+          var gifts = (cart.items || []).filter(function (item) {
+            return item.properties && item.properties[PROP_KEY] === PROP_VAL;
+          });
+          renderBanner(gifts);
+          if (gifts.length > 0) showToast(gifts[0]);
+        })
+        .catch(function () {});
+    }, delay || 0);
+  }
+
+  // ── Event listeners ───────────────────────────────────────────────────────
+
+  // Common cart events across popular themes
+  [
+    'cart:updated',
+    'cart:refresh',
+    'cart:change',
+    'cart-items-added',           // Dawn
+    'CartDrawer:AfterItemAdded',  // some themes
+    'shopify:cart:updated',
+    'on:cart:add',                // Impulse / Prestige
+  ].forEach(function (ev) {
+    document.addEventListener(ev, function () { checkCart(200); });
+  });
+
+  // Intercept fetch — catches themes that call /cart/add.js, /cart/change.js, etc.
+  var _origFetch = window.fetch;
+  window.fetch = function (input) {
+    var result = _origFetch.apply(this, arguments);
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (/\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
+      result.then(function () { checkCart(500); }).catch(function () {});
+    }
+    return result;
+  };
+
+  // Intercept XHR — catches themes that use jQuery.ajax or plain XHR
+  var _origOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    if (typeof url === 'string' && /\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
+      this.addEventListener('load', function () { checkCart(500); });
+    }
+    return _origOpen.apply(this, arguments);
+  };
+
+  // Initial check
+  checkCart(0);
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Gift Notification",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "notification_text",
+      "label": "Banner heading",
+      "info": "Shown inside the cart above the gift product name.",
+      "default": "You've earned a free gift!"
+    },
+    {
+      "type": "text",
+      "id": "toast_text",
+      "label": "Toast heading",
+      "info": "Shown in the slide-in popup when a gift is first added.",
+      "default": "Free gift added!"
+    }
+  ]
+}
+{% endschema %}
