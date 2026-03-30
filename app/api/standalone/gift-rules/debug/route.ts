@@ -33,9 +33,11 @@ export async function GET(req: NextRequest) {
   const firebaseRules = await getGiftRules(shop);
   const cachedCtId = await getCartTransformId(shop);
 
+  const fnUuid = process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? null;
+
   const ctData = await shopifyGraphql(shop, session.accessToken, `
     query {
-      cartTransforms(first: 10) { nodes { id } }
+      cartTransforms(first: 25) { nodes { id functionId } }
     }
   `);
   const transforms = ctData?.data?.cartTransforms?.nodes ?? [];
@@ -44,7 +46,13 @@ export async function GET(req: NextRequest) {
   let metafieldParsed: unknown = null;
   let metafieldParseError: string | null = null;
 
-  const ctId = cachedCtId || transforms?.[0]?.id || null;
+  const matchesFn = (functionId: string | null | undefined) =>
+    functionId && fnUuid
+      ? functionId === fnUuid || functionId === `gid://shopify/Function/${fnUuid}`
+      : false;
+
+  const matchedTransform = transforms.find((t: any) => matchesFn(t.functionId));
+  const ctId = cachedCtId || matchedTransform?.id || null;
   if (ctId) {
     const metaData = await shopifyGraphql(shop, session.accessToken, `
       query GetMeta($id: ID!) {

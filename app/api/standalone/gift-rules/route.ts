@@ -67,12 +67,21 @@ export async function PUT(req: NextRequest) {
       // 2. Use cached CartTransform ID from Firebase, or query/create
       let ctId: string | null = await getCartTransformId(session.shop);
 
-      if (!ctId) {
-        // Try Shopify query first
+      const matchesFn = (functionId: string | null | undefined) =>
+        functionId === fnUuid || functionId === `gid://shopify/Function/${fnUuid}`;
+
+      const fetchTransforms = async () => {
         const ctData = await shopifyGraphql(session.shop, session.accessToken!, `
-          query { cartTransforms(first: 10) { nodes { id } } }
+          query { cartTransforms(first: 25) { nodes { id functionId } } }
         `);
-        ctId = ctData?.data?.cartTransforms?.nodes?.[0]?.id ?? null;
+        return ctData?.data?.cartTransforms?.nodes ?? [];
+      };
+
+      if (!ctId) {
+        const transforms = await fetchTransforms();
+        const match = transforms.find((t: any) => matchesFn(t.functionId));
+        ctId = match?.id ?? null;
+        if (ctId) await setCartTransformId(session.shop, ctId);
       }
 
       if (!ctId) {
@@ -87,10 +96,12 @@ export async function PUT(req: NextRequest) {
         `, { fnId: fnUuid });
         ctId = (createData as any)?.data?.cartTransformCreate?.cartTransform?.id ?? null;
         const userErrors = (createData as any)?.data?.cartTransformCreate?.userErrors ?? [];
-        // "already registered" means it exists — still a success, but we can't get the ID this way
-        if (!ctId && userErrors.some((e: any) => e.message?.includes("already registered"))) {
-          syncStatus = { error: "CartTransform already exists but ID unknown. Re-save to retry after clearing cache." };
-        } else if (!ctId) {
+        if (!ctId && userErrors.length > 0) {
+          const transforms = await fetchTransforms();
+          const match = transforms.find((t: any) => matchesFn(t.functionId));
+          ctId = match?.id ?? null;
+        }
+        if (!ctId && userErrors.length > 0) {
           syncStatus = { error: "Could not create CartTransform", userErrors };
         }
         if (ctId) await setCartTransformId(session.shop, ctId);
