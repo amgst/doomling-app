@@ -45,7 +45,7 @@ function run(input) {
     console.error(`[GWP] Rule: main=${mainGid} gift=${giftGid} | mainInCart=${!!mainLine} giftAlready=${giftAlreadyPresent}`);
     if (!mainLine || giftAlreadyPresent) continue;
     operations.push({
-      expand: {
+      lineExpand: {
         cartLineId: mainLine.id,
         expandedCartItems: [
           {
