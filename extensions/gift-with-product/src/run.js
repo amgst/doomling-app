@@ -71,7 +71,7 @@ export function run(input) {
     if (!mainLine || giftAlreadyPresent) continue;
 
     operations.push({
-      expand: {
+      lineExpand: {
         cartLineId: mainLine.id,
         expandedCartItems: [
           {
