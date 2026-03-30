@@ -941,7 +941,362 @@ function GiftTab() {
   );
 }
 
-const VALID_TABS = ["overview", "products", "upsells", "stats", "gift"] as const;
+function ProductPicker({
+  label,
+  products,
+  selectedProductId,
+  selectedVariantId,
+  onProductChange,
+  onVariantChange,
+  isGift,
+}: {
+  label: string;
+  products: Product[];
+  selectedProductId: string;
+  selectedVariantId: string;
+  onProductChange: (pid: string) => void;
+  onVariantChange: (vid: string) => void;
+  isGift?: boolean;
+}) {
+  const selectedProduct = products.find(p => String(p.id) === selectedProductId);
+  const selStyle: React.CSSProperties = {
+    width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db",
+    borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a",
+  };
+  return (
+    <div style={{
+      border: `1px solid ${isGift ? "#b7dfce" : "#d1d5db"}`,
+      borderRadius: "10px",
+      padding: "1rem",
+      background: isGift ? "#f0faf7" : "#f9fafb",
+    }}>
+      <p style={{ margin: "0 0 0.6rem", fontSize: "0.75rem", fontWeight: 700, color: isGift ? "#008060" : "#374151", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {label}
+      </p>
+      {selectedProduct?.image?.src && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem", padding: "0.5rem", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+          <img src={selectedProduct.image.src} alt={selectedProduct.title} style={{ width: 48, height: 48, borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} />
+          <div>
+            <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a" }}>{selectedProduct.title}</p>
+            {isGift && <span style={{ background: "#dcfce7", color: "#16a34a", fontSize: "0.65rem", fontWeight: 700, padding: "0.1rem 0.4rem", borderRadius: "20px" }}>Will be FREE</span>}
+          </div>
+        </div>
+      )}
+      <select
+        style={{ ...selStyle, marginBottom: selectedProduct && selectedProduct.variants.length > 1 ? "0.5rem" : "0" }}
+        value={selectedProductId}
+        onChange={e => onProductChange(e.target.value)}
+      >
+        <option value="">Select product…</option>
+        {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
+      </select>
+      {selectedProduct && selectedProduct.variants.length > 1 && (
+        <select style={selStyle} value={selectedVariantId} onChange={e => onVariantChange(e.target.value)}>
+          <option value="">Select variant…</option>
+          {selectedProduct.variants.map(v => (
+            <option key={v.id} value={String(v.id)}>{v.title} — ${v.price}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+function GiftUpsellTab() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [rules, setRules] = useState<GiftRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [mainProductId, setMainProductId] = useState("");
+  const [mainVariantId, setMainVariantId] = useState("");
+  const [giftProductId, setGiftProductId] = useState("");
+  const [giftVariantId, setGiftVariantId] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/standalone/products").then(r => {
+        if (r.status === 401) { window.location.href = "/"; throw new Error("unauth"); }
+        return r.json();
+      }),
+      fetch("/api/standalone/gift-rules").then(r => r.json()),
+    ])
+      .then(([p, g]) => {
+        setProducts(p.products ?? []);
+        setRules(g.rules ?? []);
+      })
+      .catch(e => { if (e.message !== "unauth") setError("Failed to load data."); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleMainProductChange = (pid: string) => {
+    setMainProductId(pid);
+    const p = products.find(pr => String(pr.id) === pid);
+    setMainVariantId(p?.variants[0] ? String(p.variants[0].id) : "");
+  };
+
+  const handleGiftProductChange = (pid: string) => {
+    setGiftProductId(pid);
+    const p = products.find(pr => String(pr.id) === pid);
+    setGiftVariantId(p?.variants[0] ? String(p.variants[0].id) : "");
+  };
+
+  const getProductForVariant = (variantId: string) => {
+    for (const p of products) {
+      const v = p.variants.find(vr => String(vr.id) === variantId);
+      if (v) return { product: p, variant: v };
+    }
+    return null;
+  };
+
+  const addRule = () => {
+    if (!mainVariantId || !giftVariantId) {
+      setError("Select both a main product and a gift product.");
+      return;
+    }
+    if (mainVariantId === giftVariantId) {
+      setError("Main and gift must be different variants.");
+      return;
+    }
+    if (rules.some(r => r.mainVariantId === mainVariantId)) {
+      setError("A gift rule for this variant already exists.");
+      return;
+    }
+    setRules(prev => [...prev, { mainVariantId, giftVariantId }]);
+    setMainProductId(""); setMainVariantId("");
+    setGiftProductId(""); setGiftVariantId("");
+    setError(null);
+  };
+
+  const removeRule = (i: number) => setRules(prev => prev.filter((_, idx) => idx !== i));
+
+  const save = async () => {
+    setSaving(true); setError(null); setSuccess(null);
+    try {
+      const res = await fetch("/api/standalone/gift-rules", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rules }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setSuccess("Gift rules saved and synced to your Shopify store.");
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
+
+  return (
+    <>
+      {/* Header banner */}
+      <div style={{
+        background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+        border: "1px solid #fbbf24",
+        borderRadius: "14px",
+        padding: "1.5rem 2rem",
+        marginBottom: "1.75rem",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "1rem",
+        flexWrap: "wrap",
+      }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.3rem" }}>
+            <span style={{ fontSize: "1.5rem" }}>🎁</span>
+            <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Gift with Purchase</h1>
+          </div>
+          <p style={{ margin: 0, color: "#6b7280", fontSize: "0.875rem" }}>
+            Automatically add a free gift when customers add specific products — dynamically linked, removed if the main product is removed.
+          </p>
+        </div>
+        {rules.length > 0 && (
+          <div style={{ background: "#fff", border: "1px solid #fbbf24", borderRadius: "20px", padding: "0.35rem 0.9rem", fontSize: "0.8rem", fontWeight: 600, color: "#92400e", flexShrink: 0 }}>
+            {rules.length} active rule{rules.length !== 1 ? "s" : ""}
+          </div>
+        )}
+      </div>
+
+      {/* How it works */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.75rem" }}>
+        {[
+          { icon: "🛒", title: "Customer adds product", desc: "Customer adds the main product to their cart." },
+          { icon: "⚡", title: "Gift auto-added", desc: "The gift is instantly added at $0 — no customer action needed." },
+          { icon: "🔗", title: "Dynamically bound", desc: "If the main product is removed, the gift is removed too — automatically." },
+        ].map((s, idx) => (
+          <div key={idx} style={{ background: "#fff", borderRadius: "10px", padding: "1rem 1.1rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", gap: "0.7rem", alignItems: "flex-start" }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", flexShrink: 0 }}>
+              {s.icon}
+            </div>
+            <div>
+              <p style={{ margin: "0 0 0.15rem", fontWeight: 600, fontSize: "0.85rem", color: "#1a1a1a" }}>{s.title}</p>
+              <p style={{ margin: 0, fontSize: "0.78rem", color: "#6d7175", lineHeight: 1.5 }}>{s.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Messages */}
+      {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
+      {success && <div style={{ background: "#f0faf7", border: "1px solid #b7dfce", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#008060", fontSize: "0.875rem" }}>{success}</div>}
+
+      {/* Add Rule form */}
+      <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.5rem" }}>
+        <p style={{ margin: "0 0 1.1rem", fontWeight: 700, color: "#1a1a1a", fontSize: "0.95rem" }}>Add Gift Rule</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center", marginBottom: "1.1rem" }}>
+          <ProductPicker
+            label="When this product is in cart…"
+            products={products}
+            selectedProductId={mainProductId}
+            selectedVariantId={mainVariantId}
+            onProductChange={handleMainProductChange}
+            onVariantChange={setMainVariantId}
+          />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.2rem", color: "#9ca3af" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+            </svg>
+            <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>gives</span>
+          </div>
+          <ProductPicker
+            label="…add this for FREE"
+            products={products}
+            selectedProductId={giftProductId}
+            selectedVariantId={giftVariantId}
+            onProductChange={handleGiftProductChange}
+            onVariantChange={setGiftVariantId}
+            isGift
+          />
+        </div>
+        <button
+          onClick={addRule}
+          style={{ padding: "0.6rem 1.5rem", background: "#008060", color: "#fff", border: "none", borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer" }}
+        >
+          + Add Gift Rule
+        </button>
+      </div>
+
+      {/* Rules list */}
+      <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: "1.5rem" }}>
+        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e4e5e7", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p style={{ margin: 0, fontWeight: 600, color: "#1a1a1a" }}>Active Rules ({rules.length})</p>
+          <button
+            onClick={save}
+            disabled={saving}
+            style={{ padding: "0.45rem 1.1rem", background: saving ? "#9ca3af" : "#008060", color: "#fff", border: "none", borderRadius: "8px", fontSize: "0.82rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}
+          >
+            {saving ? "Saving…" : "Save & Sync to Store"}
+          </button>
+        </div>
+
+        {rules.length === 0 ? (
+          <div style={{ padding: "3rem 2rem", textAlign: "center" }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🎁</div>
+            <p style={{ margin: "0 0 0.35rem", fontWeight: 600, color: "#1a1a1a", fontSize: "0.95rem" }}>No gift rules yet</p>
+            <p style={{ margin: 0, fontSize: "0.875rem", color: "#6d7175" }}>Add a rule above to automatically give free gifts to your customers.</p>
+          </div>
+        ) : (
+          <div style={{ padding: "0.5rem 0.75rem" }}>
+            {rules.map((rule, i) => {
+              const main = getProductForVariant(rule.mainVariantId);
+              const gift = getProductForVariant(rule.giftVariantId);
+              return (
+                <div key={i} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                  padding: "0.75rem",
+                  borderRadius: "8px",
+                  background: "#f9fafb",
+                  marginBottom: i < rules.length - 1 ? "0.4rem" : "0",
+                  flexWrap: "wrap",
+                }}>
+                  {/* Main product */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flex: "1 1 180px", minWidth: 0 }}>
+                    {main?.product.image?.src ? (
+                      <img src={main.product.image.src} alt={main.product.title} style={{ width: 44, height: 44, borderRadius: "8px", objectFit: "cover", border: "1px solid #e5e7eb", flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 44, height: 44, borderRadius: "8px", background: "#e5e7eb", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem" }}>📦</div>
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {main?.product.title ?? `Variant ${rule.mainVariantId}`}
+                      </p>
+                      {main && main.product.variants.length > 1 && (
+                        <p style={{ margin: 0, fontSize: "0.75rem", color: "#6d7175" }}>{main.variant.title} — ${main.variant.price}</p>
+                      )}
+                      <span style={{ fontSize: "0.68rem", color: "#9ca3af" }}>Main product</span>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+                    </svg>
+                    <span style={{ fontSize: "0.6rem", color: "#d1d5db", textTransform: "uppercase", letterSpacing: "0.04em" }}>free</span>
+                  </div>
+
+                  {/* Gift product */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flex: "1 1 180px", minWidth: 0 }}>
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      {gift?.product.image?.src ? (
+                        <img src={gift.product.image.src} alt={gift.product.title} style={{ width: 44, height: 44, borderRadius: "8px", objectFit: "cover", border: "2px solid #16a34a" }} />
+                      ) : (
+                        <div style={{ width: 44, height: 44, borderRadius: "8px", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem" }}>🎁</div>
+                      )}
+                      <span style={{ position: "absolute", bottom: -6, right: -6, background: "#16a34a", color: "#fff", fontSize: "0.55rem", fontWeight: 700, padding: "0.1rem 0.3rem", borderRadius: "20px", whiteSpace: "nowrap" }}>FREE</span>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {gift?.product.title ?? `Variant ${rule.giftVariantId}`}
+                      </p>
+                      {gift && gift.product.variants.length > 1 && (
+                        <p style={{ margin: 0, fontSize: "0.75rem", color: "#6d7175" }}>{gift.variant.title}</p>
+                      )}
+                      <span style={{ fontSize: "0.68rem", color: "#16a34a", fontWeight: 600 }}>Added at $0.00</span>
+                    </div>
+                  </div>
+
+                  {/* Status + Remove */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0, marginLeft: "auto" }}>
+                    <span style={{ background: "#dcfce7", color: "#16a34a", fontSize: "0.72rem", fontWeight: 600, padding: "0.2rem 0.6rem", borderRadius: "20px", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a", display: "inline-block" }} />
+                      Active
+                    </span>
+                    <button
+                      onClick={() => removeRule(i)}
+                      style={{ padding: "0.3rem 0.6rem", background: "#fff", color: "#c0392b", border: "1px solid #ffd2d2", borderRadius: "6px", fontSize: "0.78rem", cursor: "pointer" }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Info box */}
+      <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.9rem 1.1rem" }}>
+        <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280", lineHeight: 1.6 }}>
+          <strong>How dynamic binding works:</strong> Each rule uses a Shopify CartTransform function that runs on every cart update.
+          When the main variant is detected, the gift variant is added at $0. When the main variant is removed, the gift is removed automatically — no customer action required.
+          Click <strong>Save &amp; Sync to Store</strong> to apply your changes live.
+        </p>
+      </div>
+    </>
+  );
+}
+
+const VALID_TABS = ["overview", "products", "upsells", "stats", "gift", "gift-upsell"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
@@ -967,6 +1322,7 @@ export default function DashboardPage() {
       {tab === "upsells" && <UpsellsTab />}
       {tab === "stats" && <StatsTab />}
       {tab === "gift" && <GiftTab />}
+      {tab === "gift-upsell" && <GiftUpsellTab />}
     </DashboardShell>
   );
 }
