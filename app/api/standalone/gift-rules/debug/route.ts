@@ -79,10 +79,43 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Attempt a dry-run create to see the exact Shopify error (won't commit if it succeeds,
+  // because we immediately delete it — but this surfaces "Function not found" errors clearly)
+  let createAttempt: unknown = "skipped (no fnGid)";
+  if (fnGid && !ctId) {
+    const createData = await shopifyGraphql(shop, session.accessToken, `
+      mutation TryCreate($fnId: String!) {
+        cartTransformCreate(functionId: $fnId) {
+          cartTransform { id functionId }
+          userErrors { field message code }
+        }
+      }
+    `, { fnId: fnGid });
+    const created = createData?.data?.cartTransformCreate?.cartTransform;
+    const userErrors = createData?.data?.cartTransformCreate?.userErrors ?? [];
+    createAttempt = {
+      result: created ? "created" : "failed",
+      cartTransform: created ?? null,
+      userErrors,
+      topErrors: createData?.errors ?? null,
+    };
+    // Clean up the test-created transform immediately
+    if (created?.id) {
+      await shopifyGraphql(shop, session.accessToken, `
+        mutation Del($id: ID!) { cartTransformDelete(id: $id) { deletedId } }
+      `, { id: created.id });
+    }
+  } else if (ctId) {
+    createAttempt = "skipped (ctId already exists: " + ctId + ")";
+  }
+
   return NextResponse.json({
     shop,
     cachedCtId,
+    fnUuid,
+    fnGid,
     transforms,
+    createAttempt,
     metafieldValue,
     metafieldParsed,
     metafieldParseError,
