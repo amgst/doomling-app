@@ -1,5 +1,5 @@
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
-import { resolveGwpRuleType } from "@/lib/shopify/ensureMetaobjectDefinitions";
+import { ensureGwpRuleDefinition } from "@/lib/shopify/ensureMetaobjectDefinitions";
 
 export type GiftRule = {
   mainVariantId: string;
@@ -25,7 +25,7 @@ function getFieldValue(fields: Array<{ key: string; value: string }> | null | un
   return f ? f.value : null;
 }
 
-const TYPE_FALLBACK = "$app:gwp_rule";
+const TYPE = "$app:gwp_rule";
 
 function throwIfGraphqlErrors(res: any) {
   const errors = res?.errors;
@@ -34,7 +34,7 @@ function throwIfGraphqlErrors(res: any) {
 }
 
 export async function getGiftRulesFromMetaobjects(shop: string, accessToken: string): Promise<GiftRule[]> {
-  const type = await resolveGwpRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
+  await ensureGwpRuleDefinition({ shop, accessToken });
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -49,7 +49,7 @@ export async function getGiftRulesFromMetaobjects(shop: string, accessToken: str
         }
       }
     `,
-    { type },
+    { type: TYPE },
   );
   throwIfGraphqlErrors(data);
 
@@ -71,7 +71,7 @@ export async function getGiftRulesFromMetaobjects(shop: string, accessToken: str
 }
 
 export async function setGiftRulesToMetaobjects(shop: string, accessToken: string, rules: GiftRule[]) {
-  const type = await resolveGwpRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
+  await ensureGwpRuleDefinition({ shop, accessToken });
   const desired = (Array.isArray(rules) ? rules : [])
     .filter((r) => r && r.mainVariantId && r.giftVariantId)
     .map((r) => ({ mainVariantId: String(r.mainVariantId), giftVariantId: String(r.giftVariantId) }));
@@ -93,7 +93,7 @@ export async function setGiftRulesToMetaobjects(shop: string, accessToken: strin
           }
         }
       `,
-      { type, handle, fields },
+      { type: TYPE, handle, fields },
     );
     throwIfGraphqlErrors(res);
 
@@ -132,7 +132,7 @@ export async function setGiftRulesToMetaobjects(shop: string, accessToken: strin
           }
         }
       `,
-      { type },
+      { type: TYPE },
     );
     throwIfGraphqlErrors(current);
     const nodes = current?.data?.metaobjects?.nodes ?? [];
