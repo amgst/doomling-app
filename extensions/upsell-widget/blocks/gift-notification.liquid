@@ -25,6 +25,7 @@
   data-toast-text="{{ settings.toast_text | default: "Free gift added!" | escape }}"
   data-shop="{{ shop.permanent_domain }}"
   data-api-base-url="{{ settings.api_base_url | default: "https://upsale-cyan.vercel.app" | escape }}"
+  data-cart-section-ids="{{ settings.cart_section_ids | default: "main-cart-items,main-cart-footer" | escape }}"
 >
 
 <style>
@@ -241,6 +242,10 @@
   var toastText  = root.dataset.toastText  || "Free gift added!";
   var shop = root.dataset.shop || '';
   var apiBaseUrl = (root.dataset.apiBaseUrl || '').replace(/\/$/, '');
+  var cartSectionIds = (root.dataset.cartSectionIds || '')
+    .split(',')
+    .map(function (s) { return (s || '').trim(); })
+    .filter(Boolean);
 
   var rulesCache = null;
   var rulesPromise = null;
@@ -282,6 +287,7 @@
 
   var syncInFlight = false;
   var syncQueued = false;
+  var cartReloadKeyPrefix = 'gwp_cart_reload_v1:';
 
   function getCartQtyByVariant(cart, variantId) {
     var items = (cart && cart.items) || [];
@@ -321,6 +327,11 @@
     if (!Array.isArray(rules) || rules.length === 0) return Promise.resolve(false);
 
     var actions = [];
+    var requiresReload = false;
+
+    var hadAnyAutoGift = ((cart && cart.items) || []).some(function (item) {
+      return item && item.properties && item.properties[PROP_KEY] === PROP_VAL;
+    });
 
     rules.forEach(function (rule) {
       if (!rule || !rule.mainVariantId || !rule.giftVariantId) return;
@@ -339,6 +350,9 @@
         }
 
         if (desiredQty > 0) {
+          // On many themes the cart PAGE HTML won't update to show the new line item.
+          // Trigger a one-time refresh when we add the first auto-gift.
+          if (!hadAnyAutoGift) requiresReload = true;
           actions.push(function () {
             return postCart('/cart/add.js', {
               id: rule.giftVariantId,
@@ -374,7 +388,48 @@
       p = p.then(function () { return fn(); }).catch(function () { return null; });
     });
 
-    return p.then(function () { return true; });
+    return p.then(function () {
+      return { didChange: true, requiresReload: requiresReload };
+    });
+  }
+
+  function maybeReloadCartPage(cart) {
+    if (!window.location || !/^\/cart\b/.test(window.location.pathname || '')) return false;
+    var token = (cart && cart.token) ? String(cart.token) : '';
+    var key = cartReloadKeyPrefix + token;
+    try {
+      if (sessionStorage.getItem(key) === '1') return false;
+      sessionStorage.setItem(key, '1');
+    } catch (e) {}
+    window.location.reload();
+    return true;
+  }
+
+  function refreshCartSectionsAjax() {
+    if (!window.location || !/^\/cart\b/.test(window.location.pathname || '')) return Promise.resolve(false);
+    if (!cartSectionIds || cartSectionIds.length === 0) return Promise.resolve(false);
+
+    var url = '/?sections=' + encodeURIComponent(cartSectionIds.join(','));
+    return fetch(url, { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (sections) {
+        if (!sections) return false;
+        var replacedAny = false;
+        cartSectionIds.forEach(function (id) {
+          var html = sections[id];
+          if (!html) return;
+          var el = document.getElementById('shopify-section-' + id);
+          if (!el) return;
+          el.innerHTML = html;
+          replacedAny = true;
+        });
+        if (replacedAny) {
+          // Re-run any listeners that rely on cart HTML being present
+          document.dispatchEvent(new CustomEvent('cart:refresh'));
+        }
+        return replacedAny;
+      })
+      .catch(function () { return false; });
   }
 
   // Per-session dedup: only show toast once per gift variant per session
@@ -480,8 +535,17 @@
             if (syncInFlight) { syncQueued = true; return; }
             syncInFlight = true;
             return syncGifts(cart, rules)
-              .then(function (didChange) {
+              .then(function (result) {
                 syncInFlight = false;
+                var didChange = result && result.didChange;
+                var requiresReload = result && result.requiresReload;
+                if (didChange && requiresReload) {
+                  refreshCartSectionsAjax().then(function (ok) {
+                    if (ok) return;
+                    maybeReloadCartPage(cart);
+                  });
+                  return;
+                }
                 if (didChange || syncQueued) {
                   syncQueued = false;
                   checkCart(350);
@@ -565,6 +629,13 @@
       "label": "App API base URL",
       "info": "Your app's public URL (used to fetch gift rules). Example: https://upsale-cyan.vercel.app",
       "default": "https://upsale-cyan.vercel.app"
+    },
+    {
+      "type": "text",
+      "id": "cart_section_ids",
+      "label": "Cart section IDs",
+      "info": "Comma-separated section IDs to re-render via AJAX after adding gifts. Dawn defaults: main-cart-items,main-cart-footer",
+      "default": "main-cart-items,main-cart-footer"
     }
   ]
 }
