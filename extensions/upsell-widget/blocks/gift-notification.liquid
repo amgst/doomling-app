@@ -292,19 +292,80 @@
     var existing = cartSectionIds.filter(function (id) { return !!document.getElementById('shopify-section-' + id); });
     if (existing.length > 0) return existing;
 
-    var common = ['main-cart-items', 'main-cart-footer'];
-    var commonExisting = common.filter(function (id) { return !!document.getElementById('shopify-section-' + id); });
-    if (commonExisting.length > 0) return commonExisting;
+    var onCartPage = !!(window.location && /^\/cart\b/i.test(window.location.pathname || ''));
+
+    if (onCartPage) {
+      var common = ['main-cart-items', 'main-cart-footer'];
+      var commonExisting = common.filter(function (id) { return !!document.getElementById('shopify-section-' + id); });
+      if (commonExisting.length > 0) return commonExisting;
+    } else {
+      // Drawer/header updates (Dawn + similar themes)
+      var drawerPreferred = ['cart-drawer', 'cart-icon-bubble', 'cart-live-region-text', 'cart-notification'];
+      var drawerExisting = drawerPreferred.filter(function (id) { return !!document.getElementById('shopify-section-' + id); });
+      if (drawerExisting.length > 0) return drawerExisting.slice(0, 3);
+    }
 
     var detected = Array.prototype.slice.call(document.querySelectorAll('[id^="shopify-section-"]'))
       .map(function (el) { return String(el.id || '').replace(/^shopify-section-/, ''); })
       .filter(function (id) { return id && /(cart|drawer|bubble|icon)/i.test(id); });
 
-    return detected.length > 0 ? detected.slice(0, 6) : cartSectionIds;
+    return detected.length > 0 ? detected.slice(0, 3) : cartSectionIds;
   }
 
   var rulesCache = null;
   var rulesPromise = null;
+  var rulesStorageKey = shop ? ('gwp_rules_cache_v1:' + shop) : 'gwp_rules_cache_v1';
+  var rulesStorageTtlMs = 5 * 60 * 1000;
+  var rulesBootstrapPending = false;
+
+  function readCachedRules() {
+    try {
+      var raw = sessionStorage.getItem(rulesStorageKey);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.rules)) return null;
+      var age = Date.now() - (Number(parsed.ts) || 0);
+      return { rules: parsed.rules, stale: !(age >= 0 && age < rulesStorageTtlMs) };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeCachedRules(rules) {
+    try {
+      sessionStorage.setItem(rulesStorageKey, JSON.stringify({ ts: Date.now(), rules: rules }));
+    } catch (e) {}
+  }
+
+  function fetchRulesNetwork(timeoutMs) {
+    if (!apiBaseUrl || !shop) return Promise.resolve([]);
+
+    var ctrl = null;
+    var t = null;
+    try {
+      ctrl = new AbortController();
+      if (timeoutMs && timeoutMs > 0) {
+        t = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, timeoutMs);
+      }
+    } catch (e) {}
+
+    function doFetch(path) {
+      return fetch(apiBaseUrl + path + '?shop=' + encodeURIComponent(shop), {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'default',
+        signal: ctrl ? ctrl.signal : undefined,
+      })
+        .then(function (r) { return r.ok ? r.json() : { rules: [] }; })
+        .then(function (data) { return (data && data.rules) || []; });
+    }
+
+    // Prefer the newer cached endpoint, fall back for older deploys.
+    return doFetch('/api/gwp-rules')
+      .catch(function () { return doFetch('/api/public/gift-rules'); })
+      .finally(function () { if (t) clearTimeout(t); });
+  }
 
   function loadRules() {
     if (rulesCache) return Promise.resolve(rulesCache);
@@ -314,21 +375,39 @@
       return Promise.resolve(rulesCache);
     }
 
-    rulesPromise = fetch(apiBaseUrl + '/api/public/gift-rules?shop=' + encodeURIComponent(shop), {
-      method: 'GET',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-    })
-      .then(function (r) { return r.ok ? r.json() : { rules: [] }; })
-      .then(function (data) {
-        rulesCache = (data && data.rules) || [];
+    var cached = readCachedRules();
+    if (cached && Array.isArray(cached.rules)) {
+      rulesCache = cached.rules;
+      if (cached.stale) {
+        fetchRulesNetwork(1200)
+          .then(function (rules) {
+            if (Array.isArray(rules) && rules.length > 0) {
+              rulesCache = rules;
+              writeCachedRules(rules);
+              checkCart(0);
+            }
+          })
+          .catch(function () {});
+      }
+      return Promise.resolve(rulesCache);
+    }
+
+    rulesBootstrapPending = true;
+    rulesPromise = fetchRulesNetwork(12_000)
+      .then(function (rules) {
+        rulesCache = Array.isArray(rules) ? rules : [];
+        writeCachedRules(rulesCache);
+        if (rulesBootstrapPending) {
+          rulesBootstrapPending = false;
+          checkCart(0);
+        }
         return rulesCache;
       })
       .catch(function () {
         rulesCache = [];
         return rulesCache;
-      });
+      })
+      .finally(function () { rulesPromise = null; });
 
     return rulesPromise;
   }
@@ -356,7 +435,7 @@
 
     return fetch(path, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-GWP-Internal': '1' },
       body: JSON.stringify(body),
     }).then(function (r) { return r.ok ? r.json() : null; });
   }
@@ -549,9 +628,23 @@
 
     if (replacedAny) {
       document.dispatchEvent(new CustomEvent('cart:refresh'));
+      document.dispatchEvent(new CustomEvent('cart:updated'));
     }
 
     return replacedAny;
+  }
+
+  function tryRenderThemeCart(cart) {
+    if (!cart || !cart.sections) return;
+    try {
+      var drawer = document.querySelector('cart-drawer');
+      if (drawer && typeof drawer.renderContents === 'function') drawer.renderContents(cart);
+    } catch (e) {}
+
+    try {
+      var notif = document.querySelector('cart-notification');
+      if (notif && typeof notif.renderContents === 'function') notif.renderContents(cart);
+    } catch (e) {}
   }
 
   // Per-session dedup: only show toast once per gift variant per session
@@ -738,6 +831,7 @@
               if (applied) {
                 ensurePortals();
                 if (lastCartResult && Array.isArray(lastCartResult.items)) {
+                  tryRenderThemeCart(lastCartResult);
                   updateGiftUI(lastCartResult);
                 } else {
                   checkCart(0);
@@ -808,7 +902,26 @@
   window.fetch = function (input) {
     var result = _origFetch.apply(this, arguments);
     var url = typeof input === 'string' ? input : (input && input.url) || '';
-    if (/\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
+
+    function hasInternalHeader(obj) {
+      try {
+        if (!obj) return false;
+        var h = obj.headers;
+        if (!h) return false;
+        if (typeof h.get === 'function') return String(h.get('X-GWP-Internal') || '') === '1';
+        if (Array.isArray(h)) return h.some(function (kv) { return kv && String(kv[0] || '').toLowerCase() === 'x-gwp-internal' && String(kv[1] || '') === '1'; });
+        if (typeof h === 'object') {
+          var v = h['X-GWP-Internal'] || h['x-gwp-internal'];
+          return String(v || '') === '1';
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    var init = arguments.length > 1 ? arguments[1] : null;
+    var isInternal = hasInternalHeader(init) || (input && typeof input !== 'string' && hasInternalHeader(input));
+
+    if (!isInternal && /\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
       result.then(function (res) {
         try {
           var cloned = res.clone();
@@ -846,6 +959,7 @@
   };
 
   // Initial check
+  loadRules();
   checkCart(0);
 })();
 </script>
