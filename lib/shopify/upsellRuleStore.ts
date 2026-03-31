@@ -18,7 +18,7 @@ export interface UpsellRule {
   message: string;
 }
 
-const TYPE_FALLBACK = "$app:upsell_rule";
+// Prefer canonical app-owned types (app--<appId>--upsell_rule). `$app:*` is only used in config files, not runtime API calls.
 
 function throwIfGraphqlErrors(res: any) {
   const errors = res?.errors;
@@ -56,7 +56,7 @@ function parseUpsellProducts(raw: string | null) {
 }
 
 export async function listUpsellRules(shop: string, accessToken: string): Promise<UpsellRule[]> {
-  const type = await resolveUpsellRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
+  const type = await resolveUpsellRuleType({ shop, accessToken });
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -98,7 +98,7 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
 export async function getUpsellRule(shop: string, accessToken: string, handle: string): Promise<UpsellRule | null> {
   const h = String(handle || "").trim();
   if (!h) return null;
-  const type = await resolveUpsellRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
+  const type = await resolveUpsellRuleType({ shop, accessToken });
 
   const data = await shopifyAdminGraphql(
     shop,
@@ -139,7 +139,7 @@ export async function upsertUpsellRule(
   accessToken: string,
   rule: Omit<UpsellRule, "id"> & { id?: string },
 ) {
-  const type = await resolveUpsellRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
+  const type = await resolveUpsellRuleType({ shop, accessToken });
   const handle = rule.id && String(rule.id).trim() ? String(rule.id).trim() : `upsell-${Date.now()}`;
   const triggerGid = productGidFromId(rule.triggerProductId);
   if (!triggerGid) throw new Error("Missing trigger product id");
@@ -179,7 +179,7 @@ export async function upsertUpsellRule(
 }
 
 export async function deleteUpsellRule(shop: string, accessToken: string, handle: string) {
-  const type = await resolveUpsellRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
+  const type = await resolveUpsellRuleType({ shop, accessToken });
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,

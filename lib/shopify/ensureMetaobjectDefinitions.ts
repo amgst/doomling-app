@@ -16,6 +16,30 @@ function throwIfGraphqlErrors(res: any) {
   throw new Error(errors.map((e: any) => e?.message).filter(Boolean).join("; ") || "Shopify GraphQL error");
 }
 
+async function getCurrentNumericAppId(args: EnsureArgs) {
+  const res = await shopifyAdminGraphql(
+    args.shop,
+    args.accessToken,
+    `
+      query CurrentAppId {
+        currentAppInstallation {
+          app { id }
+        }
+      }
+    `,
+  );
+  throwIfGraphqlErrors(res);
+  const gid = res?.data?.currentAppInstallation?.app?.id as string | undefined;
+  const m = String(gid || "").match(/gid:\/\/shopify\/App\/(\d+)/);
+  if (!m) throw new Error("Unable to resolve current app id");
+  return m[1];
+}
+
+async function appOwnedType(args: EnsureArgs, shortType: string) {
+  const appId = await getCurrentNumericAppId(args);
+  return `app--${appId}--${shortType}`;
+}
+
 async function ensureMetaobjectDefinition(
   { shop, accessToken }: EnsureArgs,
   definition: Record<string, any>,
@@ -23,19 +47,23 @@ async function ensureMetaobjectDefinition(
   const type = String(definition?.type || "").trim();
   if (!type) throw new Error("Missing metaobject definition type");
 
-  const existing = await shopifyAdminGraphql(
-    shop,
-    accessToken,
-    `
-      query MetaobjectDefinitionByType($type: String!) {
-        metaobjectDefinitionByType(type: $type) { id type }
-      }
-    `,
-    { type },
-  );
-  throwIfGraphqlErrors(existing);
-  if (existing?.data?.metaobjectDefinitionByType?.id) {
-    return { type: String(existing.data.metaobjectDefinitionByType.type), created: false };
+  try {
+    const existing = await shopifyAdminGraphql(
+      shop,
+      accessToken,
+      `
+        query MetaobjectDefinitionByType($type: String!) {
+          metaobjectDefinitionByType(type: $type) { id type }
+        }
+      `,
+      { type },
+    );
+    throwIfGraphqlErrors(existing);
+    if (existing?.data?.metaobjectDefinitionByType?.id) {
+      return { type: String(existing.data.metaobjectDefinitionByType.type), created: false };
+    }
+  } catch {
+    // If we can't read definitions due to scopes, fall through and attempt create.
   }
 
   const created = await shopifyAdminGraphql(
@@ -55,9 +83,12 @@ async function ensureMetaobjectDefinition(
 
   const userErrors = created?.data?.metaobjectDefinitionCreate?.userErrors ?? [];
   if (Array.isArray(userErrors) && userErrors.length > 0) {
-    throw new Error(
-      `Metaobject definition create failed: ${userErrors.map((e: any) => e?.message).filter(Boolean).join("; ")}`,
-    );
+    const msg = userErrors.map((e: any) => e?.message).filter(Boolean).join("; ");
+    // If it already exists, treat as success and continue using the intended type.
+    if (/already exists|has already been taken|taken/i.test(msg)) {
+      return { type, created: false };
+    }
+    throw new Error(`Metaobject definition create failed: ${msg}`);
   }
 
   if (!created?.data?.metaobjectDefinitionCreate?.metaobjectDefinition?.id) {
@@ -70,35 +101,10 @@ async function ensureMetaobjectDefinition(
   };
 }
 
-async function findCanonicalAppOwnedType(args: EnsureArgs, shortType: string) {
-  const suffix = `--${shortType}`;
-  const res = await shopifyAdminGraphql(
-    args.shop,
-    args.accessToken,
-    `
-      query MetaobjectDefinitions($first: Int!) {
-        metaobjectDefinitions(first: $first) {
-          nodes { id type name }
-        }
-      }
-    `,
-    { first: 250 },
-  );
-  throwIfGraphqlErrors(res);
-  const nodes = res?.data?.metaobjectDefinitions?.nodes ?? [];
-  const found = nodes.find((n: any) => {
-    const t = String(n?.type || "");
-    return t.startsWith("app--") && t.endsWith(suffix);
-  });
-  return found?.type ? String(found.type) : null;
-}
-
 export async function resolveGwpRuleType(args: EnsureArgs) {
-  const canonical = await findCanonicalAppOwnedType(args, "gwp_rule");
-  if (canonical) return canonical;
-
+  const type = await appOwnedType(args, "gwp_rule");
   const ensured = await ensureMetaobjectDefinition(args, {
-    type: "$app:gwp_rule",
+    type,
     name: "Gift rule",
     displayNameKey: "title",
     access: { admin: "MERCHANT_READ_WRITE", storefront: "PUBLIC_READ" },
@@ -122,16 +128,13 @@ export async function resolveGwpRuleType(args: EnsureArgs) {
     ],
   });
 
-  // Shopify may return the canonical app-owned type (app--<id>--gwp_rule) after creation.
   return ensured.type;
 }
 
 export async function resolveUpsellRuleType(args: EnsureArgs) {
-  const canonical = await findCanonicalAppOwnedType(args, "upsell_rule");
-  if (canonical) return canonical;
-
+  const type = await appOwnedType(args, "upsell_rule");
   const ensured = await ensureMetaobjectDefinition(args, {
-    type: "$app:upsell_rule",
+    type,
     name: "Upsell rule",
     displayNameKey: "trigger_product_title",
     access: { admin: "MERCHANT_READ_WRITE", storefront: "PUBLIC_READ" },
