@@ -1,5 +1,5 @@
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
-import { ensureUpsellRuleDefinition } from "@/lib/shopify/ensureMetaobjectDefinitions";
+import { resolveUpsellRuleType } from "@/lib/shopify/ensureMetaobjectDefinitions";
 
 export interface UpsellProduct {
   productId: string;
@@ -18,7 +18,7 @@ export interface UpsellRule {
   message: string;
 }
 
-const TYPE = "$app:upsell_rule";
+const TYPE_FALLBACK = "$app:upsell_rule";
 
 function throwIfGraphqlErrors(res: any) {
   const errors = res?.errors;
@@ -56,7 +56,7 @@ function parseUpsellProducts(raw: string | null) {
 }
 
 export async function listUpsellRules(shop: string, accessToken: string): Promise<UpsellRule[]> {
-  await ensureUpsellRuleDefinition({ shop, accessToken });
+  const type = await resolveUpsellRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -71,7 +71,7 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
         }
       }
     `,
-    { type: TYPE },
+    { type },
   );
   throwIfGraphqlErrors(data);
 
@@ -98,7 +98,7 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
 export async function getUpsellRule(shop: string, accessToken: string, handle: string): Promise<UpsellRule | null> {
   const h = String(handle || "").trim();
   if (!h) return null;
-  await ensureUpsellRuleDefinition({ shop, accessToken });
+  const type = await resolveUpsellRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
 
   const data = await shopifyAdminGraphql(
     shop,
@@ -112,7 +112,7 @@ export async function getUpsellRule(shop: string, accessToken: string, handle: s
         }
       }
     `,
-    { type: TYPE, handle: h },
+    { type, handle: h },
   );
   throwIfGraphqlErrors(data);
 
@@ -139,7 +139,7 @@ export async function upsertUpsellRule(
   accessToken: string,
   rule: Omit<UpsellRule, "id"> & { id?: string },
 ) {
-  await ensureUpsellRuleDefinition({ shop, accessToken });
+  const type = await resolveUpsellRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
   const handle = rule.id && String(rule.id).trim() ? String(rule.id).trim() : `upsell-${Date.now()}`;
   const triggerGid = productGidFromId(rule.triggerProductId);
   if (!triggerGid) throw new Error("Missing trigger product id");
@@ -166,7 +166,7 @@ export async function upsertUpsellRule(
         }
       }
     `,
-    { type: TYPE, handle, fields },
+    { type, handle, fields },
   );
   throwIfGraphqlErrors(res);
 
@@ -179,6 +179,7 @@ export async function upsertUpsellRule(
 }
 
 export async function deleteUpsellRule(shop: string, accessToken: string, handle: string) {
+  const type = await resolveUpsellRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -187,7 +188,7 @@ export async function deleteUpsellRule(shop: string, accessToken: string, handle
         metaobjectByHandle(handle: { type: $type, handle: $handle }) { id }
       }
     `,
-    { type: TYPE, handle },
+    { type, handle },
   );
 
   const id = data?.data?.metaobjectByHandle?.id as string | undefined;
