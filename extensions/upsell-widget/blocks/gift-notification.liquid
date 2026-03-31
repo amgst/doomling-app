@@ -434,7 +434,8 @@
     if (!window.location || !/^\/cart\b/.test(window.location.pathname || '')) return Promise.resolve(false);
     if (!cartSectionIds || cartSectionIds.length === 0) return Promise.resolve(false);
 
-    var url = '/?sections=' + encodeURIComponent(cartSectionIds.join(','));
+    // Use the current path so section rendering matches the cart template context.
+    var url = (window.location.pathname || '/cart') + '?sections=' + encodeURIComponent(cartSectionIds.join(','));
     return fetch(url, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (sections) {
@@ -445,7 +446,16 @@
           if (!html) return;
           var el = document.getElementById('shopify-section-' + id);
           if (!el) return;
-          el.innerHTML = html;
+
+          // Shopify may return either the section's inner HTML or the full wrapper element.
+          var tmp = document.createElement('div');
+          tmp.innerHTML = html;
+          var wrapper = tmp.querySelector('#shopify-section-' + id);
+          if (wrapper && wrapper.parentNode) {
+            el.replaceWith(wrapper);
+          } else {
+            el.innerHTML = html;
+          }
           replacedAny = true;
         });
         if (replacedAny) {
@@ -462,6 +472,16 @@
   var seen;
   try { seen = new Set(JSON.parse(sessionStorage.getItem(seenKey) || '[]')); }
   catch (e) { seen = new Set(); }
+
+  // Keep toast/confetti outside cart sections so AJAX replacement can't remove them.
+  (function ensurePortals() {
+    try {
+      var toast = document.getElementById('gwp-toast');
+      if (toast && toast.parentNode !== document.body) document.body.appendChild(toast);
+      var confetti = document.getElementById('gwp-confetti');
+      if (confetti && confetti.parentNode !== document.body) document.body.appendChild(confetti);
+    } catch (e) {}
+  })();
 
   function persistSeen() {
     try { sessionStorage.setItem(seenKey, JSON.stringify(Array.from(seen))); } catch (e) {}
