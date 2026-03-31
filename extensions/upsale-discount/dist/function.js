@@ -1,4 +1,4 @@
-// extensions/upsale-discount/node_modules/@shopify/shopify_function/run.ts
+// upsale-discount/node_modules/@shopify/shopify_function/run.ts
 function run_default(userfunction) {
   try {
     ShopifyFunction;
@@ -12,7 +12,7 @@ function run_default(userfunction) {
   ShopifyFunction.writeOutput(output_obj);
 }
 
-// extensions/upsale-discount/src/cart_lines_discounts_generate_run.js
+// upsale-discount/src/cart_lines_discounts_generate_run.js
 function cartLinesDiscountsGenerateRun(input) {
   const meta = input.discount?.metafield;
   let config;
@@ -75,7 +75,7 @@ function cartLinesDiscountsGenerateRun(input) {
   return { operations };
 }
 
-// extensions/upsale-discount/src/cart_delivery_options_discounts_generate_run.js
+// upsale-discount/src/cart_delivery_options_discounts_generate_run.js
 function cartDeliveryOptionsDiscountsGenerateRun(input) {
   const firstDeliveryGroup = input.cart.deliveryGroups[0];
   if (!firstDeliveryGroup) {

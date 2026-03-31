@@ -1,4 +1,4 @@
-// extensions/gift-with-product/node_modules/@shopify/shopify_function/run.ts
+// gift-with-product/node_modules/@shopify/shopify_function/run.ts
 function run_default(userfunction) {
   try {
     ShopifyFunction;
@@ -12,7 +12,7 @@ function run_default(userfunction) {
   ShopifyFunction.writeOutput(output_obj);
 }
 
-// extensions/gift-with-product/src/run.js
+// gift-with-product/src/run.js
 function run(input) {
   const meta = input.cartTransform?.metafield;
   if (!meta?.value) {
