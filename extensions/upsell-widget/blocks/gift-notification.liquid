@@ -23,6 +23,8 @@
   id="gwp-notif-root"
   data-notification-text="{{ settings.notification_text | default: "You've earned a free gift!" | escape }}"
   data-toast-text="{{ settings.toast_text | default: "Free gift added!" | escape }}"
+  data-shop="{{ shop.permanent_domain }}"
+  data-api-base-url="{{ settings.api_base_url | default: "https://upsale-cyan.vercel.app" | escape }}"
 >
 
 <style>
@@ -237,6 +239,143 @@
   var PROP_VAL = '1';
   var notifText = root.dataset.notificationText || "You\u2019ve earned a free gift!";
   var toastText  = root.dataset.toastText  || "Free gift added!";
+  var shop = root.dataset.shop || '';
+  var apiBaseUrl = (root.dataset.apiBaseUrl || '').replace(/\/$/, '');
+
+  var rulesCache = null;
+  var rulesPromise = null;
+
+  function loadRules() {
+    if (rulesCache) return Promise.resolve(rulesCache);
+    if (rulesPromise) return rulesPromise;
+    if (!apiBaseUrl || !shop) {
+      rulesCache = [];
+      return Promise.resolve(rulesCache);
+    }
+
+    rulesPromise = fetch(apiBaseUrl + '/api/public/gift-rules?shop=' + encodeURIComponent(shop), {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-store',
+    })
+      .then(function (r) { return r.ok ? r.json() : { rules: [] }; })
+      .then(function (data) {
+        rulesCache = (data && data.rules) || [];
+        return rulesCache;
+      })
+      .catch(function () {
+        rulesCache = [];
+        return rulesCache;
+      });
+
+    return rulesPromise;
+  }
+
+  function postCart(path, payload) {
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    }).then(function (r) { return r.ok ? r.json() : null; });
+  }
+
+  var syncInFlight = false;
+  var syncQueued = false;
+
+  function getCartQtyByVariant(cart, variantId) {
+    var items = (cart && cart.items) || [];
+    var total = 0;
+    for (var i = 0; i < items.length; i++) {
+      if (String(items[i].variant_id) === String(variantId)) total += (items[i].quantity || 0);
+    }
+    return total;
+  }
+
+  function findGiftLine(cart, giftVariantId, mainVariantId) {
+    var items = (cart && cart.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (String(it.variant_id) !== String(giftVariantId)) continue;
+      var props = it.properties || {};
+      if (props[PROP_KEY] !== PROP_VAL) continue;
+      if (mainVariantId && String(props['_gwp_main'] || '') !== String(mainVariantId)) continue;
+      return it;
+    }
+    return null;
+  }
+
+  function hasManualGift(cart, giftVariantId) {
+    var items = (cart && cart.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (String(it.variant_id) !== String(giftVariantId)) continue;
+      var props = it.properties || {};
+      if (props[PROP_KEY] === PROP_VAL) continue;
+      return true;
+    }
+    return false;
+  }
+
+  function syncGifts(cart, rules) {
+    if (!Array.isArray(rules) || rules.length === 0) return Promise.resolve(false);
+
+    var actions = [];
+
+    rules.forEach(function (rule) {
+      if (!rule || !rule.mainVariantId || !rule.giftVariantId) return;
+
+      var mainQty = getCartQtyByVariant(cart, rule.mainVariantId);
+      var manualGift = hasManualGift(cart, rule.giftVariantId);
+      var giftLine = findGiftLine(cart, rule.giftVariantId, rule.mainVariantId);
+      var desiredQty = manualGift ? 0 : mainQty;
+
+      if (!giftLine) {
+        var existingOther = findGiftLine(cart, rule.giftVariantId, null);
+        if (existingOther && existingOther.properties && existingOther.properties['_gwp_main'] && String(existingOther.properties['_gwp_main']) !== String(rule.mainVariantId)) {
+          actions.push(function () {
+            return postCart('/cart/change.js', { id: existingOther.key, quantity: 0 });
+          });
+        }
+
+        if (desiredQty > 0) {
+          actions.push(function () {
+            return postCart('/cart/add.js', {
+              id: rule.giftVariantId,
+              quantity: desiredQty,
+              properties: {
+                _gwp: '1',
+                _gwp_main: String(rule.mainVariantId),
+              },
+            });
+          });
+        }
+        return;
+      }
+
+      if (desiredQty === 0 && (giftLine.quantity || 0) > 0) {
+        actions.push(function () {
+          return postCart('/cart/change.js', { id: giftLine.key, quantity: 0 });
+        });
+        return;
+      }
+
+      if (desiredQty > 0 && (giftLine.quantity || 0) !== desiredQty) {
+        actions.push(function () {
+          return postCart('/cart/change.js', { id: giftLine.key, quantity: desiredQty });
+        });
+      }
+    });
+
+    if (actions.length === 0) return Promise.resolve(false);
+
+    var p = Promise.resolve();
+    actions.forEach(function (fn) {
+      p = p.then(function () { return fn(); }).catch(function () { return null; });
+    });
+
+    return p.then(function () { return true; });
+  }
 
   // Per-session dedup: only show toast once per gift variant per session
   var seenKey = 'gwp_seen_v1';
@@ -336,6 +475,21 @@
         .then(function (r) { return r.json(); })
         .then(function (cart) {
           if (token !== pendingCheck) return;
+
+          loadRules().then(function (rules) {
+            if (syncInFlight) { syncQueued = true; return; }
+            syncInFlight = true;
+            return syncGifts(cart, rules)
+              .then(function (didChange) {
+                syncInFlight = false;
+                if (didChange || syncQueued) {
+                  syncQueued = false;
+                  checkCart(350);
+                }
+              })
+              .catch(function () { syncInFlight = false; });
+          });
+
           var gifts = (cart.items || []).filter(function (item) {
             return item.properties && item.properties[PROP_KEY] === PROP_VAL;
           });
@@ -404,6 +558,13 @@
       "label": "Toast heading",
       "info": "Shown in the slide-in popup when a gift is first added.",
       "default": "Free gift added!"
+    },
+    {
+      "type": "text",
+      "id": "api_base_url",
+      "label": "App API base URL",
+      "info": "Your app's public URL (used to fetch gift rules). Example: https://upsale-cyan.vercel.app",
+      "default": "https://upsale-cyan.vercel.app"
     }
   ]
 }

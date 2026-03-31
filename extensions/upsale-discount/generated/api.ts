@@ -3241,4 +3241,4 @@ export type DeliveryInput = { __typename?: 'Input', cart: { __typename?: 'Cart',
 export type CartInputVariables = Exact<{ [key: string]: never; }>;
 
 
-export type CartInput = { __typename?: 'Input', cart: { __typename?: 'Cart', lines: Array<{ __typename?: 'CartLine', id: string, cost: { __typename?: 'CartLineCost', subtotalAmount: { __typename?: 'MoneyV2', amount: any } }, merchandise: { __typename?: 'CustomProduct' } | { __typename?: 'ProductVariant', id: string } }> }, discount: { __typename?: 'Discount', metafield?: { __typename?: 'Metafield', value: string } | null } };
+export type CartInput = { __typename?: 'Input', cart: { __typename?: 'Cart', lines: Array<{ __typename?: 'CartLine', id: string, quantity: number, cost: { __typename?: 'CartLineCost', subtotalAmount: { __typename?: 'MoneyV2', amount: any } }, gwp?: { __typename?: 'Attribute', value?: string | null } | null, gwpMain?: { __typename?: 'Attribute', value?: string | null } | null, merchandise: { __typename?: 'CustomProduct' } | { __typename?: 'ProductVariant', id: string } }> }, discount: { __typename?: 'Discount', metafield?: { __typename?: 'Metafield', value: string } | null } };
