@@ -50,28 +50,6 @@ function cartLinesDiscountsGenerateRun(input) {
       }
     }
   }
-  const qtyByVariantGid = new Map(
-    input.cart.lines.map((l) => [l.merchandise?.id, l.quantity])
-  );
-  for (const line of input.cart.lines) {
-    const isGwp = line.gwp?.value === "1";
-    const mainVariantId = line.gwpMain?.value;
-    if (!isGwp || !mainVariantId) continue;
-    const mainGid = `gid://shopify/ProductVariant/${mainVariantId}`;
-    const mainQty = qtyByVariantGid.get(mainGid) ?? 0;
-    if (!mainQty) continue;
-    if (line.quantity > mainQty) continue;
-    operations.push({
-      productDiscountsAdd: {
-        candidates: [{
-          message: "Free Gift",
-          targets: [{ cartLine: { id: line.id } }],
-          value: { percentage: { value: 100 } }
-        }],
-        selectionStrategy: "FIRST" /* First */
-      }
-    });
-  }
   return { operations };
 }
 

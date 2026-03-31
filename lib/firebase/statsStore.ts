@@ -1,7 +1,7 @@
 import { getDb } from "./admin";
 import { doc, getDoc, setDoc, increment, collection, getDocs } from "firebase/firestore";
 
-export type EventType = "view" | "click" | "added" | "gift_shown" | "gift_added";
+export type EventType = "view" | "click" | "added";
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -57,4 +57,3 @@ export async function getRuleStats(
 
   return results;
 }
-

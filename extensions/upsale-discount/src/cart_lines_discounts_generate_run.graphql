@@ -8,8 +8,6 @@ query CartInput {
           amount
         }
       }
-      gwp: attribute(key: "_gwp") { value }
-      gwpMain: attribute(key: "_gwp_main") { value }
       merchandise {
         ... on ProductVariant {
           id
