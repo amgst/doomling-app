@@ -27,6 +27,7 @@
   data-api-base-url="{{ settings.api_base_url | default: "https://upsale-cyan.vercel.app" | escape }}"
   data-cart-section-ids="{{ settings.cart_section_ids | default: "main-cart-items,main-cart-footer" | escape }}"
   data-enable-celebration="{% if settings.enable_celebration %}true{% else %}false{% endif %}"
+  data-embedded-rules="{{ shop.metafields.gwp.gift_rules.value | default: '' | escape }}"
 >
 
 <style>
@@ -373,6 +374,20 @@
     if (!apiBaseUrl || !shop) {
       rulesCache = [];
       return Promise.resolve(rulesCache);
+    }
+
+    var embeddedRaw = '';
+    try { embeddedRaw = String(getRoot().dataset.embeddedRules || '').trim(); } catch (e) {}
+    if (embeddedRaw) {
+      try {
+        var embedded = JSON.parse(embeddedRaw);
+        var embeddedRules = (embedded && embedded.rules) ? embedded.rules : embedded;
+        if (Array.isArray(embeddedRules)) {
+          rulesCache = embeddedRules;
+          writeCachedRules(rulesCache);
+          return Promise.resolve(rulesCache);
+        }
+      } catch (e) {}
     }
 
     var cached = readCachedRules();

@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 const NS = "gwp";
 const KEY = "gift_config";
+const PUBLIC_KEY = "gift_rules";
 const DEFAULT_FUNCTION_HANDLE = "gift-with-product";
 
 async function shopifyGraphql(shop: string, accessToken: string, query: string, variables?: Record<string, unknown>) {
@@ -196,6 +197,41 @@ export async function PUT(req: NextRequest) {
     }
   } catch (e) {
     syncStatus = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  // Also persist rules to a Shop metafield so the theme can read rules instantly (no extra network call).
+  // This is best-effort and should not block dashboard saves.
+  try {
+    const shopData = await shopifyGraphql(
+      session.shop,
+      session.accessToken!,
+      `query GetShopId { shop { id } }`,
+    );
+    const shopId = shopData?.data?.shop?.id as string | undefined;
+
+    if (shopId) {
+      const value = JSON.stringify({ rules: body.rules });
+      await shopifyGraphql(
+        session.shop,
+        session.accessToken!,
+        `
+          mutation SetShopRules($ownerId: ID!, $value: String!) {
+            metafieldsSet(metafields: [{
+              ownerId: $ownerId
+              namespace: "${NS}"
+              key: "${PUBLIC_KEY}"
+              type: "json"
+              value: $value
+            }]) {
+              userErrors { field message }
+            }
+          }
+        `,
+        { ownerId: shopId, value },
+      );
+    }
+  } catch {
+    // ignore
   }
 
   return NextResponse.json({ ok: true, rules: body.rules, sync: syncStatus });
