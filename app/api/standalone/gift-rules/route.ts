@@ -15,6 +15,10 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isMissingMetaobjectDefinition(error: unknown) {
+  return /metaobject definition not found/i.test(errorMessage(error));
+}
+
 async function getSession(req: NextRequest) {
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
   const shop = cookie ? await verifyShop(cookie) : null;
@@ -32,10 +36,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const rules = await getGiftRulesFromMetaobjects(session.shop, session.accessToken!);
-    if (rules.length > 0) {
-      return NextResponse.json({ rules, source: "metaobjects" });
-    }
-  } catch {}
+    return NextResponse.json({ rules, source: "metaobjects" });
+  } catch (e) {
+    if (!isMissingMetaobjectDefinition(e)) throw e;
+  }
 
   const fallbackRules = await getShopGiftRulesMetafield(session.shop, session.accessToken!);
   return NextResponse.json({ rules: fallbackRules, source: "shop_metafield" });
@@ -54,12 +58,20 @@ export async function PUT(req: NextRequest) {
 
   let metaobjectSync: unknown = "not_attempted";
   let metaobjectOk = false;
+  let missingDefinition = false;
   try {
     await setGiftRulesToMetaobjects(session.shop, session.accessToken!, body.rules);
     metaobjectSync = { ok: true };
     metaobjectOk = true;
   } catch (e) {
     metaobjectSync = { error: errorMessage(e) };
+    missingDefinition = isMissingMetaobjectDefinition(e);
+    if (!missingDefinition) {
+      return NextResponse.json(
+        { error: errorMessage(e), rules: body.rules, metaobjectSync },
+        { status: 400 },
+      );
+    }
   }
 
   let ctSync: unknown = "not_attempted";
@@ -86,5 +98,5 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync, ctSync, shopRulesSync });
+  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync, ctSync, shopRulesSync, source: missingDefinition ? "shop_metafield_fallback" : "metaobjects" });
 }

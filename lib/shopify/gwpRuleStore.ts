@@ -1,4 +1,5 @@
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
+import { resolveMetaobjectType } from "@/lib/shopify/metaobjectType";
 
 export type GiftRule = {
   mainVariantId: string;
@@ -25,8 +26,18 @@ function getFieldValue(fields: Array<{ key: string; value: string }> | null | un
 }
 
 const TYPE = "$app:gwp_rule";
+const DEFINITION_NAME = "Gift rule";
+
+async function getGiftRuleType(shop: string, accessToken: string) {
+  const resolved = await resolveMetaobjectType(shop, accessToken, TYPE, DEFINITION_NAME);
+  if (!resolved.foundDefinition) {
+    throw new Error("Metaobject definition not found");
+  }
+  return resolved.type;
+}
 
 export async function getGiftRulesFromMetaobjects(shop: string, accessToken: string): Promise<GiftRule[]> {
+  const type = await getGiftRuleType(shop, accessToken);
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -41,7 +52,7 @@ export async function getGiftRulesFromMetaobjects(shop: string, accessToken: str
         }
       }
     `,
-    { type: TYPE },
+    { type },
   );
 
   const nodes = data?.data?.metaobjects?.nodes ?? [];
@@ -62,6 +73,7 @@ export async function getGiftRulesFromMetaobjects(shop: string, accessToken: str
 }
 
 export async function setGiftRulesToMetaobjects(shop: string, accessToken: string, rules: GiftRule[]) {
+  const type = await getGiftRuleType(shop, accessToken);
   const desired = (Array.isArray(rules) ? rules : [])
     .filter((r) => r && r.mainVariantId && r.giftVariantId)
     .map((r) => ({ mainVariantId: String(r.mainVariantId), giftVariantId: String(r.giftVariantId) }));
@@ -83,7 +95,7 @@ export async function setGiftRulesToMetaobjects(shop: string, accessToken: strin
           }
         }
       `,
-      { type: TYPE, handle, fields },
+      { type, handle, fields },
     );
 
     const userErrors = res?.data?.metaobjectUpsert?.userErrors ?? [];
@@ -121,7 +133,7 @@ export async function setGiftRulesToMetaobjects(shop: string, accessToken: strin
           }
         }
       `,
-      { type: TYPE },
+      { type },
     );
     const nodes = current?.data?.metaobjects?.nodes ?? [];
     const toDisable = nodes
