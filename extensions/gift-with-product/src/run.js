@@ -83,7 +83,10 @@ export function run(input) {
             merchandiseId: giftGid,
             quantity: mainLine.quantity,
             price: { percentageDecrease: { value: 100 } },
-            attributes: [{ key: "_gwp", value: "1" }],
+            attributes: [
+              { key: "_gwp", value: "1" },
+              { key: "_gwp_main", value: String(rule.mainVariantId) },
+            ],
           },
         ],
       },

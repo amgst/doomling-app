@@ -467,17 +467,17 @@
     return total;
   }
 
-  function findGiftLine(cart, giftVariantId, mainVariantId) {
+  function getAutoGiftLines(cart, giftVariantId) {
     var items = (cart && cart.items) || [];
+    var matches = [];
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
       if (String(it.variant_id) !== String(giftVariantId)) continue;
       var props = it.properties || {};
       if (props[PROP_KEY] !== PROP_VAL) continue;
-      if (mainVariantId && String(props['_gwp_main'] || '') !== String(mainVariantId)) continue;
-      return it;
+      matches.push(it);
     }
-    return null;
+    return matches;
   }
 
   function hasManualGift(cart, giftVariantId) {
@@ -498,6 +498,7 @@
     var actions = [];
     var requiresReload = false;
     var lastCartResult = null;
+    var desiredByGiftVariant = {};
 
     var hadAnyAutoGift = ((cart && cart.items) || []).some(function (item) {
       return item && item.properties && item.properties[PROP_KEY] === PROP_VAL;
@@ -505,31 +506,37 @@
 
     rules.forEach(function (rule) {
       if (!rule || !rule.mainVariantId || !rule.giftVariantId) return;
-
       var mainQty = getCartQtyByVariant(cart, rule.mainVariantId);
-      var manualGift = hasManualGift(cart, rule.giftVariantId);
-      var giftLine = findGiftLine(cart, rule.giftVariantId, rule.mainVariantId);
-      var desiredQty = manualGift ? 0 : mainQty;
+      if (!desiredByGiftVariant[rule.giftVariantId]) {
+        desiredByGiftVariant[rule.giftVariantId] = {
+          quantity: 0,
+          primaryMainVariantId: String(rule.mainVariantId),
+        };
+      }
+      desiredByGiftVariant[rule.giftVariantId].quantity += mainQty;
+    });
 
-      if (!giftLine) {
-        var existingOther = findGiftLine(cart, rule.giftVariantId, null);
-        if (existingOther && existingOther.properties && existingOther.properties['_gwp_main'] && String(existingOther.properties['_gwp_main']) !== String(rule.mainVariantId)) {
-          actions.push(function () {
-            return postCart(cartEndpoint('cart/change.js'), { id: existingOther.key, quantity: 0 });
-          });
-        }
+    Object.keys(desiredByGiftVariant).forEach(function (giftVariantId) {
+      var entry = desiredByGiftVariant[giftVariantId];
+      var manualGift = hasManualGift(cart, giftVariantId);
+      var desiredQty = manualGift ? 0 : entry.quantity;
+      var giftLines = getAutoGiftLines(cart, giftVariantId);
+      var currentQty = giftLines.reduce(function (sum, line) {
+        return sum + (line.quantity || 0);
+      }, 0);
 
+      if (giftLines.length === 0) {
         if (desiredQty > 0) {
           // On many themes the cart PAGE HTML won't update to show the new line item.
           // Trigger a one-time refresh when we add the first auto-gift.
           if (!hadAnyAutoGift) requiresReload = true;
           actions.push(function () {
             return postCart(cartEndpoint('cart/add.js'), {
-              id: rule.giftVariantId,
+              id: giftVariantId,
               quantity: desiredQty,
               properties: {
                 _gwp: '1',
-                _gwp_main: String(rule.mainVariantId),
+                _gwp_main: String(entry.primaryMainVariantId),
               },
             });
           });
@@ -537,18 +544,30 @@
         return;
       }
 
-      if (desiredQty === 0 && (giftLine.quantity || 0) > 0) {
-        actions.push(function () {
-          return postCart(cartEndpoint('cart/change.js'), { id: giftLine.key, quantity: 0 });
+      if (desiredQty === 0) {
+        giftLines.forEach(function (giftLine) {
+          if ((giftLine.quantity || 0) > 0) {
+            actions.push(function () {
+              return postCart(cartEndpoint('cart/change.js'), { id: giftLine.key, quantity: 0 });
+            });
+          }
         });
         return;
       }
 
-      if (desiredQty > 0 && (giftLine.quantity || 0) !== desiredQty) {
+      if (currentQty !== desiredQty) {
         actions.push(function () {
-          return postCart(cartEndpoint('cart/change.js'), { id: giftLine.key, quantity: desiredQty });
+          return postCart(cartEndpoint('cart/change.js'), { id: giftLines[0].key, quantity: desiredQty });
         });
       }
+
+      giftLines.slice(1).forEach(function (giftLine) {
+        if ((giftLine.quantity || 0) > 0) {
+          actions.push(function () {
+            return postCart(cartEndpoint('cart/change.js'), { id: giftLine.key, quantity: 0 });
+          });
+        }
+      });
     });
 
     if (actions.length === 0) return Promise.resolve(false);
