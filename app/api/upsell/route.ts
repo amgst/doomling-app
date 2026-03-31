@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/firebase/admin";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { normalizeRule } from "@/lib/firebase/upsellStore";
+import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
+import { getShopUpsellRulesMetafield } from "@/lib/shopify/shopUpsellRulesMetafield";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,29 +24,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const q = query(
-      collection(getDb(), "upsells", shop, "rules"),
-      where("triggerProductId", "==", productId)
-    );
-    const snap = await getDocs(q);
+    const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
+    if (!session?.accessToken) return NextResponse.json({ upsells: [] }, { headers: CORS });
 
-    if (snap.empty) {
-      return NextResponse.json({ upsells: [] }, { headers: CORS });
-    }
+    const rules = await getShopUpsellRulesMetafield(shop, session.accessToken);
+    const rule = rules.find((r) => String(r.triggerProductId) === String(productId));
+    if (!rule) return NextResponse.json({ upsells: [] }, { headers: CORS });
 
-    const doc = snap.docs[0];
-    const rule = normalizeRule(doc.id, doc.data() as Record<string, unknown>);
-
-    const upsells = rule.upsellProducts.map(p => ({
+    const upsells = (rule.upsellProducts || []).map((p) => ({
       ruleId: rule.id,
       productId: p.productId,
       title: p.title,
       image: p.image,
       handle: p.handle,
       originalPrice: p.price,
-      price: p.discountPercent > 0
-        ? (parseFloat(p.price) * (1 - p.discountPercent / 100)).toFixed(2)
-        : p.price,
+      price:
+        p.discountPercent > 0
+          ? (parseFloat(p.price) * (1 - p.discountPercent / 100)).toFixed(2)
+          : p.price,
       discountPercent: p.discountPercent,
       message: rule.message,
     }));

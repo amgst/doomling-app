@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
-import { getUpsell } from "@/lib/firebase/upsellStore";
+import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
+import { getUpsellRule } from "@/lib/shopify/upsellRuleStore";
 import { getDb } from "@/lib/firebase/admin";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
@@ -15,8 +16,11 @@ export async function GET(req: NextRequest) {
   const ruleId = req.nextUrl.searchParams.get("id");
   if (!ruleId) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
+  const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
+  if (!session?.accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
+
   const [rule, snap] = await Promise.all([
-    getUpsell(shop, ruleId),
+    getUpsellRule(shop, session.accessToken, ruleId),
     getDocs(query(
       collection(getDb(), "upsell_stats", shop, "rules", ruleId, "days"),
       orderBy("__name__")

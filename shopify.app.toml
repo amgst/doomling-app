@@ -93,3 +93,30 @@ type = "date_time"
 [metaobjects.app.gwp_rule.fields.ends_at]
 name = "Ends at"
 type = "date_time"
+
+[metaobjects.app.upsell_rule]
+name = "Upsell rule"
+access.admin = "merchant_read_write"
+access.storefront = "public_read"
+
+[metaobjects.app.upsell_rule.fields.enabled]
+name = "Enabled"
+type = "boolean"
+required = true
+
+[metaobjects.app.upsell_rule.fields.trigger_product]
+name = "Trigger product"
+type = "product_reference"
+required = true
+
+[metaobjects.app.upsell_rule.fields.trigger_product_title]
+name = "Trigger product title"
+type = "single_line_text_field"
+
+[metaobjects.app.upsell_rule.fields.message]
+name = "Message"
+type = "single_line_text_field"
+
+[metaobjects.app.upsell_rule.fields.upsell_products]
+name = "Upsell products"
+type = "json"

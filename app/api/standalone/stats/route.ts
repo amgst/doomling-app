@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
-import { listUpsells } from "@/lib/firebase/upsellStore";
+import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
+import { listUpsellRules } from "@/lib/shopify/upsellRuleStore";
 import { getRuleStats } from "@/lib/firebase/statsStore";
 
 export const runtime = "nodejs";
@@ -11,7 +12,10 @@ export async function GET(req: NextRequest) {
   const shop = cookie ? await verifyShop(cookie) : null;
   if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rules = await listUpsells(shop);
+  const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
+  if (!session?.accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
+
+  const rules = await listUpsellRules(shop, session.accessToken);
   const ruleIds = rules.map((r) => r.id);
   const ruleStats = await getRuleStats(shop, ruleIds);
 
