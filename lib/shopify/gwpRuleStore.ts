@@ -25,7 +25,7 @@ function getFieldValue(fields: Array<{ key: string; value: string }> | null | un
   return f ? f.value : null;
 }
 
-// Prefer canonical app-owned types (app--<appId>--gwp_rule). `$app:*` is only used in config files, not runtime API calls.
+const TYPE_FALLBACK = "$app:gwp_rule";
 
 function throwIfGraphqlErrors(res: any) {
   const errors = res?.errors;
@@ -34,7 +34,7 @@ function throwIfGraphqlErrors(res: any) {
 }
 
 export async function getGiftRulesFromMetaobjects(shop: string, accessToken: string): Promise<GiftRule[]> {
-  const type = await resolveGwpRuleType({ shop, accessToken });
+  const type = await resolveGwpRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -71,7 +71,7 @@ export async function getGiftRulesFromMetaobjects(shop: string, accessToken: str
 }
 
 export async function setGiftRulesToMetaobjects(shop: string, accessToken: string, rules: GiftRule[]) {
-  const type = await resolveGwpRuleType({ shop, accessToken });
+  const type = await resolveGwpRuleType({ shop, accessToken }).catch(() => TYPE_FALLBACK);
   const desired = (Array.isArray(rules) ? rules : [])
     .filter((r) => r && r.mainVariantId && r.giftVariantId)
     .map((r) => ({ mainVariantId: String(r.mainVariantId), giftVariantId: String(r.giftVariantId) }));
