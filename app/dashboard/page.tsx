@@ -92,6 +92,16 @@ interface BxgyRuleStat {
   conversionRate: string;
 }
 
+async function safeJson<T = any>(response: Response): Promise<T | null> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
 const RANGES = [
   { label: "7 days", value: "7" },
   { label: "30 days", value: "30" },
@@ -686,9 +696,9 @@ function BuyXGetYTab() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/standalone/bxgy").then(r => r.json()),
-      fetch("/api/standalone/bxgy-stats").then(r => r.json()),
-      fetch("/api/standalone/products").then(r => r.json()),
+      fetch("/api/standalone/bxgy").then(r => safeJson(r)),
+      fetch("/api/standalone/bxgy-stats").then(r => safeJson(r)),
+      fetch("/api/standalone/products").then(r => safeJson(r)),
     ]).then(([bxgy, bxgyStats, productData]) => {
       setRules(bxgy.rules ?? []);
       setSummary(bxgyStats.summary ?? null);
@@ -773,16 +783,19 @@ function BuyXGetYTab() {
         enabled: true,
       }),
     });
-    const data = await response.json();
+    const data = await safeJson<{ error?: string; warning?: string }>(response);
     if (!response.ok) {
-      setError(data.error ?? "Failed to save BXGY rule.");
+      setError(data?.error ?? "Failed to save BXGY rule.");
       setSaving(false);
       return;
     }
+    if (data?.warning) {
+      setError(data.warning);
+    }
 
     const [updated, updatedStats] = await Promise.all([
-      fetch("/api/standalone/bxgy").then(r => r.json()),
-      fetch("/api/standalone/bxgy-stats").then(r => r.json()),
+      fetch("/api/standalone/bxgy").then(r => safeJson(r)),
+      fetch("/api/standalone/bxgy-stats").then(r => safeJson(r)),
     ]);
     setRules(updated.rules ?? []);
     setSummary(updatedStats.summary ?? null);
@@ -792,10 +805,18 @@ function BuyXGetYTab() {
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/standalone/bxgy/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/standalone/bxgy/${id}`, { method: "DELETE" });
+    const data = await safeJson<{ error?: string; warning?: string }>(response);
+    if (!response.ok) {
+      setError(data?.error ?? "Failed to delete BXGY rule.");
+      return;
+    }
+    if (data?.warning) {
+      setError(data.warning);
+    }
     const [updated, updatedStats] = await Promise.all([
-      fetch("/api/standalone/bxgy").then(r => r.json()),
-      fetch("/api/standalone/bxgy-stats").then(r => r.json()),
+      fetch("/api/standalone/bxgy").then(r => safeJson(r)),
+      fetch("/api/standalone/bxgy-stats").then(r => safeJson(r)),
     ]);
     setRules(updated.rules ?? []);
     setSummary(updatedStats.summary ?? null);

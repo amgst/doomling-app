@@ -21,42 +21,66 @@ async function getAccessToken(shop: string) {
 async function syncCompiledState(shop: string, accessToken: string) {
   const rules = await listBxgyRules(shop, accessToken);
   await setShopBxgyRulesMetafield(shop, accessToken, rules);
-  await syncBxgyDiscount(shop, accessToken, rules);
-  return rules;
+
+  let syncWarning: string | null = null;
+  try {
+    await syncBxgyDiscount(shop, accessToken, rules);
+  } catch (error) {
+    console.error("[bxgy] discount sync failed", error);
+    syncWarning = error instanceof Error ? error.message : "Buy X Get Y rule saved, but discount sync failed.";
+  }
+
+  return { rules, syncWarning };
 }
 
 export async function GET(req: NextRequest) {
-  const shop = await getShop(req);
-  if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const shop = await getShop(req);
+    if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const accessToken = await getAccessToken(shop);
-  if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
+    const accessToken = await getAccessToken(shop);
+    if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
-  const rules = await listBxgyRules(shop, accessToken);
-  return NextResponse.json({ rules });
+    const rules = await listBxgyRules(shop, accessToken);
+    return NextResponse.json({ rules });
+  } catch (error) {
+    console.error("[bxgy] GET failed", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load BXGY rules" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const shop = await getShop(req);
-  if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const shop = await getShop(req);
+    if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const accessToken = await getAccessToken(shop);
-  if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
+    const accessToken = await getAccessToken(shop);
+    if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
-  const body = await req.json();
-  const result = await upsertBxgyRule(shop, accessToken, {
-    id: body.id,
-    name: body.name || "",
-    buyProducts: Array.isArray(body.buyProducts) ? body.buyProducts : [],
-    giftProduct: body.giftProduct ?? null,
-    buyQuantity: Number(body.buyQuantity) || 1,
-    giftQuantity: Number(body.giftQuantity) || 1,
-    message: body.message || "",
-    autoAdd: body.autoAdd !== false,
-    priority: Number(body.priority) || 1,
-    enabled: body.enabled !== false,
-  });
+    const body = await req.json();
+    const result = await upsertBxgyRule(shop, accessToken, {
+      id: body.id,
+      name: body.name || "",
+      buyProducts: Array.isArray(body.buyProducts) ? body.buyProducts : [],
+      giftProduct: body.giftProduct ?? null,
+      buyQuantity: Number(body.buyQuantity) || 1,
+      giftQuantity: Number(body.giftQuantity) || 1,
+      message: body.message || "",
+      autoAdd: body.autoAdd !== false,
+      priority: Number(body.priority) || 1,
+      enabled: body.enabled !== false,
+    });
 
-  await syncCompiledState(shop, accessToken);
-  return NextResponse.json({ ok: true, id: result.id });
+    const { syncWarning } = await syncCompiledState(shop, accessToken);
+    return NextResponse.json({ ok: true, id: result.id, warning: syncWarning });
+  } catch (error) {
+    console.error("[bxgy] POST failed", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to save BXGY rule" },
+      { status: 500 },
+    );
+  }
 }

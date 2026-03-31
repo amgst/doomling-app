@@ -9,18 +9,33 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const cookie = req.cookies.get(COOKIE_NAME)?.value;
-  const shop = cookie ? await verifyShop(cookie) : null;
-  if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const cookie = req.cookies.get(COOKIE_NAME)?.value;
+    const shop = cookie ? await verifyShop(cookie) : null;
+    if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
-  if (!session?.accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
+    const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
+    if (!session?.accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
-  await deleteBxgyRule(shop, session.accessToken, params.id);
+    await deleteBxgyRule(shop, session.accessToken, params.id);
 
-  const rules = await listBxgyRules(shop, session.accessToken);
-  await setShopBxgyRulesMetafield(shop, session.accessToken, rules);
-  await syncBxgyDiscount(shop, session.accessToken, rules);
+    const rules = await listBxgyRules(shop, session.accessToken);
+    await setShopBxgyRulesMetafield(shop, session.accessToken, rules);
 
-  return NextResponse.json({ ok: true });
+    let warning: string | null = null;
+    try {
+      await syncBxgyDiscount(shop, session.accessToken, rules);
+    } catch (error) {
+      console.error("[bxgy] DELETE sync failed", error);
+      warning = error instanceof Error ? error.message : "Rule deleted, but discount sync failed.";
+    }
+
+    return NextResponse.json({ ok: true, warning });
+  } catch (error) {
+    console.error("[bxgy] DELETE failed", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to delete BXGY rule" },
+      { status: 500 },
+    );
+  }
 }
