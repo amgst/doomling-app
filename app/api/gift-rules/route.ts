@@ -19,12 +19,8 @@ export async function GET(req: NextRequest) {
   const shop = session!.shop;
   const accessToken = session!.accessToken!;
 
-  try {
-    const rules = await getGiftRulesFromMetaobjects(shop, accessToken);
-    return NextResponse.json({ rules, source: "metaobjects" });
-  } catch (e) {
-    return NextResponse.json({ rules: [], source: "metaobjects", error: e instanceof Error ? e.message : String(e) });
-  }
+  const rules = await getGiftRulesFromMetaobjects(shop, accessToken);
+  return NextResponse.json({ rules, source: "metaobjects" });
 }
 
 export async function PUT(req: NextRequest) {

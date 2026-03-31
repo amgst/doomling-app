@@ -1,5 +1,5 @@
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
-import { getCartTransformId, setCartTransformId, type GiftRule } from "@/lib/firebase/giftRuleStore";
+import type { GiftRule } from "@/lib/firebase/giftRuleStore";
 
 const NS = "gwp";
 const KEY = "gift_config";
@@ -13,28 +13,16 @@ export async function syncGiftConfigToCartTransform(
   // 1) Prefer function handle (defined in `extensions/gift-with-product/shopify.extension.toml`)
   // NOTE: `extensions[].uid` is NOT a Shopify Function id (gid://shopify/Function/...), it's an extension UID.
   const fnHandle = (process.env.SHOPIFY_GIFT_FUNCTION_HANDLE ?? DEFAULT_FUNCTION_HANDLE).trim();
-  const fnIdRaw = (process.env.SHOPIFY_GIFT_FUNCTION_ID ?? "").trim();
-  const deprecatedUid = (process.env.SHOPIFY_GIFT_FUNCTION_UUID ?? "").trim();
 
-  if (!fnHandle && !fnIdRaw) {
+  if (!fnHandle) {
     return {
       error: "No function identifier configured",
       help: {
         recommended: `Set SHOPIFY_GIFT_FUNCTION_HANDLE=${DEFAULT_FUNCTION_HANDLE}`,
-        optional: "Or set SHOPIFY_GIFT_FUNCTION_ID to the deployed function gid://shopify/Function/...",
-        note: "SHOPIFY_GIFT_FUNCTION_UUID is deprecated; it is the extension UID, not a function id.",
+        note: "Cart transform create by function handle is the recommended approach.",
       },
     };
   }
-
-  const fnGid = fnIdRaw
-    ? fnIdRaw.startsWith("gid://shopify/Function/")
-      ? fnIdRaw
-      : `gid://shopify/Function/${fnIdRaw.replace(/^gid:\/\/shopify\/Function\//, "")}`
-    : null;
-
-  const matchesFn = (functionId: string | null | undefined) =>
-    !!fnGid && (functionId === fnGid || functionId === fnGid.replace(/^gid:\/\/shopify\/Function\//, ""));
 
   const fetchTransforms = async () => {
     const ctData = await shopifyAdminGraphql(
@@ -55,16 +43,11 @@ export async function syncGiftConfigToCartTransform(
     return ctData?.data?.cartTransforms?.nodes ?? [];
   };
 
-  // 2) Use cached CartTransform ID from Firebase, or query/create
-  let ctId: string | null = await getCartTransformId(shop);
-
-  if (!ctId) {
-    const transforms = await fetchTransforms();
-    const matchByMeta = transforms.find((t: any) => !!t?.metafield?.id);
-    const matchByFn = transforms.find((t: any) => matchesFn(t.functionId));
-    ctId = (matchByMeta?.id ?? matchByFn?.id ?? null) as string | null;
-    if (ctId) await setCartTransformId(shop, ctId);
-  }
+  // 2) Query for existing CartTransform (no external caching)
+  let ctId: string | null = null;
+  const transforms = await fetchTransforms();
+  const matchByMeta = transforms.find((t: any) => !!t?.metafield?.id);
+  ctId = (matchByMeta?.id ?? null) as string | null;
 
   if (!ctId) {
     const createData = await shopifyAdminGraphql(
@@ -85,10 +68,9 @@ export async function syncGiftConfigToCartTransform(
     const userErrors = (createData as any)?.data?.cartTransformCreate?.userErrors ?? [];
 
     if (!ctId && userErrors.length > 0) {
-      const transforms = await fetchTransforms();
-      const matchByMeta = transforms.find((t: any) => !!t?.metafield?.id);
-      const matchByFn = transforms.find((t: any) => matchesFn(t.functionId));
-      ctId = (matchByMeta?.id ?? matchByFn?.id ?? null) as string | null;
+      const retry = await fetchTransforms();
+      const retryByMeta = retry.find((t: any) => !!t?.metafield?.id);
+      ctId = (retryByMeta?.id ?? null) as string | null;
     }
 
     if (!ctId && userErrors.length > 0) {
@@ -100,12 +82,6 @@ export async function syncGiftConfigToCartTransform(
       };
     }
 
-    if (ctId) await setCartTransformId(shop, ctId);
-  }
-
-  if (deprecatedUid && !fnIdRaw && fnHandle === DEFAULT_FUNCTION_HANDLE) {
-    // Surface the common misconfiguration explicitly (extension UID mistaken for function ID)
-    // (Non-fatal, just informative.)
   }
 
   if (!ctId) return { error: "No CartTransform ID found" };

@@ -362,9 +362,8 @@
         .then(function (data) { return (data && data.rules) || []; });
     }
 
-    // Prefer the newer cached endpoint, fall back for older deploys.
-    return doFetch('/api/gwp-rules')
-      .catch(function () { return doFetch('/api/public/gift-rules'); })
+    // Prefer the newer cached endpoint.
+    return doFetch('/api/gwp-rules-v2')
       .finally(function () { if (t) clearTimeout(t); });
   }
 
