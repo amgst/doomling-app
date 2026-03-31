@@ -84,8 +84,27 @@ async function ensureMetaobjectDefinition(
   const userErrors = created?.data?.metaobjectDefinitionCreate?.userErrors ?? [];
   if (Array.isArray(userErrors) && userErrors.length > 0) {
     const msg = userErrors.map((e: any) => e?.message).filter(Boolean).join("; ");
-    // If it already exists, treat as success and continue using the intended type.
+    // If it already exists, re-query to get the confirmed stored type rather than
+    // returning our locally-computed string (handles cases where the initial query
+    // was swallowed by the catch block above).
     if (/already exists|has already been taken|taken/i.test(msg)) {
+      try {
+        const refetch = await shopifyAdminGraphql(
+          shop,
+          accessToken,
+          `
+            query MetaobjectDefinitionByType($type: String!) {
+              metaobjectDefinitionByType(type: $type) { id type }
+            }
+          `,
+          { type },
+        );
+        if (refetch?.data?.metaobjectDefinitionByType?.id) {
+          return { type: String(refetch.data.metaobjectDefinitionByType.type), created: false };
+        }
+      } catch {
+        // Ignore — fall back to computed type below.
+      }
       return { type, created: false };
     }
     throw new Error(`Metaobject definition create failed: ${msg}`);

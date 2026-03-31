@@ -78,7 +78,7 @@ export async function setGiftRulesToMetaobjects(shop: string, accessToken: strin
 
   const desiredHandles = new Set(desired.map((r) => `main-${r.mainVariantId}`));
 
-  const upsert = async (handle: string, fields: Array<{ key: string; value: string }>) => {
+  const upsertOnce = async (upsertType: string, handle: string, fields: Array<{ key: string; value: string }>) => {
     const res = await shopifyAdminGraphql(
       shop,
       accessToken,
@@ -93,11 +93,26 @@ export async function setGiftRulesToMetaobjects(shop: string, accessToken: strin
           }
         }
       `,
-      { type, handle, fields },
+      { type: upsertType, handle, fields },
     );
     throwIfGraphqlErrors(res);
+    return res?.data?.metaobjectUpsert?.userErrors ?? [];
+  };
 
-    const userErrors = res?.data?.metaobjectUpsert?.userErrors ?? [];
+  const upsert = async (handle: string, fields: Array<{ key: string; value: string }>) => {
+    let userErrors = await upsertOnce(type, handle, fields);
+
+    // If the definition wasn't found (e.g. just created with propagation lag), re-ensure
+    // and retry once with the freshly confirmed type.
+    if (
+      Array.isArray(userErrors) &&
+      userErrors.length > 0 &&
+      userErrors.some((e: any) => /definition not found/i.test(String(e?.message)))
+    ) {
+      const freshType = await resolveGwpRuleType({ shop, accessToken });
+      userErrors = await upsertOnce(freshType, handle, fields);
+    }
+
     if (Array.isArray(userErrors) && userErrors.length > 0) {
       throw new Error(`Metaobject upsert failed: ${userErrors.map((e: any) => e.message).join("; ")}`);
     }
