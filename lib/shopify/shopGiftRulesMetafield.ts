@@ -17,6 +17,11 @@ export async function getShopGiftRulesMetafield(shop: string, accessToken: strin
     `,
   );
 
+  const topErrors = res?.errors ?? [];
+  if (Array.isArray(topErrors) && topErrors.length > 0) {
+    throw new Error(topErrors[0]?.message ?? "Failed to read shop gift rules metafield");
+  }
+
   const raw = res?.data?.shop?.giftRules?.value as string | undefined;
   if (!raw) return [];
 
@@ -30,6 +35,11 @@ export async function getShopGiftRulesMetafield(shop: string, accessToken: strin
 
 export async function setShopGiftRulesMetafield(shop: string, accessToken: string, rules: GiftRule[]) {
   const shopData = await shopifyAdminGraphql(shop, accessToken, `query GetShopId { shop { id } }`);
+  const shopQueryErrors = shopData?.errors ?? [];
+  if (Array.isArray(shopQueryErrors) && shopQueryErrors.length > 0) {
+    throw new Error(shopQueryErrors[0]?.message ?? "Could not get Shop ID");
+  }
+
   const shopId = shopData?.data?.shop?.id as string | undefined;
   if (!shopId) throw new Error("Could not get Shop ID");
 
@@ -53,6 +63,11 @@ export async function setShopGiftRulesMetafield(shop: string, accessToken: strin
     `,
     { ownerId: shopId, value },
   );
+
+  const topErrors = res?.errors ?? [];
+  if (Array.isArray(topErrors) && topErrors.length > 0) {
+    throw new Error(topErrors[0]?.message ?? "Failed to set shop gift rules metafield");
+  }
 
   const errors = res?.data?.metafieldsSet?.userErrors ?? [];
   if (Array.isArray(errors) && errors.length > 0) {
