@@ -1,5 +1,4 @@
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
-import { resolveMetaobjectType } from "@/lib/shopify/metaobjectType";
 
 export interface UpsellProduct {
   productId: string;
@@ -19,15 +18,6 @@ export interface UpsellRule {
 }
 
 const TYPE = "$app:upsell_rule";
-const DEFINITION_NAME = "Upsell rule";
-
-async function getUpsellRuleType(shop: string, accessToken: string) {
-  const resolved = await resolveMetaobjectType(shop, accessToken, TYPE, DEFINITION_NAME);
-  if (!resolved.foundDefinition) {
-    throw new Error("Metaobject definition not found");
-  }
-  return resolved.type;
-}
 
 function productGidFromId(productId: string) {
   const id = String(productId || "").trim();
@@ -59,7 +49,6 @@ function parseUpsellProducts(raw: string | null) {
 }
 
 export async function listUpsellRules(shop: string, accessToken: string): Promise<UpsellRule[]> {
-  const type = await getUpsellRuleType(shop, accessToken);
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -74,7 +63,7 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
         }
       }
     `,
-    { type },
+    { type: TYPE },
   );
 
   const nodes = data?.data?.metaobjects?.nodes ?? [];
@@ -100,7 +89,6 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
 export async function getUpsellRule(shop: string, accessToken: string, handle: string): Promise<UpsellRule | null> {
   const h = String(handle || "").trim();
   if (!h) return null;
-  const type = await getUpsellRuleType(shop, accessToken);
 
   const data = await shopifyAdminGraphql(
     shop,
@@ -114,7 +102,7 @@ export async function getUpsellRule(shop: string, accessToken: string, handle: s
         }
       }
     `,
-    { type, handle: h },
+    { type: TYPE, handle: h },
   );
 
   const mo = data?.data?.metaobjectByHandle;
@@ -140,7 +128,6 @@ export async function upsertUpsellRule(
   accessToken: string,
   rule: Omit<UpsellRule, "id"> & { id?: string },
 ) {
-  const type = await getUpsellRuleType(shop, accessToken);
   const handle = rule.id && String(rule.id).trim() ? String(rule.id).trim() : `upsell-${Date.now()}`;
   const triggerGid = productGidFromId(rule.triggerProductId);
   if (!triggerGid) throw new Error("Missing trigger product id");
@@ -167,7 +154,7 @@ export async function upsertUpsellRule(
         }
       }
     `,
-    { type, handle, fields },
+    { type: TYPE, handle, fields },
   );
 
   const userErrors = res?.data?.metaobjectUpsert?.userErrors ?? [];
@@ -179,7 +166,6 @@ export async function upsertUpsellRule(
 }
 
 export async function deleteUpsellRule(shop: string, accessToken: string, handle: string) {
-  const type = await getUpsellRuleType(shop, accessToken);
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -188,7 +174,7 @@ export async function deleteUpsellRule(shop: string, accessToken: string, handle
         metaobjectByHandle(handle: { type: $type, handle: $handle }) { id }
       }
     `,
-    { type, handle },
+    { type: TYPE, handle },
   );
 
   const id = data?.data?.metaobjectByHandle?.id as string | undefined;
