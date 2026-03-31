@@ -1,4 +1,3 @@
-import { setGiftRules } from "@/lib/firebase/giftRuleStore";
 import { syncGiftConfigToCartTransform } from "@/lib/shopify/cartTransformGiftConfig";
 import { getGiftRulesFromMetaobjects, type GiftRule } from "@/lib/shopify/gwpRuleStore";
 import { setShopGiftRulesMetafield } from "@/lib/shopify/shopGiftRulesMetafield";
@@ -25,19 +24,10 @@ export async function syncGiftRuleDerivedState(shop: string, accessToken: string
     shopRulesSync = { error: errorMessage(e) };
   }
 
-  let firebaseSync: unknown = "not_attempted";
-  try {
-    await setGiftRules(shop, rules);
-    firebaseSync = { ok: true };
-  } catch (e) {
-    firebaseSync = { error: errorMessage(e) };
-  }
-
   return {
     rules,
     ctSync,
     shopRulesSync,
-    firebaseSync,
   };
 }
 

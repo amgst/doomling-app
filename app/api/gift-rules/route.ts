@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
 
   try {
     const rules = await getGiftRulesFromMetaobjects(shop, accessToken);
-    await syncGiftRuleDerivedState(shop, accessToken).catch(() => null);
     return NextResponse.json({ rules, source: "metaobjects" });
   } catch {
     const fallbackRules = await getShopGiftRulesMetafield(shop, accessToken);
@@ -56,7 +55,7 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const { rules, ctSync, shopRulesSync, firebaseSync } = await syncGiftRuleDerivedState(
+  const { rules, ctSync, shopRulesSync } = await syncGiftRuleDerivedState(
     shop,
     accessToken,
   );
@@ -67,7 +66,6 @@ export async function PUT(req: NextRequest) {
     metaobjectSync: { ok: true },
     ctSync,
     shopRulesSync,
-    firebaseSync,
     source: "metaobjects",
   });
 }

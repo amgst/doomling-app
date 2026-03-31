@@ -30,7 +30,6 @@ export async function GET(req: NextRequest) {
 
   try {
     const rules = await getGiftRulesFromMetaobjects(session.shop, session.accessToken!);
-    await syncGiftRuleDerivedState(session.shop, session.accessToken!).catch(() => null);
     return NextResponse.json({ rules, source: "metaobjects" });
   } catch {
     const fallbackRules = await getShopGiftRulesMetafield(session.shop, session.accessToken!);
@@ -58,7 +57,7 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const { rules, ctSync, shopRulesSync, firebaseSync } = await syncGiftRuleDerivedState(
+  const { rules, ctSync, shopRulesSync } = await syncGiftRuleDerivedState(
     session.shop,
     session.accessToken!,
   );
@@ -69,7 +68,6 @@ export async function PUT(req: NextRequest) {
     metaobjectSync: { ok: true },
     ctSync,
     shopRulesSync,
-    firebaseSync,
     source: "metaobjects",
   });
 }
