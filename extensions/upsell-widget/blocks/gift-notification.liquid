@@ -141,6 +141,30 @@
   pointer-events: auto;
 }
 
+/* —— Confetti overlay —— */
+#gwp-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  pointer-events: none;
+  overflow: hidden;
+  display: none;
+}
+#gwp-confetti.gwp-confetti--visible { display: block; }
+.gwp-confetti-piece {
+  position: absolute;
+  top: -10px;
+  width: 10px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0.95;
+  animation: gwp-confetti-fall 900ms linear forwards;
+}
+@keyframes gwp-confetti-fall {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); }
+  100% { transform: translate3d(var(--dx), calc(100vh + 40px), 0) rotate(var(--rot)); }
+}
+
 .gwp-toast-emoji {
   font-size: 1.5rem;
   flex-shrink: 0;
@@ -228,6 +252,7 @@
 
 {%- comment -%} Toast — fixed overlay, auto-dismisses after 5s {%- endcomment -%}
 <div id="gwp-toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="gwp-confetti" aria-hidden="true"></div>
 
 </div><!-- #gwp-notif-root -->
 
@@ -518,6 +543,61 @@
     }, 5000);
   }
 
+  function showInfoToast(title, subtitle) {
+    var toast = document.getElementById('gwp-toast');
+    if (!toast) return;
+
+    toast.innerHTML =
+      '<span class="gwp-toast-emoji">&#127881;</span>' +
+      '<div class="gwp-toast-body">' +
+        '<strong>' + (title || 'Congratulations!') + '</strong>' +
+        '<span>' + (subtitle || 'Adding your free gift…') + '</span>' +
+      '</div>' +
+      '<button class="gwp-toast-close" aria-label="Dismiss">&#10005;</button>';
+
+    toast.querySelector('.gwp-toast-close').addEventListener('click', function () {
+      toast.classList.remove('gwp-toast--visible');
+    });
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        toast.classList.add('gwp-toast--visible');
+      });
+    });
+
+    setTimeout(function () {
+      toast.classList.remove('gwp-toast--visible');
+    }, 1800);
+  }
+
+  function burstConfetti() {
+    var host = document.getElementById('gwp-confetti');
+    if (!host) return;
+    host.classList.add('gwp-confetti--visible');
+    host.innerHTML = '';
+
+    var colors = ['#16a34a', '#22c55e', '#34d399', '#60a5fa', '#a78bfa', '#f59e0b', '#f97316'];
+    var count = 26;
+
+    for (var i = 0; i < count; i++) {
+      var piece = document.createElement('div');
+      piece.className = 'gwp-confetti-piece';
+      piece.style.left = (Math.random() * 100) + 'vw';
+      piece.style.background = colors[i % colors.length];
+      piece.style.setProperty('--dx', ((Math.random() * 120) - 60) + 'px');
+      piece.style.setProperty('--rot', ((Math.random() * 720) - 360) + 'deg');
+      piece.style.animationDuration = (700 + Math.random() * 500) + 'ms';
+      piece.style.width = (8 + Math.random() * 6) + 'px';
+      piece.style.height = (10 + Math.random() * 10) + 'px';
+      host.appendChild(piece);
+    }
+
+    setTimeout(function () {
+      host.classList.remove('gwp-confetti--visible');
+      host.innerHTML = '';
+    }, 1200);
+  }
+
   // ── Cart check ────────────────────────────────────────────────────────────
 
   var pendingCheck = 0;
@@ -540,6 +620,8 @@
                 var didChange = result && result.didChange;
                 var requiresReload = result && result.requiresReload;
                 if (didChange && requiresReload) {
+                  showInfoToast('Congratulations!', 'Adding your free gift…');
+                  burstConfetti();
                   refreshCartSectionsAjax().then(function (ok) {
                     if (ok) return;
                     maybeReloadCartPage(cart);
