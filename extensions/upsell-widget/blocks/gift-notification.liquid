@@ -26,6 +26,7 @@
   data-shop="{{ shop.permanent_domain }}"
   data-api-base-url="{{ settings.api_base_url | default: "https://upsale-cyan.vercel.app" | escape }}"
   data-cart-section-ids="{{ settings.cart_section_ids | default: "main-cart-items,main-cart-footer" | escape }}"
+  data-enable-celebration="{% if settings.enable_celebration %}true{% else %}false{% endif %}"
 >
 
 <style>
@@ -282,6 +283,27 @@
     .map(function (s) { return (s || '').trim(); })
     .filter(Boolean);
 
+  function getEnableCelebration() {
+    var r = getRoot();
+    return !!(r && r.dataset.enableCelebration === 'true');
+  }
+
+  function getCartSectionIds() {
+    var existing = cartSectionIds.filter(function (id) { return !!document.getElementById('shopify-section-' + id); });
+    if (existing.length > 0) return existing;
+    if (!window.location || !/^\/cart\b/.test(window.location.pathname || '')) return cartSectionIds;
+
+    var common = ['main-cart-items', 'main-cart-footer'];
+    var commonExisting = common.filter(function (id) { return !!document.getElementById('shopify-section-' + id); });
+    if (commonExisting.length > 0) return commonExisting;
+
+    var detected = Array.prototype.slice.call(document.querySelectorAll('[id^="shopify-section-"]'))
+      .map(function (el) { return String(el.id || '').replace(/^shopify-section-/, ''); })
+      .filter(function (id) { return id && /cart/i.test(id); });
+
+    return detected.length > 0 ? detected.slice(0, 6) : cartSectionIds;
+  }
+
   var rulesCache = null;
   var rulesPromise = null;
 
@@ -325,8 +347,9 @@
 
     // Request section HTML in the same cart API call (Dawn pattern)
     // for faster + more reliable cart UI updates.
-    if (Array.isArray(cartSectionIds) && cartSectionIds.length > 0) {
-      body.sections = cartSectionIds;
+    var sectionIds = getCartSectionIds();
+    if (Array.isArray(sectionIds) && sectionIds.length > 0) {
+      body.sections = sectionIds;
       body.sections_url = window.location && window.location.pathname ? window.location.pathname : '/cart';
     }
 
@@ -503,7 +526,7 @@
     if (!sections) return false;
 
     var replacedAny = false;
-    cartSectionIds.forEach(function (id) {
+    getCartSectionIds().forEach(function (id) {
       var html = sections[id];
       if (!html) return;
       var el = document.getElementById('shopify-section-' + id);
@@ -624,6 +647,7 @@
   }
 
   function showInfoToast(title, subtitle) {
+    if (!getEnableCelebration()) return;
     var toast = document.getElementById('gwp-toast');
     if (!toast) return;
 
@@ -651,6 +675,7 @@
   }
 
   function burstConfetti() {
+    if (!getEnableCelebration()) return;
     var host = document.getElementById('gwp-confetti');
     if (!host) return;
     host.classList.add('gwp-confetti--visible');
@@ -701,28 +726,34 @@
             if (lastCartResult && lastCartResult.sections) {
               var applied = applyCartSections(lastCartResult.sections);
               if (applied) {
-                checkCart(150);
+                // Immediately reflect the new cart state in the banner/toast without extra /cart.js fetches.
+                updateGiftUI(lastCartResult);
                 return;
               }
             }
 
             refreshCartSectionsAjax().then(function (ok) {
               if (!ok) maybeReloadCartPage(cart);
-              checkCart(150);
+              // After section refresh, re-fetch once if needed to re-sync quantities (rare).
+              checkCart(80);
             });
             return;
           }
 
           if (syncQueued) {
             syncQueued = false;
-            checkCart(150);
+            checkCart(80);
           }
         })
         .catch(function () { syncInFlight = false; });
     });
 
-    var gifts = (cart.items || []).filter(function (item) {
-      return item.properties && item.properties[PROP_KEY] === PROP_VAL;
+    updateGiftUI(cart);
+  }
+
+  function updateGiftUI(cart) {
+    var gifts = (cart && cart.items || []).filter(function (item) {
+      return item && item.properties && item.properties[PROP_KEY] === PROP_VAL;
     });
     renderBanner(gifts);
     if (gifts.length > 0) showToast(gifts[0]);
@@ -755,7 +786,7 @@
     'shopify:cart:updated',
     'on:cart:add',                // Impulse / Prestige
   ].forEach(function (ev) {
-    document.addEventListener(ev, function () { checkCart(200); });
+    document.addEventListener(ev, function () { checkCart(80); });
   });
 
   // Intercept fetch — catches themes that call /cart/add.js, /cart/change.js, etc.
@@ -786,7 +817,16 @@
   var _origOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
     if (typeof url === 'string' && /\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
-      this.addEventListener('load', function () { checkCart(80); });
+      this.addEventListener('load', function () {
+        try {
+          var txt = this.responseText;
+          if (txt && typeof txt === 'string' && txt[0] === '{') {
+            var cart = JSON.parse(txt);
+            if (cart && cart.items) { processCart(cart); return; }
+          }
+        } catch (e) {}
+        checkCart(80);
+      });
     }
     return _origOpen.apply(this, arguments);
   };
@@ -814,6 +854,13 @@
       "label": "Toast heading",
       "info": "Shown in the slide-in popup when a gift is first added.",
       "default": "Free gift added!"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_celebration",
+      "label": "Enable celebration",
+      "info": "Shows a short congratulations toast + confetti when a gift is added.",
+      "default": false
     },
     {
       "type": "text",
