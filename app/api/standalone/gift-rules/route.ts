@@ -42,12 +42,13 @@ export async function PUT(req: NextRequest) {
   }
 
   // Save to Shopify (metaobjects) — source of truth
-  let metaobjectSync: unknown = "not_attempted";
   try {
     await setGiftRulesToMetaobjects(session.shop, session.accessToken!, body.rules);
-    metaobjectSync = { ok: true };
   } catch (e) {
-    metaobjectSync = { error: e instanceof Error ? e.message : String(e) };
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : String(e), metaobjectSync: { error: e instanceof Error ? e.message : String(e) } },
+      { status: 400 },
+    );
   }
 
   // Sync config to CartTransform metafield so the cart transform function can read it
@@ -67,5 +68,5 @@ export async function PUT(req: NextRequest) {
     shopRulesSync = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync, ctSync, shopRulesSync });
+  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync: { ok: true }, ctSync, shopRulesSync });
 }

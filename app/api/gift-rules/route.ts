@@ -37,12 +37,13 @@ export async function PUT(req: NextRequest) {
   const shop = session!.shop;
   const accessToken = session!.accessToken!;
 
-  let metaobjectSync: unknown = "not_attempted";
   try {
     await setGiftRulesToMetaobjects(shop, accessToken, body.rules);
-    metaobjectSync = { ok: true };
   } catch (e) {
-    metaobjectSync = { error: e instanceof Error ? e.message : String(e) };
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : String(e), metaobjectSync: { error: e instanceof Error ? e.message : String(e) } },
+      { status: 400 },
+    );
   }
 
   let ctSync: unknown = "not_attempted";
@@ -60,5 +61,5 @@ export async function PUT(req: NextRequest) {
     shopRulesSync = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync, ctSync, shopRulesSync });
+  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync: { ok: true }, ctSync, shopRulesSync });
 }
