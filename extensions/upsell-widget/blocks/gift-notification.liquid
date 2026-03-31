@@ -291,7 +291,6 @@
   function getCartSectionIds() {
     var existing = cartSectionIds.filter(function (id) { return !!document.getElementById('shopify-section-' + id); });
     if (existing.length > 0) return existing;
-    if (!window.location || !/^\/cart\b/.test(window.location.pathname || '')) return cartSectionIds;
 
     var common = ['main-cart-items', 'main-cart-footer'];
     var commonExisting = common.filter(function (id) { return !!document.getElementById('shopify-section-' + id); });
@@ -299,7 +298,7 @@
 
     var detected = Array.prototype.slice.call(document.querySelectorAll('[id^="shopify-section-"]'))
       .map(function (el) { return String(el.id || '').replace(/^shopify-section-/, ''); })
-      .filter(function (id) { return id && /cart/i.test(id); });
+      .filter(function (id) { return id && /(cart|drawer|bubble|icon)/i.test(id); });
 
     return detected.length > 0 ? detected.slice(0, 6) : cartSectionIds;
   }
@@ -349,8 +348,10 @@
     // for faster + more reliable cart UI updates.
     var sectionIds = getCartSectionIds();
     if (Array.isArray(sectionIds) && sectionIds.length > 0) {
-      body.sections = sectionIds;
-      body.sections_url = window.location && window.location.pathname ? window.location.pathname : '/cart';
+      body.sections = sectionIds.join(',');
+      var p = (window.location && window.location.pathname) ? String(window.location.pathname) : '/cart';
+      var q = (window.location && window.location.search) ? String(window.location.search) : '';
+      body.sections_url = p + q;
     }
 
     return fetch(path, {
@@ -485,17 +486,20 @@
   }
 
   function refreshCartSectionsAjax() {
-    if (!window.location || !/^\/cart\b/.test(window.location.pathname || '')) return Promise.resolve(false);
-    if (!cartSectionIds || cartSectionIds.length === 0) return Promise.resolve(false);
+    var ids = getCartSectionIds();
+    if (!ids || ids.length === 0) return Promise.resolve(false);
 
-    // Use the current path so section rendering matches the cart template context.
-    var url = (window.location.pathname || '/cart') + '?sections=' + encodeURIComponent(cartSectionIds.join(','));
+    // Re-render the sections in the context of the current page.
+    var path = (window.location && window.location.pathname) ? String(window.location.pathname) : '/';
+    var qs = (window.location && window.location.search) ? String(window.location.search) : '';
+    var sep = (qs && qs.indexOf('?') === 0) ? '&' : '?';
+    var url = path + qs + sep + 'sections=' + encodeURIComponent(ids.join(','));
     return fetch(url, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (sections) {
         if (!sections) return false;
         var replacedAny = false;
-        cartSectionIds.forEach(function (id) {
+        ids.forEach(function (id) {
           var html = sections[id];
           if (!html) return;
           var el = document.getElementById('shopify-section-' + id);
@@ -515,6 +519,7 @@
         if (replacedAny) {
           // Re-run any listeners that rely on cart HTML being present
           document.dispatchEvent(new CustomEvent('cart:refresh'));
+          try { ensurePortals(); } catch (e) {}
         }
         return replacedAny;
       })
@@ -522,7 +527,6 @@
   }
 
   function applyCartSections(sections) {
-    if (!window.location || !/^\/cart\b/.test(window.location.pathname || '')) return false;
     if (!sections) return false;
 
     var replacedAny = false;
@@ -557,14 +561,20 @@
   catch (e) { seen = new Set(); }
 
   // Keep toast/confetti outside cart sections so AJAX replacement can't remove them.
-  (function ensurePortals() {
+  function ensurePortals() {
     try {
-      var toast = document.getElementById('gwp-toast');
+      var toasts = Array.prototype.slice.call(document.querySelectorAll('#gwp-toast'));
+      var toast = toasts[toasts.length - 1];
+      toasts.slice(0, -1).forEach(function (el) { try { el.remove(); } catch (e) {} });
       if (toast && toast.parentNode !== document.body) document.body.appendChild(toast);
-      var confetti = document.getElementById('gwp-confetti');
+
+      var confettis = Array.prototype.slice.call(document.querySelectorAll('#gwp-confetti'));
+      var confetti = confettis[confettis.length - 1];
+      confettis.slice(0, -1).forEach(function (el) { try { el.remove(); } catch (e) {} });
       if (confetti && confetti.parentNode !== document.body) document.body.appendChild(confetti);
     } catch (e) {}
-  })();
+  }
+  ensurePortals();
 
   function persistSeen() {
     try { sessionStorage.setItem(seenKey, JSON.stringify(Array.from(seen))); } catch (e) {}
@@ -726,8 +736,12 @@
             if (lastCartResult && lastCartResult.sections) {
               var applied = applyCartSections(lastCartResult.sections);
               if (applied) {
-                // Immediately reflect the new cart state in the banner/toast without extra /cart.js fetches.
-                updateGiftUI(lastCartResult);
+                ensurePortals();
+                if (lastCartResult && Array.isArray(lastCartResult.items)) {
+                  updateGiftUI(lastCartResult);
+                } else {
+                  checkCart(0);
+                }
                 return;
               }
             }
