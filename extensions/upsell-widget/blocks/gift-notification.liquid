@@ -642,15 +642,19 @@
                 if (didChange && requiresReload) {
                   showInfoToast('Congratulations!', 'Adding your free gift…');
                   burstConfetti();
+                }
+
+                if (didChange) {
                   refreshCartSectionsAjax().then(function (ok) {
-                    if (ok) return;
-                    maybeReloadCartPage(cart);
+                    if (!ok) maybeReloadCartPage(cart);
+                    checkCart(150);
                   });
                   return;
                 }
-                if (didChange || syncQueued) {
+
+                if (syncQueued) {
                   syncQueued = false;
-                  checkCart(350);
+                  checkCart(150);
                 }
               })
               .catch(function () { syncInFlight = false; });
@@ -687,7 +691,7 @@
     var result = _origFetch.apply(this, arguments);
     var url = typeof input === 'string' ? input : (input && input.url) || '';
     if (/\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
-      result.then(function () { checkCart(500); }).catch(function () {});
+      result.then(function () { checkCart(80); }).catch(function () {});
     }
     return result;
   };
@@ -696,7 +700,7 @@
   var _origOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
     if (typeof url === 'string' && /\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
-      this.addEventListener('load', function () { checkCart(500); });
+      this.addEventListener('load', function () { checkCart(80); });
     }
     return _origOpen.apply(this, arguments);
   };
