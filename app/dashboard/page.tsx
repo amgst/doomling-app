@@ -1302,14 +1302,15 @@ function GiftUpsellTab() {
   );
 }
 
-const VALID_TABS = ["overview", "products", "upsells", "stats", "gift", "gift-upsell"] as const;
+const VALID_TABS = ["overview", "products", "upsells", "stats", "gift-upsell"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
   const pathname = usePathname();
 
-  const tabFromPath = (pathname.split("/")[2] ?? "overview") as Tab;
-  const tab = VALID_TABS.includes(tabFromPath) ? tabFromPath : "overview";
+  const rawTab = pathname.split("/")[2] ?? "overview";
+  const normalizedTab = rawTab === "gift" ? "gift-upsell" : rawTab;
+  const tab = VALID_TABS.includes(normalizedTab as Tab) ? (normalizedTab as Tab) : "overview";
 
   const [days, setDays] = useState("30");
   const [shopInfo, setShopInfo] = useState<ShopInfo | null>(null);
@@ -1327,7 +1328,6 @@ export default function DashboardPage() {
       {tab === "products" && <ProductsTab />}
       {tab === "upsells" && <UpsellsTab />}
       {tab === "stats" && <StatsTab />}
-      {tab === "gift" && <GiftTab />}
       {tab === "gift-upsell" && <GiftUpsellTab />}
     </DashboardShell>
   );
