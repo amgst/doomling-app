@@ -52,6 +52,46 @@ interface UpsellRule {
   message: string;
 }
 
+interface BxgyProduct {
+  productId: string;
+  variantId: string;
+  title: string;
+  image: string;
+  price: string;
+  handle: string;
+}
+
+interface BxgyRule {
+  id: string;
+  name: string;
+  buyProducts: BxgyProduct[];
+  giftProduct: BxgyProduct | null;
+  buyQuantity: number;
+  giftQuantity: number;
+  message: string;
+  autoAdd: boolean;
+  priority: number;
+  enabled: boolean;
+}
+
+interface BxgySummary {
+  activeRules: number;
+  totalQualified: number;
+  totalAutoAdded: number;
+  conversionRate: string;
+}
+
+interface BxgyRuleStat {
+  ruleId: string;
+  name: string;
+  buyLabel: string;
+  giftLabel: string;
+  message: string;
+  qualified: number;
+  autoAdded: number;
+  conversionRate: string;
+}
+
 const RANGES = [
   { label: "7 days", value: "7" },
   { label: "30 days", value: "30" },
@@ -114,19 +154,67 @@ function StatCard({ title, value, sub, trend }: { title: string; value: string; 
 
 function AppHealthCheck({ storeName }: { storeName?: string }) {
   const [rules, setRules] = useState<number | null>(null);
+  const [bxgyRules, setBxgyRules] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/standalone/upsells").then(r => r.ok ? r.json() : null).catch(() => null)
       .then(d => setRules(d?.rules?.length ?? 0));
+    fetch("/api/standalone/bxgy").then(r => r.ok ? r.json() : null).catch(() => null)
+      .then(d => setBxgyRules(d?.rules?.length ?? 0));
   }, [storeName]);
 
   return (
     <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.75rem", padding: "1rem 1.5rem" }}>
       <p style={{ margin: "0 0 0.5rem", fontWeight: 700, fontSize: "0.9rem", color: "#1a1a1a" }}>App Health</p>
-      <p style={{ margin: 0, fontSize: "0.82rem", color: "#6d7175" }}>
+      <p style={{ margin: 0, fontSize: "0.82rem", color: "#6d7175", display: "none" }}>
         {storeName ? `✓ ${storeName}.myshopify.com connected` : "⚠ No store session"}{" · "}
         {rules === null ? "Loading…" : rules > 0 ? `✓ ${rules} upsell rule${rules !== 1 ? "s" : ""} active` : "⚠ No upsell rules configured"}
+        {" Â· "}
+        {bxgyRules === null ? "Loading BXGYâ€¦" : bxgyRules > 0 ? `âœ“ ${bxgyRules} BXGY rule${bxgyRules !== 1 ? "s" : ""} active` : "âš  No BXGY rules configured"}
       </p>
+      <p style={{ margin: "0.45rem 0 0", fontSize: "0.82rem", color: "#6d7175" }}>
+        {storeName ? `${storeName}.myshopify.com connected` : "No store session"}{" | "}
+        {rules === null ? "Loading upsells..." : rules > 0 ? `${rules} upsell rule${rules !== 1 ? "s" : ""} active` : "No upsell rules configured"}{" | "}
+        {bxgyRules === null ? "Loading BXGY..." : bxgyRules > 0 ? `${bxgyRules} BXGY rule${bxgyRules !== 1 ? "s" : ""} active` : "No BXGY rules configured"}
+      </p>
+    </div>
+  );
+}
+
+function BxgyOverviewStrip() {
+  const [summary, setSummary] = useState<BxgySummary | null>(null);
+
+  useEffect(() => {
+    fetch("/api/standalone/bxgy-stats")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setSummary(d?.summary ?? null))
+      .catch(() => {});
+  }, []);
+
+  if (!summary) return null;
+
+  const cards = [
+    { label: "Active BXGY rules", value: summary.activeRules, sub: "Live gift campaigns" },
+    { label: "Qualified carts", value: summary.totalQualified, sub: "Customers who unlocked a gift" },
+    { label: "Gifts auto-added", value: summary.totalAutoAdded, sub: "Automatic free items placed in cart" },
+    { label: "BXGY conversion", value: summary.conversionRate, sub: "Qualified carts to gifts added" },
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+      {cards.map((card) => (
+        <div key={card.label} style={{
+          background: "#fff",
+          borderRadius: "12px",
+          padding: "1.05rem 1.2rem",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          border: "1px solid #dcfce7",
+        }}>
+          <p style={{ margin: 0, fontSize: "0.74rem", color: "#6d7175", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{card.label}</p>
+          <p style={{ margin: "0.35rem 0 0.2rem", fontSize: "1.45rem", fontWeight: 700, color: "#14532d" }}>{card.value}</p>
+          <p style={{ margin: 0, fontSize: "0.78rem", color: "#6d7175" }}>{card.sub}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -213,6 +301,7 @@ function OverviewTab({ days, setDays, storeName }: { days: string; setDays: (d: 
       </div>
 
       <AppHealthCheck storeName={storeName} />
+      <BxgyOverviewStrip />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
@@ -578,6 +667,366 @@ function UpsellsTab() {
   );
 }
 
+function BuyXGetYTab() {
+  const [rules, setRules] = useState<BxgyRule[]>([]);
+  const [summary, setSummary] = useState<BxgySummary | null>(null);
+  const [ruleStats, setRuleStats] = useState<BxgyRuleStat[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState("Cart gift");
+  const [buyQuantity, setBuyQuantity] = useState("1");
+  const [giftQuantity, setGiftQuantity] = useState("1");
+  const [message, setMessage] = useState("Free gift added automatically when the rule qualifies.");
+  const [priority, setPriority] = useState("1");
+  const [autoAdd, setAutoAdd] = useState(true);
+  const [buyProductIds, setBuyProductIds] = useState<string[]>([""]);
+  const [giftProductId, setGiftProductId] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/standalone/bxgy").then(r => r.json()),
+      fetch("/api/standalone/bxgy-stats").then(r => r.json()),
+      fetch("/api/standalone/products").then(r => r.json()),
+    ]).then(([bxgy, bxgyStats, productData]) => {
+      setRules(bxgy.rules ?? []);
+      setSummary(bxgyStats.summary ?? null);
+      setRuleStats(bxgyStats.rules ?? []);
+      setProducts(productData.products ?? []);
+    }).catch(() => setError("Failed to load Buy X Get Y data."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const addBuyTrigger = () => {
+    if (buyProductIds.length >= 6) return;
+    setBuyProductIds((current) => [...current, ""]);
+  };
+
+  const updateBuyTrigger = (index: number, value: string) => {
+    setBuyProductIds((current) => current.map((entry, idx) => idx === index ? value : entry));
+  };
+
+  const removeBuyTrigger = (index: number) => {
+    setBuyProductIds((current) => current.filter((_, idx) => idx !== index));
+  };
+
+  const productToBxgy = (productId: string): BxgyProduct | null => {
+    const product = products.find((entry) => String(entry.id) === productId);
+    const variant = product?.variants?.[0];
+    if (!product || !variant) return null;
+    return {
+      productId: String(product.id),
+      variantId: String(variant.id),
+      title: product.title,
+      image: product.image?.src ?? "",
+      price: variant.price ?? "",
+      handle: product.handle,
+    };
+  };
+
+  const resetForm = () => {
+    setName("Cart gift");
+    setBuyQuantity("1");
+    setGiftQuantity("1");
+    setMessage("Free gift added automatically when the rule qualifies.");
+    setPriority("1");
+    setAutoAdd(true);
+    setBuyProductIds([""]);
+    setGiftProductId("");
+  };
+
+  const handleSave = async () => {
+    const buyProducts = buyProductIds
+      .map((id) => productToBxgy(id))
+      .filter(Boolean) as BxgyProduct[];
+    const giftProduct = productToBxgy(giftProductId);
+
+    if (!name.trim()) {
+      setError("Enter a rule name.");
+      return;
+    }
+    if (buyProducts.length === 0) {
+      setError("Select at least one Buy product.");
+      return;
+    }
+    if (!giftProduct) {
+      setError("Select the free Gift product.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    const response = await fetch("/api/standalone/bxgy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        buyProducts,
+        giftProduct,
+        buyQuantity,
+        giftQuantity,
+        message,
+        priority,
+        autoAdd,
+        enabled: true,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setError(data.error ?? "Failed to save BXGY rule.");
+      setSaving(false);
+      return;
+    }
+
+    const [updated, updatedStats] = await Promise.all([
+      fetch("/api/standalone/bxgy").then(r => r.json()),
+      fetch("/api/standalone/bxgy-stats").then(r => r.json()),
+    ]);
+    setRules(updated.rules ?? []);
+    setSummary(updatedStats.summary ?? null);
+    setRuleStats(updatedStats.rules ?? []);
+    resetForm();
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    await fetch(`/api/standalone/bxgy/${id}`, { method: "DELETE" });
+    const [updated, updatedStats] = await Promise.all([
+      fetch("/api/standalone/bxgy").then(r => r.json()),
+      fetch("/api/standalone/bxgy-stats").then(r => r.json()),
+    ]);
+    setRules(updated.rules ?? []);
+    setSummary(updatedStats.summary ?? null);
+    setRuleStats(updatedStats.rules ?? []);
+  };
+
+  const sel: React.CSSProperties = { width: "100%", padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
+
+  if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loadingâ€¦</div>;
+
+  return (
+    <>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Buy X Get Y</h1>
+        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Dynamic free-gift rules powered by metaobjects, automatic cart insertion, and dashboard stats.</p>
+      </div>
+
+      {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
+
+      <div style={{
+        background: "linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 55%, #ffffff 100%)",
+        border: "1px solid #bbf7d0",
+        borderRadius: "16px",
+        padding: "1.5rem",
+        marginBottom: "1.5rem",
+        boxShadow: "0 6px 24px rgba(22, 101, 52, 0.06)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+          <div>
+            <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.05em" }}>New Free Gift Rule</p>
+            <h2 style={{ margin: "0.35rem 0 0.2rem", fontSize: "1.25rem", color: "#14532d" }}>Set the exact cart condition and gift behavior</h2>
+            <p style={{ margin: 0, color: "#4b5563", fontSize: "0.86rem", maxWidth: 620 }}>When the customer qualifies, the gift is added automatically in the cart and drawer. The discount function then makes that Y item free.</p>
+          </div>
+          <div style={{ padding: "0.5rem 0.75rem", borderRadius: "999px", background: "#dcfce7", color: "#166534", fontSize: "0.78rem", fontWeight: 700 }}>
+            Rebuy-style automation
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr 0.8fr", gap: "1rem", marginBottom: "1rem" }}>
+          <div>
+            <label style={lbl}>Rule name</label>
+            <input type="text" style={sel} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Buy quantity</label>
+            <input type="number" min="1" style={sel} value={buyQuantity} onChange={(e) => setBuyQuantity(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Gift quantity</label>
+            <input type="number" min="1" style={sel} value={giftQuantity} onChange={(e) => setGiftQuantity(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 0.9fr 0.7fr", gap: "1rem", marginBottom: "1rem" }}>
+          <div>
+            <label style={lbl}>Gift message</label>
+            <input type="text" style={sel} value={message} onChange={(e) => setMessage(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Priority</label>
+            <input type="number" min="1" style={sel} value={priority} onChange={(e) => setPriority(e.target.value)} />
+          </div>
+          <div style={{ display: "flex", alignItems: "end" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.55rem", fontSize: "0.86rem", fontWeight: 600, color: "#14532d", padding: "0.7rem 0" }}>
+              <input type="checkbox" checked={autoAdd} onChange={(e) => setAutoAdd(e.target.checked)} />
+              Auto-add gift
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <div style={{ background: "#fff", border: "1px solid #d1fae5", borderRadius: "14px", padding: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.8rem" }}>
+              <p style={{ margin: 0, fontWeight: 700, color: "#14532d" }}>Buy products</p>
+              <button onClick={addBuyTrigger} type="button" style={{ padding: "0.35rem 0.8rem", borderRadius: "8px", border: "1px solid #16a34a", background: "#fff", color: "#166534", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
+                + Add trigger
+              </button>
+            </div>
+            {buyProductIds.map((productId, index) => (
+              <div key={index} style={{ display: "flex", gap: "0.55rem", marginBottom: index === buyProductIds.length - 1 ? 0 : "0.55rem" }}>
+                <select style={sel} value={productId} onChange={(e) => updateBuyTrigger(index, e.target.value)}>
+                  <option value="">Select trigger product</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={String(product.id)}>{product.title}</option>
+                  ))}
+                </select>
+                {buyProductIds.length > 1 && (
+                  <button type="button" onClick={() => removeBuyTrigger(index)} style={{ border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", borderRadius: "10px", padding: "0 0.8rem", cursor: "pointer" }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: "#fff", border: "1px solid #d1fae5", borderRadius: "14px", padding: "1rem" }}>
+            <p style={{ margin: "0 0 0.8rem", fontWeight: 700, color: "#14532d" }}>Gift product</p>
+            <select style={sel} value={giftProductId} onChange={(e) => setGiftProductId(e.target.value)}>
+              <option value="">Select free gift product</option>
+              {products.map((product) => (
+                <option key={product.id} value={String(product.id)}>{product.title}</option>
+              ))}
+            </select>
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>
+              The app uses the first product variant for automatic cart insertion and pricing.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
+          <button onClick={handleSave} disabled={saving} style={{
+            padding: "0.75rem 1.5rem",
+            background: "#166534",
+            color: "#fff",
+            border: "none",
+            borderRadius: "10px",
+            fontSize: "0.9rem",
+            fontWeight: 700,
+            cursor: saving ? "not-allowed" : "pointer",
+            opacity: saving ? 0.7 : 1,
+          }}>
+            {saving ? "Savingâ€¦" : "Save BXGY rule"}
+          </button>
+        </div>
+      </div>
+
+      {summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+          {[
+            { label: "Active rules", value: summary.activeRules, sub: "Currently compiled" },
+            { label: "Qualified carts", value: summary.totalQualified, sub: "Gift unlocked" },
+            { label: "Auto-added gifts", value: summary.totalAutoAdded, sub: "Inserted by app" },
+            { label: "Conversion", value: summary.conversionRate, sub: "Qualified to added" },
+          ].map((card) => (
+            <div key={card.label} style={{ background: "#fff", borderRadius: "12px", padding: "1rem 1.15rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+              <p style={{ margin: 0, fontSize: "0.74rem", color: "#6d7175", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{card.label}</p>
+              <p style={{ margin: "0.35rem 0 0.15rem", fontSize: "1.5rem", fontWeight: 700, color: "#14532d" }}>{card.value}</p>
+              <p style={{ margin: 0, fontSize: "0.76rem", color: "#6d7175" }}>{card.sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {rules.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "3rem", color: "#6d7175", background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+          No Buy X Get Y rules yet. Create your first one above.
+        </div>
+      ) : (
+        <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
+                {["Rule", "Buy", "Gift", "Quantities", "Priority", ""].map((heading) => (
+                  <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((rule, index) => (
+                <tr key={rule.id} style={{ borderBottom: index < rules.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <td style={{ padding: "0.95rem 1rem", verticalAlign: "top" }}>
+                    <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>{rule.name}</p>
+                    <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "#6b7280", maxWidth: 260 }}>{rule.message}</p>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.86rem", color: "#111827" }}>{rule.buyProducts.map((product) => product.title).join(", ")}</td>
+                  <td style={{ padding: "0.95rem 1rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+                      {rule.giftProduct?.image ? <img src={rule.giftProduct.image} alt={rule.giftProduct.title} style={{ width: 36, height: 36, borderRadius: "8px", objectFit: "cover", border: "1px solid #e5e7eb" }} /> : null}
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 600, color: "#111827", fontSize: "0.86rem" }}>{rule.giftProduct?.title ?? "—"}</p>
+                        <p style={{ margin: "0.1rem 0 0", fontSize: "0.76rem", color: "#16a34a", fontWeight: 700 }}>Free gift</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.84rem", color: "#111827" }}>Buy {rule.buyQuantity}, get {rule.giftQuantity}</td>
+                  <td style={{ padding: "0.95rem 1rem" }}>
+                    <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#ecfdf5", color: "#166534", fontSize: "0.78rem", fontWeight: 700 }}>
+                      {rule.priority}
+                    </span>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
+                    <button onClick={() => handleDelete(rule.id)} style={{ padding: "0.45rem 0.8rem", background: "#fff", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginTop: "1.5rem" }}>
+        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
+          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>BXGY performance</p>
+        </div>
+        {ruleStats.length === 0 ? (
+          <p style={{ margin: 0, padding: "2rem", textAlign: "center", color: "#6b7280" }}>Statistics will appear once carts qualify and gifts are auto-added.</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                {["Rule", "Buy", "Gift", "Qualified", "Added", "Conversion"].map((heading) => (
+                  <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ruleStats.map((stat, index) => (
+                <tr key={stat.ruleId} style={{ borderBottom: index < ruleStats.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <td style={{ padding: "0.85rem 1rem", fontWeight: 600, color: "#111827" }}>{stat.name}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#374151", fontSize: "0.85rem" }}>{stat.buyLabel}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#374151", fontSize: "0.85rem" }}>{stat.giftLabel}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.qualified}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.autoAdded}</td>
+                  <td style={{ padding: "0.85rem 1rem" }}>
+                    <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#ecfdf5", color: "#166534", fontSize: "0.78rem", fontWeight: 700 }}>
+                      {stat.conversionRate}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  );
+}
+
 interface RuleStat {
   ruleId: string;
   triggerProductTitle: string;
@@ -683,7 +1132,7 @@ interface ShopInfo {
   adminUrl: string;
 }
 
-const VALID_TABS = ["overview", "products", "upsells", "stats"] as const;
+const VALID_TABS = ["overview", "products", "upsells", "buyxgety", "stats"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
@@ -707,6 +1156,7 @@ export default function DashboardPage() {
       {tab === "overview" && <OverviewTab days={days} setDays={setDays} storeName={shopInfo?.storeName} />}
       {tab === "products" && <ProductsTab />}
       {tab === "upsells" && <UpsellsTab />}
+      {tab === "buyxgety" && <BuyXGetYTab />}
       {tab === "stats" && <StatsTab />}
     </DashboardShell>
   );

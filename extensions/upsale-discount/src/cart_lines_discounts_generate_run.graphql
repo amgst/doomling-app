@@ -3,6 +3,12 @@ query CartInput {
     lines {
       id
       quantity
+      attribute(key: "_bxgy") {
+        value
+      }
+      rule: attribute(key: "_bxgy_rule_id") {
+        value
+      }
       cost {
         subtotalAmount {
           amount

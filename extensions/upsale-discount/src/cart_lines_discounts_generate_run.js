@@ -15,6 +15,60 @@ export function cartLinesDiscountsGenerateRun(input) {
   let config;
   try { config = meta?.value ? JSON.parse(meta.value) : null; } catch { config = null; }
 
+  const bxgyRules = Array.isArray(config?.bxgyRules) ? config.bxgyRules : null;
+  if (bxgyRules && bxgyRules.length > 0) {
+    const candidates = [];
+
+    for (const rule of bxgyRules) {
+      const buyVariantIds = Array.isArray(rule?.buyVariantIds) ? rule.buyVariantIds : [];
+      const giftVariantId = String(rule?.giftVariantId ?? "");
+      const buyQuantity = Math.max(Number(rule?.buyQuantity) || 1, 1);
+      const giftQuantity = Math.max(Number(rule?.giftQuantity) || 1, 1);
+      const ruleId = String(rule?.ruleId ?? "");
+
+      if (!buyVariantIds.length || !giftVariantId || !ruleId) continue;
+
+      const qualifyingQty = input.cart.lines.reduce((sum, line) => {
+        if (line.attribute?.value === "true") return sum;
+        return buyVariantIds.includes(line.merchandise?.id) ? sum + (line.quantity || 0) : sum;
+      }, 0);
+
+      const eligibleGiftQty = Math.floor(qualifyingQty / buyQuantity) * giftQuantity;
+      if (eligibleGiftQty <= 0) continue;
+
+      const giftLines = input.cart.lines.filter((line) =>
+        line.merchandise?.id === giftVariantId && line.rule?.value === ruleId,
+      );
+
+      let remainingQty = eligibleGiftQty;
+      for (const giftLine of giftLines) {
+        if (remainingQty <= 0) break;
+        const discountQty = Math.min(giftLine.quantity || 0, remainingQty);
+        if (discountQty <= 0) continue;
+
+        candidates.push({
+          message: "Free gift",
+          targets: [{ cartLine: { id: giftLine.id, quantity: discountQty } }],
+          value: { percentage: { value: 100 } },
+        });
+        remainingQty -= discountQty;
+      }
+    }
+
+    if (candidates.length > 0) {
+      return {
+        operations: [{
+          productDiscountsAdd: {
+            candidates,
+            selectionStrategy: ProductDiscountSelectionStrategy.All,
+          },
+        }],
+      };
+    }
+
+    return { operations: [] };
+  }
+
   // Support both old flat format and new tiers format
   let tiers = config?.tiers;
   if (!tiers && config?.threshold && config?.giftVariantId) {
