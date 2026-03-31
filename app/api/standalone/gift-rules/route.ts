@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
-import { getGiftRules, setGiftRules, getCartTransformId, setCartTransformId, GiftRule } from "@/lib/firebase/giftRuleStore";
+import {
+  getGiftRules as getFirebaseGiftRules,
+  setGiftRules as setFirebaseGiftRules,
+  getCartTransformId,
+  setCartTransformId,
+  GiftRule,
+} from "@/lib/firebase/giftRuleStore";
+import { getGiftRulesFromMetaobjects, setGiftRulesToMetaobjects } from "@/lib/shopify/gwpRuleStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,8 +46,27 @@ export async function GET(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rules = await getGiftRules(session.shop);
-  return NextResponse.json({ rules });
+  let rules: GiftRule[] = [];
+  let source: "metaobjects" | "firebase" = "metaobjects";
+
+  try {
+    rules = (await getGiftRulesFromMetaobjects(session.shop, session.accessToken!)) as GiftRule[];
+    if (!Array.isArray(rules)) rules = [];
+    if (rules.length === 0) {
+      // Safe fallback for existing installs before metaobjects are populated
+      const fb = await getFirebaseGiftRules(session.shop);
+      if (Array.isArray(fb) && fb.length > 0) {
+        rules = fb;
+        source = "firebase";
+      }
+    }
+  } catch {
+    const fb = await getFirebaseGiftRules(session.shop);
+    rules = Array.isArray(fb) ? fb : [];
+    source = "firebase";
+  }
+
+  return NextResponse.json({ rules, source });
 }
 
 export async function PUT(req: NextRequest) {
@@ -54,8 +80,17 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // Save to Firebase (source of truth for dashboard)
-  await setGiftRules(session.shop, body.rules);
+  // Save to Shopify (metaobjects) — new source of truth for dashboard
+  let metaobjectSync: unknown = "not_attempted";
+  try {
+    await setGiftRulesToMetaobjects(session.shop, session.accessToken!, body.rules);
+    metaobjectSync = { ok: true };
+  } catch (e) {
+    metaobjectSync = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  // Keep Firebase in sync for now (safe fallback / other endpoints)
+  await setFirebaseGiftRules(session.shop, body.rules);
 
   // Sync config to CartTransform metafield so the cart function can read it
   let syncStatus: unknown = "not_attempted";
@@ -234,5 +269,5 @@ export async function PUT(req: NextRequest) {
     // ignore
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules, sync: syncStatus });
+  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync, sync: syncStatus });
 }

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/utils/verifyRequest";
-import { getShopify } from "@/lib/shopify/client";
+import { getGiftRulesFromMetaobjects, setGiftRulesToMetaobjects } from "@/lib/shopify/gwpRuleStore";
+import { syncGiftConfigToCartTransform } from "@/lib/shopify/cartTransformGiftConfig";
+import { setShopGiftRulesMetafield } from "@/lib/shopify/shopGiftRulesMetafield";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const NS = "$app:gwp";
-const KEY = "gift_config";
 
 export interface GiftRule {
   mainVariantId: string;
@@ -17,24 +16,15 @@ export async function GET(req: NextRequest) {
   const { session, errorResponse } = await verifyRequest(req);
   if (errorResponse) return errorResponse;
 
-  const shopify = getShopify();
-  const client = new shopify.clients.Graphql({ session: session! });
+  const shop = session!.shop;
+  const accessToken = session!.accessToken!;
 
-  const res = await client.request<{ shop: { metafield?: { value: string } } }>(
-    `query {
-      shop {
-        metafield(namespace: "${NS}", key: "${KEY}") { value }
-      }
-    }`
-  );
-
-  const raw = res.data?.shop?.metafield?.value;
-  let rules: GiftRule[] = [];
-  if (raw) {
-    try { rules = JSON.parse(raw).rules ?? []; } catch { /* ignore */ }
+  try {
+    const rules = await getGiftRulesFromMetaobjects(shop, accessToken);
+    return NextResponse.json({ rules, source: "metaobjects" });
+  } catch (e) {
+    return NextResponse.json({ rules: [], source: "metaobjects", error: e instanceof Error ? e.message : String(e) });
   }
-
-  return NextResponse.json({ rules });
 }
 
 export async function PUT(req: NextRequest) {
@@ -48,37 +38,31 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const shopify = getShopify();
-  const client = new shopify.clients.Graphql({ session: session! });
+  const shop = session!.shop;
+  const accessToken = session!.accessToken!;
 
-  const shopRes = await client.request<{ shop: { id: string } }>(`query { shop { id } }`);
-  const shopId = shopRes.data?.shop?.id;
-  if (!shopId) {
-    return NextResponse.json({ error: "Could not get Shop ID" }, { status: 500 });
+  let metaobjectSync: unknown = "not_attempted";
+  try {
+    await setGiftRulesToMetaobjects(shop, accessToken, body.rules);
+    metaobjectSync = { ok: true };
+  } catch (e) {
+    metaobjectSync = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  const value = JSON.stringify({ rules: body.rules });
-
-  const res = await client.request<{ metafieldsSet: { metafields: { id: string }[]; userErrors: { field: string; message: string }[] } }>(
-    `mutation SetMeta($ownerId: ID!, $value: String!) {
-      metafieldsSet(metafields: [{
-        ownerId: $ownerId
-        namespace: "${NS}"
-        key: "${KEY}"
-        type: "json"
-        value: $value
-      }]) {
-        metafields { id }
-        userErrors { field message }
-      }
-    }`,
-    { variables: { ownerId: shopId, value } }
-  );
-
-  const errors = res.data?.metafieldsSet?.userErrors ?? [];
-  if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0].message }, { status: 400 });
+  let ctSync: unknown = "not_attempted";
+  try {
+    ctSync = await syncGiftConfigToCartTransform(shop, accessToken, body.rules);
+  } catch (e) {
+    ctSync = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules });
+  let shopRulesSync: unknown = "not_attempted";
+  try {
+    await setShopGiftRulesMetafield(shop, accessToken, body.rules);
+    shopRulesSync = { ok: true };
+  } catch (e) {
+    shopRulesSync = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync, ctSync, shopRulesSync });
 }

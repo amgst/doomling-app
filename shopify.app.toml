@@ -10,7 +10,7 @@ api_version = "2026-01"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_analytics,read_cart_transforms,read_customers,read_discounts,read_products,write_cart_transforms,write_discounts,write_orders"
+scopes = "read_analytics,read_cart_transforms,read_customers,read_discounts,read_metaobjects,read_products,write_cart_transforms,write_discounts,write_metaobject_definitions,write_metaobjects,write_orders"
 
 [auth]
 redirect_urls = [
@@ -20,3 +20,76 @@ redirect_urls = [
 
 [pos]
 embedded = false
+
+# Gift With Purchase (GWP) rules stored natively in Shopify
+[metaobjects.app.gwp_rule]
+name = "Gift rule"
+access.admin = "merchant_read_write"
+access.storefront = "public_read"
+
+[metaobjects.app.gwp_rule.fields.enabled]
+name = "Enabled"
+type = "boolean"
+required = true
+
+[metaobjects.app.gwp_rule.fields.title]
+name = "Title"
+type = "single_line_text_field"
+
+[metaobjects.app.gwp_rule.fields.priority]
+name = "Priority"
+type = "number_integer"
+
+[metaobjects.app.gwp_rule.fields.main_variant]
+name = "Main variant"
+type = "variant_reference"
+required = true
+
+[metaobjects.app.gwp_rule.fields.gift_variant]
+name = "Gift variant"
+type = "variant_reference"
+required = true
+
+[metaobjects.app.gwp_rule.fields.gift_quantity_mode]
+name = "Gift quantity mode"
+type = "single_line_text_field"
+
+[metaobjects.app.gwp_rule.fields.gift_quantity_fixed]
+name = "Gift quantity fixed"
+type = "number_integer"
+
+[metaobjects.app.gwp_rule.fields.max_gift_qty_per_cart]
+name = "Max gift quantity per cart"
+type = "number_integer"
+
+[metaobjects.app.gwp_rule.fields.min_main_qty]
+name = "Min main quantity"
+type = "number_integer"
+
+[metaobjects.app.gwp_rule.fields.min_cart_subtotal_cents]
+name = "Min cart subtotal (cents)"
+type = "number_integer"
+
+[metaobjects.app.gwp_rule.fields.customer_tags_include]
+name = "Customer tags include"
+type = "list.single_line_text_field"
+
+[metaobjects.app.gwp_rule.fields.customer_tags_exclude]
+name = "Customer tags exclude"
+type = "list.single_line_text_field"
+
+[metaobjects.app.gwp_rule.fields.countries_include]
+name = "Countries include (ISO)"
+type = "list.single_line_text_field"
+
+[metaobjects.app.gwp_rule.fields.markets_include]
+name = "Markets include"
+type = "list.single_line_text_field"
+
+[metaobjects.app.gwp_rule.fields.starts_at]
+name = "Starts at"
+type = "date_time"
+
+[metaobjects.app.gwp_rule.fields.ends_at]
+name = "Ends at"
+type = "date_time"
