@@ -1,24 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
-import {
-  getGiftRules,
-  GiftRule,
-  setGiftRules,
-} from "@/lib/firebase/giftRuleStore";
+import { GiftRule } from "@/lib/firebase/giftRuleStore";
+import { syncGiftRuleDerivedState } from "@/lib/shopify/giftRuleDerivedSync";
 import { getGiftRulesFromMetaobjects, setGiftRulesToMetaobjects } from "@/lib/shopify/gwpRuleStore";
-import { syncGiftConfigToCartTransform } from "@/lib/shopify/cartTransformGiftConfig";
-import { getShopGiftRulesMetafield, setShopGiftRulesMetafield } from "@/lib/shopify/shopGiftRulesMetafield";
+import { getShopGiftRulesMetafield } from "@/lib/shopify/shopGiftRulesMetafield";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
-}
-
-function isMissingMetaobjectDefinition(error: unknown) {
-  return /metaobject definition not found/i.test(errorMessage(error));
 }
 
 async function getSession(req: NextRequest) {
@@ -38,18 +30,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const rules = await getGiftRulesFromMetaobjects(session.shop, session.accessToken!);
+    await syncGiftRuleDerivedState(session.shop, session.accessToken!).catch(() => null);
     return NextResponse.json({ rules, source: "metaobjects" });
-  } catch (e) {
-    if (!isMissingMetaobjectDefinition(e)) throw e;
-  }
-
-  try {
+  } catch {
     const fallbackRules = await getShopGiftRulesMetafield(session.shop, session.accessToken!);
     return NextResponse.json({ rules: fallbackRules, source: "shop_metafield" });
-  } catch {}
-
-  const firebaseRules = await getGiftRules(session.shop);
-  return NextResponse.json({ rules: firebaseRules, source: "firebase_fallback" });
+  }
 }
 
 export async function PUT(req: NextRequest) {
@@ -63,65 +49,27 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  let metaobjectSync: unknown = "not_attempted";
-  let metaobjectOk = false;
-  let missingDefinition = false;
   try {
     await setGiftRulesToMetaobjects(session.shop, session.accessToken!, body.rules);
-    metaobjectSync = { ok: true };
-    metaobjectOk = true;
   } catch (e) {
-    metaobjectSync = { error: errorMessage(e) };
-    missingDefinition = isMissingMetaobjectDefinition(e);
-    if (!missingDefinition) {
-      return NextResponse.json(
-        { error: errorMessage(e), rules: body.rules, metaobjectSync },
-        { status: 400 },
-      );
-    }
-  }
-
-  let ctSync: unknown = "not_attempted";
-  try {
-    ctSync = await syncGiftConfigToCartTransform(session.shop, session.accessToken!, body.rules);
-  } catch (e) {
-    ctSync = { error: errorMessage(e) };
-  }
-
-  let shopRulesSync: unknown = "not_attempted";
-  let shopRulesOk = false;
-  try {
-    await setShopGiftRulesMetafield(session.shop, session.accessToken!, body.rules);
-    shopRulesSync = { ok: true };
-    shopRulesOk = true;
-  } catch (e) {
-    shopRulesSync = { error: errorMessage(e) };
-  }
-
-  let firebaseSync: unknown = "not_attempted";
-  let firebaseOk = false;
-  try {
-    await setGiftRules(session.shop, body.rules);
-    firebaseSync = { ok: true };
-    firebaseOk = true;
-  } catch (e) {
-    firebaseSync = { error: errorMessage(e) };
-  }
-
-  if (!metaobjectOk && !shopRulesOk && !firebaseOk) {
     return NextResponse.json(
-      { error: "Failed to persist gift rules", rules: body.rules, metaobjectSync, ctSync, shopRulesSync, firebaseSync },
+      { error: errorMessage(e), rules: body.rules, metaobjectSync: { error: errorMessage(e) } },
       { status: 400 },
     );
   }
 
+  const { rules, ctSync, shopRulesSync, firebaseSync } = await syncGiftRuleDerivedState(
+    session.shop,
+    session.accessToken!,
+  );
+
   return NextResponse.json({
     ok: true,
-    rules: body.rules,
-    metaobjectSync,
+    rules,
+    metaobjectSync: { ok: true },
     ctSync,
     shopRulesSync,
     firebaseSync,
-    source: missingDefinition ? "shop_metafield_fallback" : "metaobjects",
+    source: "metaobjects",
   });
 }
