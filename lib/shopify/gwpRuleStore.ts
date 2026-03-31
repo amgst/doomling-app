@@ -1,4 +1,5 @@
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
+import { ensureGwpRuleDefinition } from "@/lib/shopify/ensureMetaobjectDefinitions";
 
 export type GiftRule = {
   mainVariantId: string;
@@ -26,7 +27,14 @@ function getFieldValue(fields: Array<{ key: string; value: string }> | null | un
 
 const TYPE = "$app:gwp_rule";
 
+function throwIfGraphqlErrors(res: any) {
+  const errors = res?.errors;
+  if (!Array.isArray(errors) || errors.length === 0) return;
+  throw new Error(errors.map((e: any) => e?.message).filter(Boolean).join("; ") || "Shopify GraphQL error");
+}
+
 export async function getGiftRulesFromMetaobjects(shop: string, accessToken: string): Promise<GiftRule[]> {
+  await ensureGwpRuleDefinition({ shop, accessToken });
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -43,6 +51,7 @@ export async function getGiftRulesFromMetaobjects(shop: string, accessToken: str
     `,
     { type: TYPE },
   );
+  throwIfGraphqlErrors(data);
 
   const nodes = data?.data?.metaobjects?.nodes ?? [];
   const rules: GiftRule[] = [];
@@ -62,6 +71,7 @@ export async function getGiftRulesFromMetaobjects(shop: string, accessToken: str
 }
 
 export async function setGiftRulesToMetaobjects(shop: string, accessToken: string, rules: GiftRule[]) {
+  await ensureGwpRuleDefinition({ shop, accessToken });
   const desired = (Array.isArray(rules) ? rules : [])
     .filter((r) => r && r.mainVariantId && r.giftVariantId)
     .map((r) => ({ mainVariantId: String(r.mainVariantId), giftVariantId: String(r.giftVariantId) }));
@@ -85,6 +95,7 @@ export async function setGiftRulesToMetaobjects(shop: string, accessToken: strin
       `,
       { type: TYPE, handle, fields },
     );
+    throwIfGraphqlErrors(res);
 
     const userErrors = res?.data?.metaobjectUpsert?.userErrors ?? [];
     if (Array.isArray(userErrors) && userErrors.length > 0) {
@@ -123,6 +134,7 @@ export async function setGiftRulesToMetaobjects(shop: string, accessToken: strin
       `,
       { type: TYPE },
     );
+    throwIfGraphqlErrors(current);
     const nodes = current?.data?.metaobjects?.nodes ?? [];
     const toDisable = nodes
       .map((n: any) => String(n?.handle || ""))

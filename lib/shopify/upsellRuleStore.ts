@@ -1,4 +1,5 @@
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
+import { ensureUpsellRuleDefinition } from "@/lib/shopify/ensureMetaobjectDefinitions";
 
 export interface UpsellProduct {
   productId: string;
@@ -18,6 +19,12 @@ export interface UpsellRule {
 }
 
 const TYPE = "$app:upsell_rule";
+
+function throwIfGraphqlErrors(res: any) {
+  const errors = res?.errors;
+  if (!Array.isArray(errors) || errors.length === 0) return;
+  throw new Error(errors.map((e: any) => e?.message).filter(Boolean).join("; ") || "Shopify GraphQL error");
+}
 
 function productGidFromId(productId: string) {
   const id = String(productId || "").trim();
@@ -49,6 +56,7 @@ function parseUpsellProducts(raw: string | null) {
 }
 
 export async function listUpsellRules(shop: string, accessToken: string): Promise<UpsellRule[]> {
+  await ensureUpsellRuleDefinition({ shop, accessToken });
   const data = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -65,6 +73,7 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
     `,
     { type: TYPE },
   );
+  throwIfGraphqlErrors(data);
 
   const nodes = data?.data?.metaobjects?.nodes ?? [];
   const rules: UpsellRule[] = [];
@@ -89,6 +98,7 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
 export async function getUpsellRule(shop: string, accessToken: string, handle: string): Promise<UpsellRule | null> {
   const h = String(handle || "").trim();
   if (!h) return null;
+  await ensureUpsellRuleDefinition({ shop, accessToken });
 
   const data = await shopifyAdminGraphql(
     shop,
@@ -104,6 +114,7 @@ export async function getUpsellRule(shop: string, accessToken: string, handle: s
     `,
     { type: TYPE, handle: h },
   );
+  throwIfGraphqlErrors(data);
 
   const mo = data?.data?.metaobjectByHandle;
   if (!mo?.handle) return null;
@@ -128,6 +139,7 @@ export async function upsertUpsellRule(
   accessToken: string,
   rule: Omit<UpsellRule, "id"> & { id?: string },
 ) {
+  await ensureUpsellRuleDefinition({ shop, accessToken });
   const handle = rule.id && String(rule.id).trim() ? String(rule.id).trim() : `upsell-${Date.now()}`;
   const triggerGid = productGidFromId(rule.triggerProductId);
   if (!triggerGid) throw new Error("Missing trigger product id");
@@ -156,6 +168,7 @@ export async function upsertUpsellRule(
     `,
     { type: TYPE, handle, fields },
   );
+  throwIfGraphqlErrors(res);
 
   const userErrors = res?.data?.metaobjectUpsert?.userErrors ?? [];
   if (Array.isArray(userErrors) && userErrors.length > 0) {
@@ -199,4 +212,3 @@ export async function deleteUpsellRule(shop: string, accessToken: string, handle
     throw new Error(userErrors[0]?.message ?? "Failed to delete upsell rule");
   }
 }
-
