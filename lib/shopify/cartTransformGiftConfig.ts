@@ -77,7 +77,7 @@ export async function syncGiftConfigToCartTransform(
       return {
         error: "Could not create CartTransform",
         userErrors,
-        using: fnGid ? { functionId: fnGid } : { functionHandle: fnHandle },
+        using: { functionHandle: fnHandle },
         hint: "If this says the function was not found, deploy/release the function in THIS app and reinstall the app on the store.",
       };
     }
