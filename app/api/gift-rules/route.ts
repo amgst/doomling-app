@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/utils/verifyRequest";
 import { getGiftRulesFromMetaobjects, setGiftRulesToMetaobjects } from "@/lib/shopify/gwpRuleStore";
 import { syncGiftConfigToCartTransform } from "@/lib/shopify/cartTransformGiftConfig";
-import { setShopGiftRulesMetafield } from "@/lib/shopify/shopGiftRulesMetafield";
+import { getShopGiftRulesMetafield, setShopGiftRulesMetafield } from "@/lib/shopify/shopGiftRulesMetafield";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +12,10 @@ export interface GiftRule {
   giftVariantId: string;
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function GET(req: NextRequest) {
   const { session, errorResponse } = await verifyRequest(req);
   if (errorResponse) return errorResponse;
@@ -19,8 +23,15 @@ export async function GET(req: NextRequest) {
   const shop = session!.shop;
   const accessToken = session!.accessToken!;
 
-  const rules = await getGiftRulesFromMetaobjects(shop, accessToken);
-  return NextResponse.json({ rules, source: "metaobjects" });
+  try {
+    const rules = await getGiftRulesFromMetaobjects(shop, accessToken);
+    if (rules.length > 0) {
+      return NextResponse.json({ rules, source: "metaobjects" });
+    }
+  } catch {}
+
+  const fallbackRules = await getShopGiftRulesMetafield(shop, accessToken);
+  return NextResponse.json({ rules: fallbackRules, source: "shop_metafield" });
 }
 
 export async function PUT(req: NextRequest) {
@@ -37,29 +48,39 @@ export async function PUT(req: NextRequest) {
   const shop = session!.shop;
   const accessToken = session!.accessToken!;
 
+  let metaobjectSync: unknown = "not_attempted";
+  let metaobjectOk = false;
   try {
     await setGiftRulesToMetaobjects(shop, accessToken, body.rules);
+    metaobjectSync = { ok: true };
+    metaobjectOk = true;
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e), metaobjectSync: { error: e instanceof Error ? e.message : String(e) } },
-      { status: 400 },
-    );
+    metaobjectSync = { error: errorMessage(e) };
   }
 
   let ctSync: unknown = "not_attempted";
   try {
     ctSync = await syncGiftConfigToCartTransform(shop, accessToken, body.rules);
   } catch (e) {
-    ctSync = { error: e instanceof Error ? e.message : String(e) };
+    ctSync = { error: errorMessage(e) };
   }
 
   let shopRulesSync: unknown = "not_attempted";
+  let shopRulesOk = false;
   try {
     await setShopGiftRulesMetafield(shop, accessToken, body.rules);
     shopRulesSync = { ok: true };
+    shopRulesOk = true;
   } catch (e) {
-    shopRulesSync = { error: e instanceof Error ? e.message : String(e) };
+    shopRulesSync = { error: errorMessage(e) };
   }
 
-  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync: { ok: true }, ctSync, shopRulesSync });
+  if (!metaobjectOk && !shopRulesOk) {
+    return NextResponse.json(
+      { error: "Failed to persist gift rules", rules: body.rules, metaobjectSync, ctSync, shopRulesSync },
+      { status: 400 },
+    );
+  }
+
+  return NextResponse.json({ ok: true, rules: body.rules, metaobjectSync, ctSync, shopRulesSync });
 }

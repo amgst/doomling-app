@@ -4,6 +4,30 @@ import type { GiftRule } from "@/lib/firebase/giftRuleStore";
 const NS = "gwp";
 const KEY = "gift_rules";
 
+export async function getShopGiftRulesMetafield(shop: string, accessToken: string): Promise<GiftRule[]> {
+  const res = await shopifyAdminGraphql(
+    shop,
+    accessToken,
+    `
+      query GetShopGiftRules {
+        shop {
+          giftRules: metafield(namespace: "${NS}", key: "${KEY}") { value }
+        }
+      }
+    `,
+  );
+
+  const raw = res?.data?.shop?.giftRules?.value as string | undefined;
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed?.rules) ? (parsed.rules as GiftRule[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function setShopGiftRulesMetafield(shop: string, accessToken: string, rules: GiftRule[]) {
   const shopData = await shopifyAdminGraphql(shop, accessToken, `query GetShopId { shop { id } }`);
   const shopId = shopData?.data?.shop?.id as string | undefined;
@@ -35,4 +59,3 @@ export async function setShopGiftRulesMetafield(shop: string, accessToken: strin
     throw new Error(errors[0].message ?? "Failed to set shop metafield");
   }
 }
-
