@@ -434,33 +434,9 @@ function ProductsTab() {
 
   const activeProducts = products.filter((product) => product.status === "active");
   const inactiveProducts = products.filter((product) => product.status !== "active");
-  const totalVariants = products.reduce((sum, product) => sum + (product.variants?.length ?? 0), 0);
-  const multiVariantProducts = products.filter((product) => hasMeaningfulVariants(product));
-  const pricedVariants = products.flatMap((product) =>
-    (product.variants ?? [])
-      .map((variant) => Number.parseFloat(String(variant.price ?? 0)))
-      .filter((price) => Number.isFinite(price) && price > 0),
-  );
-  const averageVariantPrice = pricedVariants.length
-    ? pricedVariants.reduce((sum, price) => sum + price, 0) / pricedVariants.length
-    : 0;
-  const highestPricedProduct = products.reduce<Product | null>((best, product) => {
-    const price = Number.parseFloat(String(product.variants?.[0]?.price ?? 0));
-    if (!Number.isFinite(price)) return best;
-    if (!best) return product;
-    const bestPrice = Number.parseFloat(String(best.variants?.[0]?.price ?? 0));
-    return price > bestPrice ? product : best;
-  }, null);
-
-  const formatProductPrice = (value?: string) => {
-    const amount = Number.parseFloat(String(value ?? 0));
-    if (!Number.isFinite(amount) || amount <= 0) return "?";
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
-  };
-
-  const filteredProducts = statusFilter == "all"
+  const filteredProducts = statusFilter === "all"
     ? products
-    : statusFilter == "active"
+    : statusFilter === "active"
       ? activeProducts
       : inactiveProducts;
   const filteredActiveProducts = filteredProducts.filter((product) => product.status === "active");
@@ -475,157 +451,121 @@ function ProductsTab() {
   const filteredAverageVariantPrice = filteredPricedVariants.length
     ? filteredPricedVariants.reduce((sum, price) => sum + price, 0) / filteredPricedVariants.length
     : 0;
-  const filteredHighestPricedProduct = filteredProducts.reduce<Product | null>((best, product) => {
-    const price = Number.parseFloat(String(product.variants?.[0]?.price ?? 0));
-    if (!Number.isFinite(price)) return best;
-    if (!best) return product;
-    const bestPrice = Number.parseFloat(String(best.variants?.[0]?.price ?? 0));
-    return price > bestPrice ? product : best;
-  }, null);
+
+  const formatProductPrice = (value?: string) => {
+    const amount = Number.parseFloat(String(value ?? 0));
+    if (!Number.isFinite(amount) || amount <= 0) return "?";
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+  };
+
+  const tabButtonStyle = (active: boolean): React.CSSProperties => ({
+    border: active ? "1px solid #d1d5db" : "1px solid transparent",
+    background: active ? "#ffffff" : "transparent",
+    color: "#111827",
+    borderRadius: "999px",
+    padding: "0.45rem 0.8rem",
+    fontSize: "0.84rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.45rem",
+  });
 
   if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading?</div>;
   if (error) return <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>;
 
   return (
     <>
-      <div style={{ marginBottom: "1.5rem" }}>
+      <div style={{ marginBottom: "1rem" }}>
         <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Products</h1>
-        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Catalog overview with product health, variant coverage, and pricing signals.</p>
+        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Catalog overview.</p>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem", padding: "0.2rem", background: "#f3f4f6", borderRadius: "999px", marginBottom: "1rem" }}>
         {[
-          { key: "all", label: "All products", count: products.length },
+          { key: "all", label: "All", count: products.length },
           { key: "active", label: "Active", count: activeProducts.length },
           { key: "draft", label: "Draft", count: inactiveProducts.length },
         ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setStatusFilter(tab.key as "all" | "active" | "draft")}
-            style={{
-              border: "1px solid",
-              borderColor: statusFilter === tab.key ? "#166534" : "#d1d5db",
-              background: statusFilter === tab.key ? "#166534" : "#fff",
-              color: statusFilter === tab.key ? "#fff" : "#374151",
-              borderRadius: "999px",
-              padding: "0.5rem 0.9rem",
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.45rem",
-            }}
+            style={tabButtonStyle(statusFilter === tab.key)}
           >
             <span>{tab.label}</span>
             <span style={{
               display: "inline-flex",
-              minWidth: "1.45rem",
-              height: "1.45rem",
-              borderRadius: "999px",
               alignItems: "center",
               justifyContent: "center",
-              background: statusFilter === tab.key ? "rgba(255,255,255,0.18)" : "#f3f4f6",
-              color: statusFilter === tab.key ? "#fff" : "#111827",
+              minWidth: "1.35rem",
+              height: "1.35rem",
+              padding: "0 0.35rem",
+              borderRadius: "999px",
+              background: statusFilter === tab.key ? "#f3f4f6" : "rgba(255,255,255,0.65)",
+              color: "#374151",
               fontSize: "0.74rem",
-              padding: "0 0.38rem",
+              fontWeight: 700,
             }}>{tab.count}</span>
           </button>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
         {[
-          { label: "Total products", value: filteredProducts.length, sub: statusFilter === "all" ? "Items in the current feed" : `Products in ${statusFilter} view` },
-          { label: "Active products", value: filteredActiveProducts.length, sub: `${filteredInactiveProducts.length} inactive in this view` },
-          { label: "Total variants", value: filteredTotalVariants, sub: `${filteredMultiVariantProducts.length} products with options` },
-          { label: "Avg variant price", value: filteredAverageVariantPrice ? fmt(filteredAverageVariantPrice, "USD") : "?", sub: filteredHighestPricedProduct ? `Top price: ${filteredHighestPricedProduct.title}` : "No priced products yet" },
+          { label: "Products", value: filteredProducts.length },
+          { label: "Active", value: filteredActiveProducts.length },
+          { label: "Variants", value: filteredTotalVariants },
+          { label: "Avg. price", value: filteredAverageVariantPrice ? fmt(filteredAverageVariantPrice, "USD") : "?" },
         ].map((card) => (
-          <div key={card.label} style={{ background: "#fff", borderRadius: "12px", padding: "1.05rem 1.2rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-            <p style={{ margin: 0, fontSize: "0.74rem", color: "#6d7175", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{card.label}</p>
-            <p style={{ margin: "0.35rem 0 0.18rem", fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>{card.value}</p>
-            <p style={{ margin: 0, fontSize: "0.78rem", color: "#6b7280" }}>{card.sub}</p>
+          <div key={card.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "0.9rem 1rem" }}>
+            <p style={{ margin: 0, fontSize: "0.76rem", color: "#6b7280", fontWeight: 600 }}>{card.label}</p>
+            <p style={{ margin: "0.2rem 0 0", fontSize: "1.2rem", fontWeight: 700, color: "#111827" }}>{card.value}</p>
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: "1rem", marginBottom: "1.5rem" }}>
-        <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: "1.1rem 1.2rem" }}>
-          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Catalog health</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.75rem", marginTop: "1rem" }}>
-            <div style={{ borderRadius: "10px", background: "#ecfdf5", padding: "0.85rem 0.9rem" }}>
-              <p style={{ margin: 0, fontSize: "0.75rem", color: "#166534", fontWeight: 700, textTransform: "uppercase" }}>Active</p>
-              <p style={{ margin: "0.25rem 0 0", fontSize: "1.35rem", fontWeight: 700, color: "#14532d" }}>{filteredActiveProducts.length}</p>
-            </div>
-            <div style={{ borderRadius: "10px", background: "#fff7ed", padding: "0.85rem 0.9rem" }}>
-              <p style={{ margin: 0, fontSize: "0.75rem", color: "#c2410c", fontWeight: 700, textTransform: "uppercase" }}>Inactive</p>
-              <p style={{ margin: "0.25rem 0 0", fontSize: "1.35rem", fontWeight: 700, color: "#9a3412" }}>{filteredInactiveProducts.length}</p>
-            </div>
-            <div style={{ borderRadius: "10px", background: "#eff6ff", padding: "0.85rem 0.9rem" }}>
-              <p style={{ margin: 0, fontSize: "0.75rem", color: "#1d4ed8", fontWeight: 700, textTransform: "uppercase" }}>Multi-variant</p>
-              <p style={{ margin: "0.25rem 0 0", fontSize: "1.35rem", fontWeight: 700, color: "#1e40af" }}>{filteredMultiVariantProducts.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: "1.1rem 1.2rem" }}>
-          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Pricing snapshot</p>
-          <div style={{ marginTop: "0.95rem", display: "grid", gap: "0.8rem" }}>
-            <div>
-              <p style={{ margin: 0, fontSize: "0.78rem", color: "#6b7280" }}>Average variant price</p>
-              <p style={{ margin: "0.18rem 0 0", fontSize: "1.2rem", fontWeight: 700, color: "#111827" }}>{filteredAverageVariantPrice ? fmt(filteredAverageVariantPrice, "USD") : "?"}</p>
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: "0.78rem", color: "#6b7280" }}>Highest base price product</p>
-              <p style={{ margin: "0.18rem 0 0", fontSize: "0.95rem", fontWeight: 700, color: "#111827" }}>{filteredHighestPricedProduct?.title ?? "?"}</p>
-              <p style={{ margin: "0.1rem 0 0", fontSize: "0.78rem", color: "#6b7280" }}>{formatProductPrice(filteredHighestPricedProduct?.variants?.[0]?.price)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
-              <th style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>Product</th>
-              <th style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>Status</th>
-              <th style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>Variants</th>
-              <th style={{ padding: "0.75rem 1rem", textAlign: "right", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>Base price</th>
+            <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#fafafa" }}>
+              <th style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 600, color: "#6b7280" }}>Product</th>
+              <th style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 600, color: "#6b7280" }}>Status</th>
+              <th style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 600, color: "#6b7280" }}>Variants</th>
+              <th style={{ padding: "0.8rem 1rem", textAlign: "right", fontSize: "0.78rem", fontWeight: 600, color: "#6b7280" }}>Price</th>
             </tr>
           </thead>
           <tbody>
             {filteredProducts.map((p, i) => (
-              <tr key={p.id} style={{ borderBottom: i < filteredProducts.length - 1 ? "1px solid #f1f1f1" : "none" }}>
+              <tr key={p.id} style={{ borderBottom: i < filteredProducts.length - 1 ? "1px solid #f3f4f6" : "none" }}>
                 <td style={{ padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   {p.image?.src ? (
-                    <img src={p.image.src} alt={p.title} style={{ width: 40, height: 40, borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} />
+                    <img src={p.image.src} alt={p.title} style={{ width: 40, height: 40, borderRadius: "8px", objectFit: "cover", flexShrink: 0 }} />
                   ) : (
-                    <div style={{ width: 40, height: 40, borderRadius: "6px", background: "#f1f1f1", flexShrink: 0 }} />
+                    <div style={{ width: 40, height: 40, borderRadius: "8px", background: "#f3f4f6", flexShrink: 0 }} />
                   )}
                   <div>
-                    <p style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600, color: "#111827" }}>{p.title}</p>
-                    <p style={{ margin: "0.15rem 0 0", fontSize: "0.76rem", color: "#6b7280" }}>{p.handle}</p>
+                    <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 600, color: "#111827" }}>{p.title}</p>
+                    <p style={{ margin: "0.1rem 0 0", fontSize: "0.76rem", color: "#6b7280" }}>{p.handle}</p>
                   </div>
                 </td>
                 <td style={{ padding: "0.85rem 1rem" }}>
                   <span style={{
-                    display: "inline-block",
-                    padding: "0.2rem 0.6rem",
-                    borderRadius: "20px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "0.2rem 0.55rem",
+                    borderRadius: "999px",
                     fontSize: "0.75rem",
-                    fontWeight: 500,
-                    background: p.status === "active" ? "#e3f1df" : "#f1f1f1",
-                    color: p.status === "active" ? "#1a6b3c" : "#6d7175",
+                    fontWeight: 600,
+                    background: p.status === "active" ? "#f0fdf4" : "#f9fafb",
+                    color: p.status === "active" ? "#166534" : "#6b7280",
+                    border: "1px solid " + (p.status === "active" ? "#dcfce7" : "#e5e7eb"),
                   }}>{p.status}</span>
                 </td>
-                <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>
-                  <p style={{ margin: 0, fontSize: "0.86rem", fontWeight: 600 }}>{p.variants?.length ?? 0}</p>
-                  <p style={{ margin: "0.1rem 0 0", fontSize: "0.76rem", color: "#6b7280" }}>
-                    {hasMeaningfulVariants(p) ? "Has selectable options" : "Single variant"}
-                  </p>
+                <td style={{ padding: "0.85rem 1rem", fontSize: "0.84rem", color: "#374151" }}>
+                  {p.variants?.length ?? 0}
                 </td>
-                <td style={{ padding: "0.85rem 1rem", textAlign: "right", fontSize: "0.875rem", color: "#1a1a1a" }}>
+                <td style={{ padding: "0.85rem 1rem", textAlign: "right", fontSize: "0.84rem", color: "#111827", fontWeight: 600 }}>
                   {formatProductPrice(p.variants?.[0]?.price)}
                 </td>
               </tr>
