@@ -1612,6 +1612,7 @@ function PostPurchaseTab() {
   const [minimumSubtotal, setMinimumSubtotal] = useState("0");
   const [offerProductId, setOfferProductId] = useState("");
   const [offerVariantId, setOfferVariantId] = useState("");
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -1689,6 +1690,7 @@ function PostPurchaseTab() {
   };
 
   const resetForm = () => {
+    setEditingOfferId(null);
     setName("Post-purchase offer");
     setHeadline("One more thing before you go");
     setBody("Add this bonus item to the order you just placed without starting checkout again.");
@@ -1700,6 +1702,22 @@ function PostPurchaseTab() {
     setMinimumSubtotal("0");
     setOfferProductId("");
     setOfferVariantId("");
+  };
+
+  const startEditing = (offer: PostPurchaseOffer) => {
+    setEditingOfferId(offer.id);
+    setName(offer.name);
+    setHeadline(offer.headline || "One more thing before you go");
+    setBody(offer.body || "Add this bonus item to the order you just placed without starting checkout again.");
+    setCtaLabel(offer.ctaLabel || "Add to my order");
+    setDiscountPercent(String(offer.discountPercent || 15));
+    setPriority(String(offer.priority || 1));
+    setTriggerType(offer.triggerType || "all_orders");
+    setTriggerProductIds(offer.triggerProductIds.length ? offer.triggerProductIds : [""]);
+    setMinimumSubtotal(String(offer.minimumSubtotal || 0));
+    setOfferProductId(offer.offerProduct?.productId ?? "");
+    setOfferVariantId(offer.offerProduct?.variantId ?? "");
+    setError(null);
   };
 
   const handleSave = async () => {
@@ -1726,6 +1744,7 @@ function PostPurchaseTab() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        id: editingOfferId,
         name,
         offerProduct,
         headline,
@@ -1786,8 +1805,12 @@ function PostPurchaseTab() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start", marginBottom: "1.25rem", flexWrap: "wrap" }}>
           <div>
-            <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#1d4ed8", textTransform: "uppercase", letterSpacing: "0.05em" }}>New post-purchase offer</p>
-            <h2 style={{ margin: "0.35rem 0 0.2rem", fontSize: "1.25rem", color: "#0f172a" }}>Launch a one-click offer after checkout</h2>
+            <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#1d4ed8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {editingOfferId ? "Editing post-purchase offer" : "New post-purchase offer"}
+            </p>
+            <h2 style={{ margin: "0.35rem 0 0.2rem", fontSize: "1.25rem", color: "#0f172a" }}>
+              {editingOfferId ? "Update the selected checkout offer" : "Launch a one-click offer after checkout"}
+            </h2>
             <p style={{ margin: 0, color: "#4b5563", fontSize: "0.86rem", maxWidth: 720 }}>
               Rebuy-style flow for the order-complete moment: choose the product, set the offer copy, and decide whether it appears for all orders, qualifying carts, or orders above a threshold.
             </p>
@@ -1903,6 +1926,25 @@ function PostPurchaseTab() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
+          {editingOfferId && (
+            <button
+              type="button"
+              onClick={resetForm}
+              style={{
+                padding: "0.75rem 1.1rem",
+                background: "#fff",
+                color: "#475569",
+                border: "1px solid #cbd5e1",
+                borderRadius: "10px",
+                fontSize: "0.9rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                marginRight: "0.75rem",
+              }}
+            >
+              Cancel
+            </button>
+          )}
           <button onClick={handleSave} disabled={saving} style={{
             padding: "0.75rem 1.5rem",
             background: "#1d4ed8",
@@ -1914,7 +1956,7 @@ function PostPurchaseTab() {
             cursor: saving ? "not-allowed" : "pointer",
             opacity: saving ? 0.7 : 1,
           }}>
-            {saving ? "Saving…" : "Save post-purchase offer"}
+            {saving ? "Saving…" : editingOfferId ? "Update post-purchase offer" : "Save post-purchase offer"}
           </button>
         </div>
       </div>
@@ -1949,7 +1991,7 @@ function PostPurchaseTab() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                {["Offer", "Product", "Trigger", "Discount", "Priority", ""].map((heading) => (
+                {["Offer", "Product", "Trigger", "Discount", "Priority", "", ""].map((heading) => (
                   <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
                 ))}
               </tr>
@@ -1972,6 +2014,11 @@ function PostPurchaseTab() {
                     <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#eff6ff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700 }}>
                       {offer.priority}
                     </span>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
+                    <button onClick={() => startEditing(offer)} style={{ padding: "0.45rem 0.8rem", background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
+                      Edit
+                    </button>
                   </td>
                   <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
                     <button onClick={() => handleDelete(offer.id)} style={{ padding: "0.45rem 0.8rem", background: "#fff", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
