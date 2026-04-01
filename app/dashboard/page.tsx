@@ -77,6 +77,130 @@ function bxgyOptionLabel(product: Product, variant: Product["variants"][number])
   return `${product.title} - ${variant.title}`;
 }
 
+function SearchableProductSelect({
+  products,
+  value,
+  onChange,
+  placeholder,
+  style,
+}: {
+  products: Product[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  style?: React.CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedProduct = products.find((product) => String(product.id) === value) ?? null;
+
+  useEffect(() => {
+    setQuery(selectedProduct?.title ?? "");
+  }, [selectedProduct?.title]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery(selectedProduct?.title ?? "");
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [selectedProduct?.title]);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredProducts = normalizedQuery
+    ? products.filter((product) =>
+        `${product.title} ${product.handle}`.toLowerCase().includes(normalizedQuery),
+      )
+    : products;
+
+  const visibleProducts = filteredProducts.slice(0, 12);
+
+  return (
+    <div ref={rootRef} style={{ position: "relative", ...style }}>
+      <input
+        type="text"
+        value={query}
+        placeholder={placeholder}
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setQuery(nextValue);
+          setOpen(true);
+          if (!nextValue.trim()) {
+            onChange("");
+          }
+        }}
+        style={{
+          width: "100%",
+          padding: "0.7rem 0.8rem",
+          border: "1px solid #d1d5db",
+          borderRadius: "10px",
+          fontSize: "0.875rem",
+          background: "#fff",
+          color: "#1a1a1a",
+        }}
+      />
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 0.35rem)",
+            left: 0,
+            right: 0,
+            background: "#fff",
+            border: "1px solid #d1d5db",
+            borderRadius: "10px",
+            boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+            maxHeight: "280px",
+            overflowY: "auto",
+            zIndex: 30,
+          }}
+        >
+          {visibleProducts.length === 0 ? (
+            <p style={{ margin: 0, padding: "0.75rem 0.85rem", fontSize: "0.82rem", color: "#6b7280" }}>
+              No products found
+            </p>
+          ) : (
+            visibleProducts.map((product) => {
+              const isSelected = String(product.id) === value;
+              return (
+                <button
+                  key={product.id}
+                  type="button"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    onChange(String(product.id));
+                    setQuery(product.title);
+                    setOpen(false);
+                  }}
+                  style={{
+                    width: "100%",
+                    border: "none",
+                    background: isSelected ? "#f3f4f6" : "#fff",
+                    padding: "0.72rem 0.85rem",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    borderBottom: "1px solid #f3f4f6",
+                  }}
+                >
+                  <div style={{ fontSize: "0.86rem", fontWeight: 600, color: "#111827" }}>{product.title}</div>
+                  <div style={{ fontSize: "0.74rem", color: "#6b7280", marginTop: "0.12rem" }}>{product.handle}</div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface BxgyRule {
   id: string;
   name: string;
@@ -792,7 +916,7 @@ function ProductsTab({ storeUrl, adminUrl }: { storeUrl?: string; adminUrl?: str
 
 interface SuggestionDraft { productId: string; discountPercent: string; }
 
-function UpsellsTab() {
+function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
   const router = useRouter();
   const [rules, setRules] = useState<UpsellRule[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -892,10 +1016,12 @@ function UpsellsTab() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
           <div>
             <label style={lbl}>When customer views…</label>
-            <select style={sel} value={triggerProductId} onChange={e => setTriggerProductId(e.target.value)}>
-              <option value="">Select trigger product</option>
-              {products.map(p => <option key={p.id} value={String(p.id)}>{p.title}</option>)}
-            </select>
+            <SearchableProductSelect
+              products={products}
+              value={triggerProductId}
+              onChange={setTriggerProductId}
+              placeholder="Search trigger product"
+            />
           </div>
           <div>
             <label style={lbl}>Widget message</label>
@@ -919,12 +1045,13 @@ function UpsellsTab() {
             return (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.6rem", padding: "0.75rem", background: "#f9fafb", borderRadius: "8px" }}>
                 {picked?.image?.src && <img src={picked.image.src} alt={picked.title} style={{ width: 36, height: 36, borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} />}
-                <select style={{ ...sel, flex: 2 }} value={s.productId} onChange={e => updateSuggestion(i, "productId", e.target.value)}>
-                  <option value="">Select product</option>
-                  {products.filter(p => String(p.id) !== triggerProductId).map(p => (
-                    <option key={p.id} value={String(p.id)}>{p.title}</option>
-                  ))}
-                </select>
+                <SearchableProductSelect
+                  products={products.filter(p => String(p.id) !== triggerProductId)}
+                  value={s.productId}
+                  onChange={(value) => updateSuggestion(i, "productId", value)}
+                  placeholder="Search suggested product"
+                  style={{ flex: 2 }}
+                />
                 <div style={{ flex: "0 0 110px" }}>
                     <input type="number" min="0" max="100" style={inp} value={s.discountPercent}
                       onChange={e => updateSuggestion(i, "discountPercent", e.target.value)}
@@ -965,13 +1092,46 @@ function UpsellsTab() {
             <tbody>
               {rules.map((r, i) => (
                 <tr key={r.id} style={{ borderBottom: i < rules.length - 1 ? "1px solid #f1f1f1" : "none" }}>
-                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", fontWeight: 500, color: "#1a1a1a" }}>{r.triggerProductTitle}</td>
+                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", fontWeight: 500, color: "#1a1a1a" }}>
+                    {(() => {
+                      const triggerProduct = products.find((product) => String(product.id) === r.triggerProductId);
+                      const triggerUrl = storeUrl && triggerProduct?.handle
+                        ? `${storeUrl.replace(/\/$/, "")}/products/${triggerProduct.handle}`
+                        : null;
+
+                      if (!triggerUrl) return r.triggerProductTitle;
+
+                      return (
+                        <a
+                          href={triggerUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "#111827", textDecoration: "none", fontWeight: 600 }}
+                        >
+                          {r.triggerProductTitle}
+                        </a>
+                      );
+                    })()}
+                  </td>
                   <td style={{ padding: "0.85rem 1rem" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
                       {r.upsellProducts.slice(0, 4).map((p, pi) => (
-                        p.image
-                          ? <img key={pi} src={p.image} alt={p.title} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", objectFit: "cover", border: "1px solid #e4e5e7" }} />
-                          : <div key={pi} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", background: "#f1f1f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#6d7175" }}>{p.title.slice(0, 2)}</div>
+                        (() => {
+                          const productUrl = storeUrl && p.handle
+                            ? `${storeUrl.replace(/\/$/, "")}/products/${p.handle}`
+                            : null;
+                          const content = p.image
+                            ? <img key={pi} src={p.image} alt={p.title} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", objectFit: "cover", border: "1px solid #e4e5e7" }} />
+                            : <div key={pi} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", background: "#f1f1f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#6d7175" }}>{p.title.slice(0, 2)}</div>;
+
+                          if (!productUrl) return content;
+
+                          return (
+                            <a key={pi} href={productUrl} target="_blank" rel="noreferrer" title={p.title} style={{ display: "inline-flex" }}>
+                              {content}
+                            </a>
+                          );
+                        })()
                       ))}
                       <span style={{ fontSize: "0.78rem", color: "#6d7175" }}>
                         {r.upsellProducts.length} product{r.upsellProducts.length !== 1 ? "s" : ""}
@@ -1261,12 +1421,13 @@ function BuyXGetYTab() {
 
               return (
               <div key={index} style={{ display: "flex", gap: "0.55rem", alignItems: "stretch", marginBottom: index === buyProductIds.length - 1 ? 0 : "0.55rem" }}>
-                <select style={showVariantSelect ? bxgySelect : bxgyGiftSelect} value={productId} onChange={(e) => updateBuyProduct(index, e.target.value)}>
-                  <option value="">Select trigger product</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={String(product.id)}>{product.title}</option>
-                  ))}
-                </select>
+                <SearchableProductSelect
+                  products={products}
+                  value={productId}
+                  onChange={(value) => updateBuyProduct(index, value)}
+                  placeholder="Search trigger product"
+                  style={showVariantSelect ? bxgySelect : bxgyGiftSelect}
+                />
                 {showVariantSelect && (
                   <select style={bxgyVariantSelect} value={buyVariantIds[index] ?? ""} onChange={(e) => updateBuyVariant(index, e.target.value)}>
                     <option value="">Select variant</option>
@@ -1288,12 +1449,13 @@ function BuyXGetYTab() {
 
           <div style={{ background: "#fff", border: "1px solid #d1fae5", borderRadius: "14px", padding: "1rem" }}>
             <p style={{ margin: "0 0 0.8rem", fontWeight: 700, color: "#14532d" }}>Gift product</p>
-            <select style={bxgyGiftSelect} value={giftProductId} onChange={(e) => updateGiftProduct(e.target.value)}>
-              <option value="">Select free gift product</option>
-              {products.map((product) => (
-                <option key={product.id} value={String(product.id)}>{product.title}</option>
-              ))}
-            </select>
+            <SearchableProductSelect
+              products={products}
+              value={giftProductId}
+              onChange={updateGiftProduct}
+              placeholder="Search free gift product"
+              style={bxgyGiftSelect}
+            />
             {hasMeaningfulVariants(products.find((product) => String(product.id) === giftProductId)) && (
               <select style={{ ...bxgyVariantSelect, marginTop: "0.65rem", display: "block" }} value={giftVariantId} onChange={(e) => setGiftVariantId(e.target.value)}>
                 <option value="">Select variant</option>
@@ -1674,12 +1836,12 @@ function PostPurchaseTab() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
           <div style={{ background: "#fff", border: "1px solid #dbeafe", borderRadius: "14px", padding: "1rem" }}>
             <p style={{ margin: "0 0 0.8rem", fontWeight: 700, color: "#0f172a" }}>Offer product</p>
-            <select style={sel} value={offerProductId} onChange={(e) => updateOfferProduct(e.target.value)}>
-              <option value="">Select product to offer</option>
-              {products.map((product) => (
-                <option key={product.id} value={String(product.id)}>{product.title}</option>
-              ))}
-            </select>
+            <SearchableProductSelect
+              products={products}
+              value={offerProductId}
+              onChange={updateOfferProduct}
+              placeholder="Search product to offer"
+            />
             {hasMeaningfulVariants(selectedOfferProduct) && (
               <select style={{ ...sel, marginTop: "0.65rem" }} value={offerVariantId} onChange={(e) => setOfferVariantId(e.target.value)}>
                 <option value="">Select variant</option>
@@ -1722,12 +1884,12 @@ function PostPurchaseTab() {
               <div style={{ display: "grid", gap: "0.55rem" }}>
                 {triggerProductIds.map((productId, index) => (
                   <div key={index} style={{ display: "flex", gap: "0.55rem", alignItems: "stretch" }}>
-                    <select style={sel} value={productId} onChange={(e) => updateTriggerProduct(index, e.target.value)}>
-                      <option value="">Select qualifying product</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={String(product.id)}>{product.title}</option>
-                      ))}
-                    </select>
+                    <SearchableProductSelect
+                      products={products}
+                      value={productId}
+                      onChange={(value) => updateTriggerProduct(index, value)}
+                      placeholder="Search qualifying product"
+                    />
                     {triggerProductIds.length > 1 && (
                       <button type="button" onClick={() => removeTriggerProduct(index)} style={{ border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", borderRadius: "10px", padding: "0 0.8rem", cursor: "pointer" }}>
                         Remove
@@ -1991,7 +2153,7 @@ export default function DashboardPage() {
     <DashboardShell shopDomain={shopInfo?.shop} storeUrl={shopInfo?.storeUrl} adminUrl={shopInfo?.adminUrl}>
       {tab === "overview" && <OverviewTab days={days} setDays={setDays} storeName={shopInfo?.storeName} />}
       {tab === "products" && <ProductsTab storeUrl={shopInfo?.storeUrl} adminUrl={shopInfo?.adminUrl} />}
-      {tab === "upsells" && <UpsellsTab />}
+      {tab === "upsells" && <UpsellsTab storeUrl={shopInfo?.storeUrl} />}
       {tab === "buyxgety" && <BuyXGetYTab />}
       {tab === "postpurchase" && <PostPurchaseTab />}
       {tab === "stats" && <StatsTab />}
