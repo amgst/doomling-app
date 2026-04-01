@@ -1,10 +1,7 @@
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
 import type { BxgyRule } from "@/lib/shopify/bxgyRuleStore";
 import { getShop, updateShopSettings } from "@/lib/firebase/shopStore";
 
-const FUNCTION_HANDLE = "upsale-discount";
 const TITLE = "Upsale Buy X Get Y";
 const NS = "upsale";
 const KEY = "config";
@@ -40,61 +37,51 @@ function buildConfig(rules: BxgyRule[]) {
   };
 }
 
-let cachedFunctionId: string | null | undefined;
+let cachedFunctionIdByShop = new Map<string, string>();
 
-function readFunctionIdFromManifest(manifestPath: string): string | null {
-  if (!existsSync(manifestPath)) return null;
+async function resolveFunctionId(shop: string, accessToken: string): Promise<string> {
+  const cached = cachedFunctionIdByShop.get(shop);
+  if (cached) return cached;
 
-  try {
-    const raw = readFileSync(manifestPath, "utf8");
-    const parsed = JSON.parse(raw) as {
-      modules?: Array<{
-        type?: string;
-        handle?: string;
-        config?: {
-          module_id?: string;
-        };
-      }>;
-    };
-
-    const functionModule = parsed.modules?.find(
-      (entry) => entry?.type === "function" && entry?.handle === FUNCTION_HANDLE,
-    );
-
-    const moduleId = functionModule?.config?.module_id;
-    return typeof moduleId === "string" && moduleId ? moduleId : null;
-  } catch {
-    return null;
-  }
-}
-
-function resolveFunctionId(): string {
-  if (cachedFunctionId) return cachedFunctionId;
-  if (cachedFunctionId === null) {
-    throw new Error("Could not resolve the released Shopify Function ID for BXGY discounts.");
-  }
-
-  const candidates = [
-    join(process.cwd(), ".shopify", "deploy-bundle", "manifest.json"),
-    join(process.cwd(), ".shopify", "dev-bundle", "manifest.json"),
-  ];
-
-  for (const manifestPath of candidates) {
-    const functionId = readFunctionIdFromManifest(manifestPath);
-    if (functionId) {
-      cachedFunctionId = functionId;
-      return functionId;
-    }
-  }
-
-  cachedFunctionId = null;
-  throw new Error(
-    "Could not find the released Shopify Function ID. Rebuild/redeploy the app bundle so the BXGY discount can target the current app version.",
+  const response = await shopifyAdminGraphql(
+    shop,
+    accessToken,
+    `
+      query AppDiscountTypes {
+        appDiscountTypes {
+          appKey
+          functionId
+          title
+          discountClasses
+        }
+      }
+    `,
   );
+
+  const appKey = process.env.SHOPIFY_API_KEY?.trim();
+  const types = Array.isArray(response?.data?.appDiscountTypes) ? response.data.appDiscountTypes : [];
+  const appTypes = appKey ? types.filter((entry: any) => entry?.appKey === appKey) : types;
+
+  const preferred =
+    appTypes.find((entry: any) => typeof entry?.title === "string" && /upsale/i.test(entry.title)) ??
+    appTypes[0] ??
+    null;
+
+  const functionId =
+    typeof preferred?.functionId === "string" && preferred.functionId.trim() ? preferred.functionId.trim() : null;
+
+  if (!functionId) {
+    throw new Error(
+      "Could not find the released Shopify Function ID from Shopify Admin. Make sure the current app version with the discount function is installed on this store.",
+    );
+  }
+
+  cachedFunctionIdByShop.set(shop, functionId);
+  return functionId;
 }
 
 async function findExistingDiscount(shop: string, accessToken: string): Promise<DiscountRecord | null> {
-  const functionId = resolveFunctionId();
+  const functionId = await resolveFunctionId(shop, accessToken);
   const stored = await getShop(shop);
   const storedId = stored?.settings?.bxgyDiscountId;
 
@@ -151,7 +138,7 @@ async function findExistingDiscount(shop: string, accessToken: string): Promise<
 }
 
 export async function syncBxgyDiscount(shop: string, accessToken: string, rules: BxgyRule[]) {
-  const functionId = resolveFunctionId();
+  const functionId = await resolveFunctionId(shop, accessToken);
   const config = buildConfig(rules);
   const metafields = [
     {
