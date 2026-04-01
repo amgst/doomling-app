@@ -414,10 +414,12 @@ function OverviewTab({ days, setDays, storeName }: { days: string; setDays: (d: 
 }
 
 function ProductsTab() {
+  const PAGE_SIZE = 50;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft">("all");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetch("/api/standalone/products")
@@ -439,6 +441,11 @@ function ProductsTab() {
     : statusFilter === "active"
       ? activeProducts
       : inactiveProducts;
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const paginatedProducts = filteredProducts.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, filteredProducts.length);
   const filteredActiveProducts = filteredProducts.filter((product) => product.status === "active");
   const filteredInactiveProducts = filteredProducts.filter((product) => product.status !== "active");
   const filteredTotalVariants = filteredProducts.reduce((sum, product) => sum + (product.variants?.length ?? 0), 0);
@@ -480,6 +487,16 @@ function ProductsTab() {
     lineHeight: 1,
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading?</div>;
   if (error) return <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>;
 
@@ -487,7 +504,11 @@ function ProductsTab() {
     <>
       <div style={{ marginBottom: "0.9rem" }}>
         <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Products</h1>
-        <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.84rem" }}>Catalog overview with product health, variant coverage, and pricing signals.</p>
+        <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.84rem" }}>
+          Catalog overview with product health, variant coverage, and pricing signals.
+          {" "}
+          {filteredProducts.length > 0 ? `Showing ${pageStart + 1}-${pageEnd} of ${filteredProducts.length}.` : "No products in this view."}
+        </p>
       </div>
 
       <div style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem", padding: "0.18rem", background: "#f3f4f6", borderRadius: "999px", marginBottom: "0.9rem" }}>
@@ -580,8 +601,8 @@ function ProductsTab() {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map((p, i) => (
-              <tr key={p.id} style={{ borderBottom: i < filteredProducts.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+            {paginatedProducts.map((p, i) => (
+              <tr key={p.id} style={{ borderBottom: i < paginatedProducts.length - 1 ? "1px solid #f3f4f6" : "none" }}>
                 <td style={{ padding: "0.78rem 0.9rem", display: "flex", alignItems: "center", gap: "0.7rem" }}>
                   {p.image?.src ? (
                     <img src={p.image.src} alt={p.title} style={{ width: 38, height: 38, borderRadius: "8px", objectFit: "cover", flexShrink: 0 }} />
@@ -620,6 +641,52 @@ function ProductsTab() {
           </tbody>
         </table>
       </div>
+
+      {filteredProducts.length > PAGE_SIZE && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", marginTop: "0.85rem", flexWrap: "wrap" }}>
+          <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280" }}>
+            Page {safePage} of {totalPages}
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={safePage === 1}
+              style={{
+                border: "1px solid #d1d5db",
+                background: "#fff",
+                color: "#374151",
+                borderRadius: "8px",
+                padding: "0.45rem 0.8rem",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                cursor: safePage === 1 ? "not-allowed" : "pointer",
+                opacity: safePage === 1 ? 0.55 : 1,
+              }}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={safePage === totalPages}
+              style={{
+                border: "1px solid #d1d5db",
+                background: "#fff",
+                color: "#374151",
+                borderRadius: "8px",
+                padding: "0.45rem 0.8rem",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                cursor: safePage === totalPages ? "not-allowed" : "pointer",
+                opacity: safePage === totalPages ? 0.55 : 1,
+              }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -5,6 +5,20 @@ import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function getNextPageUrl(linkHeader: string | null) {
+  if (!linkHeader) return null;
+
+  const nextPart = linkHeader
+    .split(",")
+    .map((part) => part.trim())
+    .find((part) => part.includes('rel="next"'));
+
+  if (!nextPart) return null;
+
+  const match = nextPart.match(/<([^>]+)>/);
+  return match?.[1] ?? null;
+}
+
 export async function GET(req: NextRequest) {
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
   const shop = cookie ? await verifyShop(cookie) : null;
@@ -16,16 +30,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No access token" }, { status: 403 });
   }
 
-  const res = await fetch(
-    `https://${shop}/admin/api/2024-01/products.json?limit=50&fields=id,title,handle,status,variants,image`,
-    { headers: { "X-Shopify-Access-Token": session.accessToken }, cache: "no-store" }
-  );
+  const headers = { "X-Shopify-Access-Token": session.accessToken };
+  let nextUrl: string | null =
+    `https://${shop}/admin/api/2024-01/products.json?limit=250&fields=id,title,handle,status,variants,image`;
+  const products: any[] = [];
 
-  if (!res.ok) {
-    const body = await res.text();
-    return NextResponse.json({ error: `Shopify ${res.status}: ${body}` }, { status: res.status });
+  while (nextUrl) {
+    const res = await fetch(nextUrl, { headers, cache: "no-store" });
+
+    if (!res.ok) {
+      const body = await res.text();
+      return NextResponse.json({ error: `Shopify ${res.status}: ${body}` }, { status: res.status });
+    }
+
+    const data = await res.json();
+    products.push(...(data.products ?? []));
+    nextUrl = getNextPageUrl(res.headers.get("link"));
   }
 
-  const data = await res.json();
-  return NextResponse.json({ products: data.products });
+  return NextResponse.json({ products });
 }
