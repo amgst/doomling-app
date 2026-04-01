@@ -457,7 +457,7 @@ function OverviewTab({ days, setDays, storeName }: { days: string; setDays: (d: 
   );
 }
 
-function ProductsTab() {
+function ProductsTab({ storeUrl, adminUrl }: { storeUrl?: string; adminUrl?: string }) {
   const PAGE_SIZE = 50;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -641,11 +641,16 @@ function ProductsTab() {
               <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Product</th>
               <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Status</th>
               <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Variants</th>
+              <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Links</th>
               <th style={{ padding: "0.75rem 0.9rem", textAlign: "right", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Base price</th>
             </tr>
           </thead>
           <tbody>
             {paginatedProducts.map((p, i) => (
+              (() => {
+                const storefrontProductUrl = storeUrl ? `${storeUrl.replace(/\/$/, "")}/products/${p.handle}` : null;
+                const adminProductUrl = adminUrl ? `${adminUrl.replace(/\/$/, "")}/products/${p.id}` : null;
+                return (
               <tr key={p.id} style={{ borderBottom: i < paginatedProducts.length - 1 ? "1px solid #f3f4f6" : "none" }}>
                 <td style={{ padding: "0.78rem 0.9rem", display: "flex", alignItems: "center", gap: "0.7rem" }}>
                   {p.image?.src ? (
@@ -677,10 +682,60 @@ function ProductsTab() {
                     <span style={{ fontSize: "0.72rem", color: "#9ca3af" }}>{hasMeaningfulVariants(p) ? "Has options" : "Single"}</span>
                   </div>
                 </td>
+                <td style={{ padding: "0.78rem 0.9rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                    {storefrontProductUrl && (
+                      <a
+                        href={storefrontProductUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.28rem",
+                          padding: "0.28rem 0.56rem",
+                          borderRadius: "999px",
+                          background: "#f9fafb",
+                          border: "1px solid #e5e7eb",
+                          color: "#374151",
+                          textDecoration: "none",
+                          fontSize: "0.74rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Store
+                      </a>
+                    )}
+                    {adminProductUrl && (
+                      <a
+                        href={adminProductUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.28rem",
+                          padding: "0.28rem 0.56rem",
+                          borderRadius: "999px",
+                          background: "#eff6ff",
+                          border: "1px solid #dbeafe",
+                          color: "#1d4ed8",
+                          textDecoration: "none",
+                          fontSize: "0.74rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Admin
+                      </a>
+                    )}
+                  </div>
+                </td>
                 <td style={{ padding: "0.78rem 0.9rem", textAlign: "right", fontSize: "0.82rem", color: "#111827", fontWeight: 600 }}>
                   {formatProductPrice(p.variants?.[0]?.price)}
                 </td>
               </tr>
+                );
+              })()
             ))}
           </tbody>
         </table>
@@ -1935,7 +1990,7 @@ export default function DashboardPage() {
   return (
     <DashboardShell shopDomain={shopInfo?.shop} storeUrl={shopInfo?.storeUrl} adminUrl={shopInfo?.adminUrl}>
       {tab === "overview" && <OverviewTab days={days} setDays={setDays} storeName={shopInfo?.storeName} />}
-      {tab === "products" && <ProductsTab />}
+      {tab === "products" && <ProductsTab storeUrl={shopInfo?.storeUrl} adminUrl={shopInfo?.adminUrl} />}
       {tab === "upsells" && <UpsellsTab />}
       {tab === "buyxgety" && <BuyXGetYTab />}
       {tab === "postpurchase" && <PostPurchaseTab />}
