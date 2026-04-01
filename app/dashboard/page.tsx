@@ -61,18 +61,20 @@ interface BxgyProduct {
   handle: string;
 }
 
-function bxgySelectionValue(productId: string | number, variantId: string | number) {
-  return `${String(productId)}::${String(variantId)}`;
-}
-
 function isDefaultVariantTitle(title: string) {
   const value = String(title || "").trim().toLowerCase();
-  return !value || value === "default title" || value === "default";
+  return !value || value === "default title" || value === "default" || value === "main";
+}
+
+function hasMeaningfulVariants(product: Product | undefined | null) {
+  if (!product?.variants?.length) return false;
+  if (product.variants.length > 1) return true;
+  return !isDefaultVariantTitle(product.variants[0]?.title ?? "");
 }
 
 function bxgyOptionLabel(product: Product, variant: Product["variants"][number]) {
-  const variantLabel = isDefaultVariantTitle(variant.title) ? "Default variant" : variant.title;
-  return `${product.title} - ${variantLabel}`;
+  if (!hasMeaningfulVariants(product)) return product.title;
+  return `${product.title} - ${variant.title}`;
 }
 
 interface BxgyRule {
@@ -706,7 +708,9 @@ function BuyXGetYTab() {
   const [priority, setPriority] = useState("1");
   const [autoAdd, setAutoAdd] = useState(true);
   const [buyProductIds, setBuyProductIds] = useState<string[]>([""]);
+  const [buyVariantIds, setBuyVariantIds] = useState<string[]>([""]);
   const [giftProductId, setGiftProductId] = useState("");
+  const [giftVariantId, setGiftVariantId] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -725,20 +729,46 @@ function BuyXGetYTab() {
   const addBuyTrigger = () => {
     if (buyProductIds.length >= 6) return;
     setBuyProductIds((current) => [...current, ""]);
+    setBuyVariantIds((current) => [...current, ""]);
   };
 
-  const updateBuyTrigger = (index: number, value: string) => {
-    setBuyProductIds((current) => current.map((entry, idx) => idx === index ? value : entry));
+  const getSelectedVariantId = (productId: string, variantId?: string) => {
+    const product = products.find((entry) => String(entry.id) === productId);
+    if (!product?.variants?.length) return "";
+    if (!hasMeaningfulVariants(product)) {
+      return String(product.variants[0]?.id ?? "");
+    }
+    if (variantId && product.variants.some((entry) => String(entry.id) === variantId)) {
+      return variantId;
+    }
+    return "";
+  };
+
+  const updateBuyProduct = (index: number, productId: string) => {
+    setBuyProductIds((current) => current.map((entry, idx) => idx === index ? productId : entry));
+    setBuyVariantIds((current) =>
+      current.map((entry, idx) => idx === index ? getSelectedVariantId(productId) : entry),
+    );
+  };
+
+  const updateBuyVariant = (index: number, variantId: string) => {
+    setBuyVariantIds((current) => current.map((entry, idx) => idx === index ? variantId : entry));
   };
 
   const removeBuyTrigger = (index: number) => {
     setBuyProductIds((current) => current.filter((_, idx) => idx !== index));
+    setBuyVariantIds((current) => current.filter((_, idx) => idx !== index));
   };
 
-  const productToBxgy = (selection: string): BxgyProduct | null => {
-    const [productId, variantId] = String(selection || "").split("::");
+  const updateGiftProduct = (productId: string) => {
+    setGiftProductId(productId);
+    setGiftVariantId(getSelectedVariantId(productId));
+  };
+
+  const productToBxgy = (productId: string, variantId: string): BxgyProduct | null => {
     const product = products.find((entry) => String(entry.id) === productId);
-    const variant = product?.variants?.find((entry) => String(entry.id) === variantId);
+    const resolvedVariantId = getSelectedVariantId(productId, variantId);
+    const variant = product?.variants?.find((entry) => String(entry.id) === resolvedVariantId);
     if (!product || !variant) return null;
     return {
       productId: String(product.id),
@@ -758,14 +788,16 @@ function BuyXGetYTab() {
     setPriority("1");
     setAutoAdd(true);
     setBuyProductIds([""]);
+    setBuyVariantIds([""]);
     setGiftProductId("");
+    setGiftVariantId("");
   };
 
   const handleSave = async () => {
     const buyProducts = buyProductIds
-      .map((id) => productToBxgy(id))
+      .map((productId, index) => productToBxgy(productId, buyVariantIds[index] ?? ""))
       .filter(Boolean) as BxgyProduct[];
-    const giftProduct = productToBxgy(giftProductId);
+    const giftProduct = productToBxgy(giftProductId, giftVariantId);
 
     if (!name.trim()) {
       setError("Enter a rule name.");
@@ -911,43 +943,55 @@ function BuyXGetYTab() {
                 + Add trigger
               </button>
             </div>
-            {buyProductIds.map((productId, index) => (
+            {buyProductIds.map((productId, index) => {
+              const selectedProduct = products.find((product) => String(product.id) === productId);
+              const showVariantSelect = hasMeaningfulVariants(selectedProduct);
+
+              return (
               <div key={index} style={{ display: "flex", gap: "0.55rem", marginBottom: index === buyProductIds.length - 1 ? 0 : "0.55rem" }}>
-                <select style={sel} value={productId} onChange={(e) => updateBuyTrigger(index, e.target.value)}>
-                  <option value="">Select trigger variant</option>
+                <select style={sel} value={productId} onChange={(e) => updateBuyProduct(index, e.target.value)}>
+                  <option value="">Select trigger product</option>
                   {products.map((product) => (
-                    <optgroup key={product.id} label={product.title}>
-                      {product.variants?.map((variant) => (
-                        <option key={variant.id} value={bxgySelectionValue(product.id, variant.id)}>
-                          {bxgyOptionLabel(product, variant)}
-                        </option>
-                      ))}
-                    </optgroup>
+                    <option key={product.id} value={String(product.id)}>{product.title}</option>
                   ))}
                 </select>
+                {showVariantSelect && (
+                  <select style={sel} value={buyVariantIds[index] ?? ""} onChange={(e) => updateBuyVariant(index, e.target.value)}>
+                    <option value="">Select variant</option>
+                    {selectedProduct?.variants?.map((variant) => (
+                      <option key={variant.id} value={String(variant.id)}>
+                        {variant.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {buyProductIds.length > 1 && (
                   <button type="button" onClick={() => removeBuyTrigger(index)} style={{ border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", borderRadius: "10px", padding: "0 0.8rem", cursor: "pointer" }}>
                     Remove
                   </button>
                 )}
               </div>
-            ))}
+            )})}
           </div>
 
           <div style={{ background: "#fff", border: "1px solid #d1fae5", borderRadius: "14px", padding: "1rem" }}>
             <p style={{ margin: "0 0 0.8rem", fontWeight: 700, color: "#14532d" }}>Gift product</p>
-            <select style={sel} value={giftProductId} onChange={(e) => setGiftProductId(e.target.value)}>
-              <option value="">Select free gift variant</option>
+            <select style={sel} value={giftProductId} onChange={(e) => updateGiftProduct(e.target.value)}>
+              <option value="">Select free gift product</option>
               {products.map((product) => (
-                <optgroup key={product.id} label={product.title}>
-                  {product.variants?.map((variant) => (
-                    <option key={variant.id} value={bxgySelectionValue(product.id, variant.id)}>
-                      {bxgyOptionLabel(product, variant)}
-                    </option>
-                  ))}
-                </optgroup>
+                <option key={product.id} value={String(product.id)}>{product.title}</option>
               ))}
             </select>
+            {hasMeaningfulVariants(products.find((product) => String(product.id) === giftProductId)) && (
+              <select style={{ ...sel, marginTop: "0.65rem" }} value={giftVariantId} onChange={(e) => setGiftVariantId(e.target.value)}>
+                <option value="">Select variant</option>
+                {products.find((product) => String(product.id) === giftProductId)?.variants?.map((variant) => (
+                  <option key={variant.id} value={String(variant.id)}>
+                    {variant.title}
+                  </option>
+                ))}
+              </select>
+            )}
             <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>
               The selected variant is the one used for automatic cart insertion and pricing.
             </p>
