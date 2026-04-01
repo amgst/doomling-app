@@ -1870,7 +1870,7 @@ function PostPurchaseTab() {
           ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1rem", alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(320px, 0.95fr)", gap: "1rem", alignItems: "start" }}>
           <div style={panelStyle}>
             <p style={panelTitleStyle}>Offer content</p>
             <p style={panelCopyStyle}>Set the internal name, shopper-facing copy, and the action text shown after checkout.</p>
@@ -1894,7 +1894,7 @@ function PostPurchaseTab() {
             <div>
               <label style={lbl}>Offer body</label>
               <textarea
-                rows={4}
+                rows={6}
                 style={{ ...inp, width: "100%", resize: "vertical", lineHeight: 1.45 }}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
@@ -1902,85 +1902,87 @@ function PostPurchaseTab() {
             </div>
           </div>
 
-          <div style={panelStyle}>
-            <p style={panelTitleStyle}>Rules and priority</p>
-            <p style={panelCopyStyle}>Control discount strength, sequencing, and which checkout completions qualify for this offer.</p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.9rem", marginBottom: "0.9rem" }}>
-              <div>
-                <label style={lbl}>Discount percent</label>
-                <input type="number" min="1" max="100" style={{ ...inp, width: "100%" }} value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} />
-              </div>
-              <div>
-                <label style={lbl}>Priority</label>
-                <input type="number" min="1" style={{ ...inp, width: "100%" }} value={priority} onChange={(e) => setPriority(e.target.value)} />
-              </div>
+          <div style={{ display: "grid", gap: "1rem" }}>
+            <div style={panelStyle}>
+              <p style={panelTitleStyle}>Offer product</p>
+              <p style={panelCopyStyle}>Choose the item to show immediately after checkout. If the product has variants, select the exact one to sell.</p>
+              <SearchableProductSelect
+                products={products}
+                value={offerProductId}
+                onChange={updateOfferProduct}
+                placeholder="Search product to offer"
+              />
+              {hasMeaningfulVariants(selectedOfferProduct) && (
+                <select style={{ ...sel, marginTop: "0.65rem" }} value={offerVariantId} onChange={(e) => setOfferVariantId(e.target.value)}>
+                  <option value="">Select variant</option>
+                  {selectedOfferProduct?.variants?.map((variant) => (
+                    <option key={variant.id} value={String(variant.id)}>
+                      {variant.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>
+                This is the item the customer can add after completing checkout.
+              </p>
             </div>
 
-            <div style={{ marginBottom: "0.75rem" }}>
-              <label style={lbl}>Show offer when</label>
-              <select style={sel} value={triggerType} onChange={(e) => setTriggerType(e.target.value as PostPurchaseOffer["triggerType"])}>
-                <option value="all_orders">Every eligible order can see it</option>
-                <option value="minimum_subtotal">Order subtotal reaches a threshold</option>
-                <option value="contains_product">The order contains selected products</option>
-              </select>
-            </div>
-            {triggerType === "minimum_subtotal" && (
-              <div>
-                <label style={lbl}>Minimum subtotal</label>
-                <input type="number" min="0" step="0.01" style={{ ...inp, width: "100%" }} value={minimumSubtotal} onChange={(e) => setMinimumSubtotal(e.target.value)} />
-              </div>
-            )}
-            {triggerType === "contains_product" && (
-              <div style={{ display: "grid", gap: "0.55rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center" }}>
-                  <label style={{ ...lbl, marginBottom: 0 }}>Qualifying products</label>
-                  <button type="button" onClick={addTriggerProduct} style={{ padding: "0.35rem 0.8rem", borderRadius: "8px", border: "1px solid #3b82f6", background: "#fff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
-                    + Add product
-                  </button>
+            <div style={panelStyle}>
+              <p style={panelTitleStyle}>Rules and priority</p>
+              <p style={panelCopyStyle}>Control discount strength, sequencing, and which checkout completions qualify for this offer.</p>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.9rem", marginBottom: "0.9rem" }}>
+                <div>
+                  <label style={lbl}>Discount percent</label>
+                  <input type="number" min="1" max="100" style={{ ...inp, width: "100%" }} value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} />
                 </div>
-                {triggerProductIds.map((productId, index) => (
-                  <div key={index} style={{ display: "flex", gap: "0.55rem", alignItems: "stretch" }}>
-                    <SearchableProductSelect
-                      products={products}
-                      value={productId}
-                      onChange={(value) => updateTriggerProduct(index, value)}
-                      placeholder="Search qualifying product"
-                      style={{ flex: 1 }}
-                    />
-                    {triggerProductIds.length > 1 && (
-                      <button type="button" onClick={() => removeTriggerProduct(index)} style={{ border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", borderRadius: "10px", padding: "0 0.8rem", cursor: "pointer" }}>
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
+                <div>
+                  <label style={lbl}>Priority</label>
+                  <input type="number" min="1" style={{ ...inp, width: "100%" }} value={priority} onChange={(e) => setPriority(e.target.value)} />
+                </div>
               </div>
-            )}
-          </div>
 
-          <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
-            <p style={panelTitleStyle}>Offer product</p>
-            <p style={panelCopyStyle}>Choose the item to show immediately after checkout. If the product has variants, select the exact one to sell.</p>
-            <SearchableProductSelect
-              products={products}
-              value={offerProductId}
-              onChange={updateOfferProduct}
-              placeholder="Search product to offer"
-            />
-            {hasMeaningfulVariants(selectedOfferProduct) && (
-              <select style={{ ...sel, marginTop: "0.65rem" }} value={offerVariantId} onChange={(e) => setOfferVariantId(e.target.value)}>
-                <option value="">Select variant</option>
-                {selectedOfferProduct?.variants?.map((variant) => (
-                  <option key={variant.id} value={String(variant.id)}>
-                    {variant.title}
-                  </option>
-                ))}
-              </select>
-            )}
-            <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>
-              This is the item the customer can add after completing checkout.
-            </p>
+              <div style={{ marginBottom: triggerType === "all_orders" ? 0 : "0.85rem" }}>
+                <label style={lbl}>Show offer when</label>
+                <select style={sel} value={triggerType} onChange={(e) => setTriggerType(e.target.value as PostPurchaseOffer["triggerType"])}>
+                  <option value="all_orders">Every eligible order can see it</option>
+                  <option value="minimum_subtotal">Order subtotal reaches a threshold</option>
+                  <option value="contains_product">The order contains selected products</option>
+                </select>
+              </div>
+              {triggerType === "minimum_subtotal" && (
+                <div>
+                  <label style={lbl}>Minimum subtotal</label>
+                  <input type="number" min="0" step="0.01" style={{ ...inp, width: "100%" }} value={minimumSubtotal} onChange={(e) => setMinimumSubtotal(e.target.value)} />
+                </div>
+              )}
+              {triggerType === "contains_product" && (
+                <div style={{ display: "grid", gap: "0.55rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center" }}>
+                    <label style={{ ...lbl, marginBottom: 0 }}>Qualifying products</label>
+                    <button type="button" onClick={addTriggerProduct} style={{ padding: "0.35rem 0.8rem", borderRadius: "8px", border: "1px solid #3b82f6", background: "#fff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
+                      + Add product
+                    </button>
+                  </div>
+                  {triggerProductIds.map((productId, index) => (
+                    <div key={index} style={{ display: "flex", gap: "0.55rem", alignItems: "stretch" }}>
+                      <SearchableProductSelect
+                        products={products}
+                        value={productId}
+                        onChange={(value) => updateTriggerProduct(index, value)}
+                        placeholder="Search qualifying product"
+                        style={{ flex: 1 }}
+                      />
+                      {triggerProductIds.length > 1 && (
+                        <button type="button" onClick={() => removeTriggerProduct(index)} style={{ border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", borderRadius: "10px", padding: "0 0.8rem", cursor: "pointer" }}>
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
