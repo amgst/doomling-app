@@ -2173,6 +2173,15 @@ function PostPurchaseTab() {
   );
 }
 
+interface RuleStat {
+  id: string;
+  triggerProductTitle: string;
+  upsellTitle: string;
+  views: number;
+  clicks: number;
+  added: number;
+}
+
 function StatsTab() {
   const [rules, setRules] = useState<RuleStat[]>([]);
   const [loading, setLoading] = useState(true);
