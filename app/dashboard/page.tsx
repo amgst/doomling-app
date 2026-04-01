@@ -996,24 +996,6 @@ function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
   const sel: React.CSSProperties = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
   const inp: React.CSSProperties = { padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
   const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
-  const panelStyle: React.CSSProperties = {
-    background: "rgba(255, 255, 255, 0.88)",
-    border: "1px solid #dbeafe",
-    borderRadius: "14px",
-    padding: "1rem",
-    boxShadow: "0 1px 0 rgba(255, 255, 255, 0.6) inset",
-  };
-  const panelTitleStyle: React.CSSProperties = {
-    margin: 0,
-    fontWeight: 700,
-    color: "#0f172a",
-    fontSize: "1rem",
-  };
-  const panelCopyStyle: React.CSSProperties = {
-    margin: "0.25rem 0 0.9rem",
-    fontSize: "0.8rem",
-    color: "#64748b",
-  };
 
   if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
 
@@ -1651,6 +1633,24 @@ function PostPurchaseTab() {
   const sel: React.CSSProperties = { width: "100%", padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
   const inp: React.CSSProperties = { padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
   const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
+  const panelStyle: React.CSSProperties = {
+    background: "rgba(255, 255, 255, 0.88)",
+    border: "1px solid #dbeafe",
+    borderRadius: "14px",
+    padding: "1rem",
+    boxShadow: "0 1px 0 rgba(255, 255, 255, 0.6) inset",
+  };
+  const panelTitleStyle: React.CSSProperties = {
+    margin: 0,
+    fontWeight: 700,
+    color: "#0f172a",
+    fontSize: "1rem",
+  };
+  const panelCopyStyle: React.CSSProperties = {
+    margin: "0.25rem 0 0.9rem",
+    fontSize: "0.8rem",
+    color: "#64748b",
+  };
 
   const getSelectedVariantId = (productId: string, variantId?: string) => {
     const product = products.find((entry) => String(entry.id) === productId);
