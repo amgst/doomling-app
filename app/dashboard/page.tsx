@@ -2,9 +2,23 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import {
+  Autocomplete,
+  Badge,
+  BlockStack,
+  Button,
+  Card,
+  InlineGrid,
+  InlineStack,
+  Select,
+  Text,
+  TextField,
+  Thumbnail,
+} from "@shopify/polaris";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
 import DashboardShell from "@/components/DashboardShell";
+import PolarisProvider from "@/components/PolarisProvider";
 
 interface DailyStat {
   date: string;
@@ -198,6 +212,83 @@ function SearchableProductSelect({
         </div>
       )}
     </div>
+  );
+}
+
+function PolarisProductAutocomplete({
+  products,
+  value,
+  onChange,
+  label,
+  placeholder,
+  helpText,
+}: {
+  products: Product[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  placeholder: string;
+  helpText?: string;
+}) {
+  const [query, setQuery] = useState("");
+
+  const selectedProduct = products.find((product) => String(product.id) === value) ?? null;
+
+  useEffect(() => {
+    setQuery(selectedProduct?.title ?? "");
+  }, [selectedProduct?.title]);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredProducts = normalizedQuery
+    ? products.filter((product) => `${product.title} ${product.handle}`.toLowerCase().includes(normalizedQuery))
+    : products;
+
+  const options = filteredProducts.slice(0, 12).map((product) => ({
+    value: String(product.id),
+    label: product.title,
+    media: product.image?.src ? <Thumbnail source={product.image.src} alt={product.title} size="small" /> : undefined,
+  }));
+
+  const textField = (
+    <Autocomplete.TextField
+      label={label}
+      value={query}
+      placeholder={placeholder}
+      autoComplete="off"
+      onChange={(nextValue) => {
+        setQuery(nextValue);
+        if (!nextValue.trim()) {
+          onChange("");
+        }
+      }}
+      clearButton
+      onClearButtonClick={() => {
+        setQuery("");
+        onChange("");
+      }}
+    />
+  );
+
+  return (
+    <BlockStack gap="200">
+      <Autocomplete
+        options={options}
+        selected={value ? [value] : []}
+        textField={textField}
+        onSelect={(selected) => {
+          const nextValue = selected[0] ?? "";
+          onChange(nextValue);
+          const nextProduct = products.find((product) => String(product.id) === nextValue);
+          setQuery(nextProduct?.title ?? "");
+        }}
+        emptyState={<Text as="p" variant="bodySm" tone="subdued">No products found</Text>}
+      />
+      {helpText && (
+        <Text as="p" variant="bodySm" tone="subdued">
+          {helpText}
+        </Text>
+      )}
+    </BlockStack>
   );
 }
 
@@ -1345,7 +1436,19 @@ function BuyXGetYTab() {
   const bxgyVariantSelect: React.CSSProperties = { ...sel, minWidth: "190px", flex: "0 0 220px" };
   const bxgyGiftSelect: React.CSSProperties = { ...sel, maxWidth: "560px" };
 
-  if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loadingâ€¦</div>;
+  if (loading) {
+    return (
+      <PolarisProvider>
+        <div style={{ padding: "2rem 0" }}>
+          <Card>
+            <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}>
+              <Text as="p" tone="subdued">Loading...</Text>
+            </div>
+          </Card>
+        </div>
+      </PolarisProvider>
+    );
+  }
 
   return (
     <>
@@ -1630,28 +1733,6 @@ function PostPurchaseTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  const sel: React.CSSProperties = { width: "100%", padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
-  const inp: React.CSSProperties = { padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
-  const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
-  const panelStyle: React.CSSProperties = {
-    background: "rgba(255, 255, 255, 0.88)",
-    border: "1px solid #dbeafe",
-    borderRadius: "14px",
-    padding: "1rem",
-    boxShadow: "0 1px 0 rgba(255, 255, 255, 0.6) inset",
-  };
-  const panelTitleStyle: React.CSSProperties = {
-    margin: 0,
-    fontWeight: 700,
-    color: "#0f172a",
-    fontSize: "1rem",
-  };
-  const panelCopyStyle: React.CSSProperties = {
-    margin: "0.25rem 0 0.9rem",
-    fontSize: "0.8rem",
-    color: "#64748b",
-  };
-
   const getSelectedVariantId = (productId: string, variantId?: string) => {
     const product = products.find((entry) => String(entry.id) === productId);
     if (!product?.variants?.length) return "";
@@ -1670,7 +1751,7 @@ function PostPurchaseTab() {
   };
 
   const updateTriggerProduct = (index: number, productId: string) => {
-    setTriggerProductIds((current) => current.map((entry, idx) => idx === index ? productId : entry));
+    setTriggerProductIds((current) => current.map((entry, idx) => (idx === index ? productId : entry)));
   };
 
   const addTriggerProduct = () => {
@@ -1798,7 +1879,19 @@ function PostPurchaseTab() {
     await refreshData();
   };
 
-  if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
+  if (loading) {
+    return (
+      <PolarisProvider>
+        <div style={{ padding: "2rem 0" }}>
+          <Card>
+            <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}>
+              <Text as="p" tone="subdued">Loading...</Text>
+            </div>
+          </Card>
+        </div>
+      </PolarisProvider>
+    );
+  }
 
   const selectedOfferProduct = products.find((product) => String(product.id) === offerProductId);
   const selectedProductLabel = selectedOfferProduct ? selectedOfferProduct.title : "Choose an offer product";
@@ -1809,339 +1902,275 @@ function PostPurchaseTab() {
       : triggerType === "minimum_subtotal"
         ? `Subtotal over ${minimumSubtotal || "0"}`
         : `${selectedTriggerCount || 0} trigger product${selectedTriggerCount === 1 ? "" : "s"}`;
+  const triggerOptions = [
+    { label: "Every eligible order can see it", value: "all_orders" },
+    { label: "Order subtotal reaches a threshold", value: "minimum_subtotal" },
+    { label: "The order contains selected products", value: "contains_product" },
+  ];
+  const variantOptions = selectedOfferProduct?.variants?.map((variant) => ({
+    label: variant.title,
+    value: String(variant.id),
+  })) ?? [];
 
   return (
-    <>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Post-Purchase</h1>
-        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>
-          Build one-click offers for the moment right after checkout, with targeting, discounting, and offer stats in one place.
-        </p>
-      </div>
-
-      {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
-
-      <div style={{
-        background: "linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #ffffff 100%)",
-        border: "1px solid #dbeafe",
-        borderRadius: "16px",
-        padding: "1.5rem",
-        marginBottom: "1.5rem",
-        boxShadow: "0 6px 24px rgba(37, 99, 235, 0.06)",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start", marginBottom: "1.1rem", flexWrap: "wrap" }}>
-          <div>
-            <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#1d4ed8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {editingOfferId ? "Editing post-purchase offer" : "New post-purchase offer"}
-            </p>
-            <h2 style={{ margin: "0.35rem 0 0.2rem", fontSize: "1.25rem", color: "#0f172a" }}>
-              {editingOfferId ? "Update the selected checkout offer" : "Launch a one-click offer after checkout"}
-            </h2>
-            <p style={{ margin: 0, color: "#4b5563", fontSize: "0.86rem", maxWidth: 720 }}>
-              Rebuy-style flow for the order-complete moment: choose the product, set the offer copy, and decide whether it appears for all orders, qualifying carts, or orders above a threshold.
-            </p>
-          </div>
-          <div style={{ padding: "0.5rem 0.75rem", borderRadius: "999px", background: "#dbeafe", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700 }}>
-            Checkout upsell layer
-          </div>
+    <PolarisProvider>
+      <>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Post-Purchase</h1>
+          <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>
+            Build one-click offers for the moment right after checkout, with targeting, discounting, and offer stats in one place.
+          </p>
         </div>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem", marginBottom: "1rem" }}>
-          {[
-            { label: "Discount", value: `${discountPercent || "0"}% off` },
-            { label: "Trigger", value: triggerSummaryLabel },
-            { label: "Offer product", value: selectedProductLabel },
-          ].map((item) => (
-            <div
-              key={item.label}
-              style={{
-                minWidth: "160px",
-                padding: "0.7rem 0.85rem",
-                borderRadius: "12px",
-                background: "rgba(255,255,255,0.72)",
-                border: "1px solid #dbeafe",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "0.72rem", fontWeight: 700, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                {item.label}
-              </p>
-              <p style={{ margin: "0.22rem 0 0", fontSize: "0.88rem", fontWeight: 600, color: "#0f172a" }}>{item.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(320px, 0.95fr)", gap: "1rem", alignItems: "start" }}>
-          <div style={panelStyle}>
-            <p style={panelTitleStyle}>Offer content</p>
-            <p style={panelCopyStyle}>Set the internal name, shopper-facing copy, and the action text shown after checkout.</p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.9rem", marginBottom: "0.9rem" }}>
-              <div>
-                <label style={lbl}>Offer name</label>
-                <input type="text" style={{ ...inp, width: "100%" }} value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div>
-                <label style={lbl}>CTA label</label>
-                <input type="text" style={{ ...inp, width: "100%" }} value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: "0.9rem" }}>
-              <label style={lbl}>Headline</label>
-              <input type="text" style={{ ...inp, width: "100%" }} value={headline} onChange={(e) => setHeadline(e.target.value)} />
-            </div>
-
-            <div>
-              <label style={lbl}>Offer body</label>
-              <textarea
-                rows={6}
-                style={{ ...inp, width: "100%", resize: "vertical", lineHeight: 1.45 }}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-              />
-            </div>
+        {error && (
+          <div style={{ marginBottom: "1rem" }}>
+            <Card>
+              <Text as="p" tone="critical">{error}</Text>
+            </Card>
           </div>
+        )}
 
-          <div style={{ display: "grid", gap: "1rem" }}>
-            <div style={panelStyle}>
-              <p style={panelTitleStyle}>Offer product</p>
-              <p style={panelCopyStyle}>Choose the item to show immediately after checkout. If the product has variants, select the exact one to sell.</p>
-              <SearchableProductSelect
-                products={products}
-                value={offerProductId}
-                onChange={updateOfferProduct}
-                placeholder="Search product to offer"
-              />
-              {hasMeaningfulVariants(selectedOfferProduct) && (
-                <select style={{ ...sel, marginTop: "0.65rem" }} value={offerVariantId} onChange={(e) => setOfferVariantId(e.target.value)}>
-                  <option value="">Select variant</option>
-                  {selectedOfferProduct?.variants?.map((variant) => (
-                    <option key={variant.id} value={String(variant.id)}>
-                      {variant.title}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>
-                This is the item the customer can add after completing checkout.
-              </p>
-            </div>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <Card>
+            <BlockStack gap="500">
+              <InlineStack align="space-between" blockAlign="start">
+                <BlockStack gap="100">
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    {editingOfferId ? "Editing post-purchase offer" : "New post-purchase offer"}
+                  </Text>
+                  <Text as="h2" variant="headingLg">
+                    {editingOfferId ? "Update the selected checkout offer" : "Launch a one-click offer after checkout"}
+                  </Text>
+                  <Text as="p" variant="bodyMd" tone="subdued">
+                    Rebuy-style flow for the order-complete moment: choose the product, set the offer copy, and decide whether it appears for all orders, qualifying carts, or orders above a threshold.
+                  </Text>
+                </BlockStack>
+                <Badge tone="info">Checkout upsell layer</Badge>
+              </InlineStack>
 
-            <div style={panelStyle}>
-              <p style={panelTitleStyle}>Rules and priority</p>
-              <p style={panelCopyStyle}>Control discount strength, sequencing, and which checkout completions qualify for this offer.</p>
+              <InlineGrid columns={{ xs: 1, md: 3 }} gap="300">
+                {[
+                  { label: "Discount", value: `${discountPercent || "0"}% off` },
+                  { label: "Trigger", value: triggerSummaryLabel },
+                  { label: "Offer product", value: selectedProductLabel },
+                ].map((item) => (
+                  <Card key={item.label}>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">{item.label}</Text>
+                      <Text as="p" variant="headingMd">{item.value}</Text>
+                    </BlockStack>
+                  </Card>
+                ))}
+              </InlineGrid>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.9rem", marginBottom: "0.9rem" }}>
-                <div>
-                  <label style={lbl}>Discount percent</label>
-                  <input type="number" min="1" max="100" style={{ ...inp, width: "100%" }} value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} />
-                </div>
-                <div>
-                  <label style={lbl}>Priority</label>
-                  <input type="number" min="1" style={{ ...inp, width: "100%" }} value={priority} onChange={(e) => setPriority(e.target.value)} />
-                </div>
-              </div>
+              <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+                <Card>
+                  <BlockStack gap="400">
+                    <BlockStack gap="100">
+                      <Text as="h3" variant="headingMd">Offer content</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Set the internal name, shopper-facing copy, and the action text shown after checkout.
+                      </Text>
+                    </BlockStack>
+                    <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
+                      <TextField label="Offer name" value={name} onChange={setName} autoComplete="off" />
+                      <TextField label="CTA label" value={ctaLabel} onChange={setCtaLabel} autoComplete="off" />
+                    </InlineGrid>
+                    <TextField label="Headline" value={headline} onChange={setHeadline} autoComplete="off" />
+                    <TextField label="Offer body" value={body} onChange={setBody} multiline={6} autoComplete="off" />
+                  </BlockStack>
+                </Card>
 
-              <div style={{ marginBottom: triggerType === "all_orders" ? 0 : "0.85rem" }}>
-                <label style={lbl}>Show offer when</label>
-                <select style={sel} value={triggerType} onChange={(e) => setTriggerType(e.target.value as PostPurchaseOffer["triggerType"])}>
-                  <option value="all_orders">Every eligible order can see it</option>
-                  <option value="minimum_subtotal">Order subtotal reaches a threshold</option>
-                  <option value="contains_product">The order contains selected products</option>
-                </select>
-              </div>
-              {triggerType === "minimum_subtotal" && (
-                <div>
-                  <label style={lbl}>Minimum subtotal</label>
-                  <input type="number" min="0" step="0.01" style={{ ...inp, width: "100%" }} value={minimumSubtotal} onChange={(e) => setMinimumSubtotal(e.target.value)} />
-                </div>
-              )}
-              {triggerType === "contains_product" && (
-                <div style={{ display: "grid", gap: "0.55rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center" }}>
-                    <label style={{ ...lbl, marginBottom: 0 }}>Qualifying products</label>
-                    <button type="button" onClick={addTriggerProduct} style={{ padding: "0.35rem 0.8rem", borderRadius: "8px", border: "1px solid #3b82f6", background: "#fff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
-                      + Add product
-                    </button>
-                  </div>
-                  {triggerProductIds.map((productId, index) => (
-                    <div key={index} style={{ display: "flex", gap: "0.55rem", alignItems: "stretch" }}>
-                      <SearchableProductSelect
+                <BlockStack gap="400">
+                  <Card>
+                    <BlockStack gap="400">
+                      <BlockStack gap="100">
+                        <Text as="h3" variant="headingMd">Offer product</Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Choose the item to show immediately after checkout. If the product has variants, select the exact one to sell.
+                        </Text>
+                      </BlockStack>
+                      <PolarisProductAutocomplete
                         products={products}
-                        value={productId}
-                        onChange={(value) => updateTriggerProduct(index, value)}
-                        placeholder="Search qualifying product"
-                        style={{ flex: 1 }}
+                        value={offerProductId}
+                        onChange={updateOfferProduct}
+                        label="Offer product"
+                        placeholder="Search product to offer"
+                        helpText="This is the item the customer can add after completing checkout."
                       />
-                      {triggerProductIds.length > 1 && (
-                        <button type="button" onClick={() => removeTriggerProduct(index)} style={{ border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", borderRadius: "10px", padding: "0 0.8rem", cursor: "pointer" }}>
-                          Remove
-                        </button>
+                      {hasMeaningfulVariants(selectedOfferProduct) && (
+                        <Select label="Variant" options={variantOptions} value={offerVariantId} onChange={setOfferVariantId} />
                       )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    </BlockStack>
+                  </Card>
+
+                  <Card>
+                    <BlockStack gap="400">
+                      <BlockStack gap="100">
+                        <Text as="h3" variant="headingMd">Rules and priority</Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Control discount strength, sequencing, and which checkout completions qualify for this offer.
+                        </Text>
+                      </BlockStack>
+                      <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
+                        <TextField label="Discount percent" type="number" min={1} max={100} value={discountPercent} onChange={setDiscountPercent} autoComplete="off" />
+                        <TextField label="Priority" type="number" min={1} value={priority} onChange={setPriority} autoComplete="off" />
+                      </InlineGrid>
+                      <Select label="Show offer when" options={triggerOptions} value={triggerType} onChange={(value) => setTriggerType(value as PostPurchaseOffer["triggerType"])} />
+                      {triggerType === "minimum_subtotal" && (
+                        <TextField label="Minimum subtotal" type="number" min={0} step={0.01} value={minimumSubtotal} onChange={setMinimumSubtotal} autoComplete="off" />
+                      )}
+                      {triggerType === "contains_product" && (
+                        <BlockStack gap="300">
+                          <InlineStack align="space-between" blockAlign="center">
+                            <Text as="p" variant="bodyMd">Qualifying products</Text>
+                            <Button onClick={addTriggerProduct}>Add product</Button>
+                          </InlineStack>
+                          {triggerProductIds.map((productId, index) => (
+                            <InlineStack key={index} gap="200" blockAlign="end">
+                              <div style={{ flex: 1 }}>
+                                <PolarisProductAutocomplete
+                                  products={products}
+                                  value={productId}
+                                  onChange={(value) => updateTriggerProduct(index, value)}
+                                  label={`Qualifying product ${index + 1}`}
+                                  placeholder="Search qualifying product"
+                                />
+                              </div>
+                              {triggerProductIds.length > 1 && (
+                                <Button tone="critical" variant="secondary" onClick={() => removeTriggerProduct(index)}>
+                                  Remove
+                                </Button>
+                              )}
+                            </InlineStack>
+                          ))}
+                        </BlockStack>
+                      )}
+                    </BlockStack>
+                  </Card>
+                </BlockStack>
+              </InlineGrid>
+
+              <InlineStack align="end" gap="300">
+                {editingOfferId && <Button onClick={resetForm}>Cancel</Button>}
+                <Button variant="primary" onClick={handleSave} loading={saving}>
+                  {editingOfferId ? "Update post-purchase offer" : "Save post-purchase offer"}
+                </Button>
+              </InlineStack>
+            </BlockStack>
+          </Card>
+        </div>
+
+        {summary && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+            {[
+              { label: "Active offers", value: summary.activeOffers, sub: "Available in the current setup" },
+              { label: "Offer views", value: summary.totalViews, sub: "Rendered after checkout" },
+              { label: "Accepted", value: summary.totalAccepted, sub: "Customers who took the offer" },
+              { label: "Conversion", value: summary.conversionRate, sub: "Views to accepted" },
+              { label: "Revenue", value: fmt(summary.totalRevenue, "USD"), sub: "Tracked post-purchase sales" },
+            ].map((card) => (
+              <div key={card.label} style={{ background: "#fff", borderRadius: "12px", padding: "1rem 1.15rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                <p style={{ margin: 0, fontSize: "0.74rem", color: "#6d7175", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{card.label}</p>
+                <p style={{ margin: "0.35rem 0 0.15rem", fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>{card.value}</p>
+                <p style={{ margin: 0, fontSize: "0.76rem", color: "#6d7175" }}>{card.sub}</p>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
-          {editingOfferId && (
-            <button
-              type="button"
-              onClick={resetForm}
-              style={{
-                padding: "0.75rem 1.1rem",
-                background: "#fff",
-                color: "#475569",
-                border: "1px solid #cbd5e1",
-                borderRadius: "10px",
-                fontSize: "0.9rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                marginRight: "0.75rem",
-              }}
-            >
-              Cancel
-            </button>
+        <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: "1.5rem" }}>
+          <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
+            <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Configured offers</p>
+          </div>
+          {offers.length === 0 ? (
+            <p style={{ margin: 0, padding: "2rem", textAlign: "center", color: "#6b7280" }}>
+              No post-purchase offers yet. Create your first offer above.
+            </p>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                  {["Offer", "Product", "Trigger", "Discount", "Priority", "", ""].map((heading) => (
+                    <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {offers.map((offer, index) => (
+                  <tr key={offer.id} style={{ borderBottom: index < offers.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                    <td style={{ padding: "0.95rem 1rem", verticalAlign: "top" }}>
+                      <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>{offer.name}</p>
+                      <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "#6b7280", maxWidth: 280 }}>{offer.headline || offer.body}</p>
+                    </td>
+                    <td style={{ padding: "0.95rem 1rem", fontSize: "0.86rem", color: "#111827" }}>{offer.offerProduct?.title ?? "-"}</td>
+                    <td style={{ padding: "0.95rem 1rem", fontSize: "0.84rem", color: "#111827" }}>
+                      {offer.triggerType === "all_orders" && "All eligible orders"}
+                      {offer.triggerType === "minimum_subtotal" && `Subtotal at least ${fmt(offer.minimumSubtotal, "USD")}`}
+                      {offer.triggerType === "contains_product" && `${offer.triggerProductIds.length} qualifying product${offer.triggerProductIds.length !== 1 ? "s" : ""}`}
+                    </td>
+                    <td style={{ padding: "0.95rem 1rem", fontSize: "0.84rem", color: "#111827" }}>{offer.discountPercent}% off</td>
+                    <td style={{ padding: "0.95rem 1rem" }}>
+                      <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#eff6ff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700 }}>
+                        {offer.priority}
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
+                      <button onClick={() => startEditing(offer)} style={{ padding: "0.45rem 0.8rem", background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
+                        Edit
+                      </button>
+                    </td>
+                    <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
+                      <button onClick={() => handleDelete(offer.id)} style={{ padding: "0.45rem 0.8rem", background: "#fff", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
-          <button onClick={handleSave} disabled={saving} style={{
-            padding: "0.75rem 1.5rem",
-            background: "#1d4ed8",
-            color: "#fff",
-            border: "none",
-            borderRadius: "10px",
-            fontSize: "0.9rem",
-            fontWeight: 700,
-            cursor: saving ? "not-allowed" : "pointer",
-            opacity: saving ? 0.7 : 1,
-          }}>
-            {saving ? "Saving…" : editingOfferId ? "Update post-purchase offer" : "Save post-purchase offer"}
-          </button>
         </div>
-      </div>
 
-      {summary && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
-          {[
-            { label: "Active offers", value: summary.activeOffers, sub: "Available in the current setup" },
-            { label: "Offer views", value: summary.totalViews, sub: "Rendered after checkout" },
-            { label: "Accepted", value: summary.totalAccepted, sub: "Customers who took the offer" },
-            { label: "Conversion", value: summary.conversionRate, sub: "Views to accepted" },
-            { label: "Revenue", value: fmt(summary.totalRevenue, "USD"), sub: "Tracked post-purchase sales" },
-          ].map((card) => (
-            <div key={card.label} style={{ background: "#fff", borderRadius: "12px", padding: "1rem 1.15rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-              <p style={{ margin: 0, fontSize: "0.74rem", color: "#6d7175", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{card.label}</p>
-              <p style={{ margin: "0.35rem 0 0.15rem", fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>{card.value}</p>
-              <p style={{ margin: 0, fontSize: "0.76rem", color: "#6d7175" }}>{card.sub}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: "1.5rem" }}>
-        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
-          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Configured offers</p>
-        </div>
-        {offers.length === 0 ? (
-          <p style={{ margin: 0, padding: "2rem", textAlign: "center", color: "#6b7280" }}>
-            No post-purchase offers yet. Create your first offer above.
-          </p>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                {["Offer", "Product", "Trigger", "Discount", "Priority", "", ""].map((heading) => (
-                  <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {offers.map((offer, index) => (
-                <tr key={offer.id} style={{ borderBottom: index < offers.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <td style={{ padding: "0.95rem 1rem", verticalAlign: "top" }}>
-                    <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>{offer.name}</p>
-                    <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "#6b7280", maxWidth: 280 }}>{offer.headline || offer.body}</p>
-                  </td>
-                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.86rem", color: "#111827" }}>{offer.offerProduct?.title ?? "—"}</td>
-                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.84rem", color: "#111827" }}>
-                    {offer.triggerType === "all_orders" && "All eligible orders"}
-                    {offer.triggerType === "minimum_subtotal" && `Subtotal at least ${fmt(offer.minimumSubtotal, "USD")}`}
-                    {offer.triggerType === "contains_product" && `${offer.triggerProductIds.length} qualifying product${offer.triggerProductIds.length !== 1 ? "s" : ""}`}
-                  </td>
-                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.84rem", color: "#111827" }}>{offer.discountPercent}% off</td>
-                  <td style={{ padding: "0.95rem 1rem" }}>
-                    <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#eff6ff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700 }}>
-                      {offer.priority}
-                    </span>
-                  </td>
-                  <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
-                    <button onClick={() => startEditing(offer)} style={{ padding: "0.45rem 0.8rem", background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
-                      Edit
-                    </button>
-                  </td>
-                  <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
-                    <button onClick={() => handleDelete(offer.id)} style={{ padding: "0.45rem 0.8rem", background: "#fff", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
-                      Delete
-                    </button>
-                  </td>
+        <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+          <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
+            <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Post-purchase performance</p>
+          </div>
+          {offerStats.length === 0 ? (
+            <p style={{ margin: 0, padding: "2rem", textAlign: "center", color: "#6b7280" }}>
+              Stats will appear once the checkout extension starts rendering offers and customers accept them.
+            </p>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                  {["Offer", "Product", "Views", "Accepted", "Conversion", "Revenue"].map((heading) => (
+                    <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
-          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Post-purchase performance</p>
-        </div>
-        {offerStats.length === 0 ? (
-          <p style={{ margin: 0, padding: "2rem", textAlign: "center", color: "#6b7280" }}>
-            Stats will appear once the checkout extension starts rendering offers and customers accept them.
-          </p>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                {["Offer", "Product", "Views", "Accepted", "Conversion", "Revenue"].map((heading) => (
-                  <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+              </thead>
+              <tbody>
+                {offerStats.map((stat, index) => (
+                  <tr key={stat.offerId} style={{ borderBottom: index < offerStats.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                    <td style={{ padding: "0.85rem 1rem", fontWeight: 600, color: "#111827" }}>{stat.name}</td>
+                    <td style={{ padding: "0.85rem 1rem", color: "#374151", fontSize: "0.85rem" }}>{stat.productLabel}</td>
+                    <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.viewed}</td>
+                    <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.accepted}</td>
+                    <td style={{ padding: "0.85rem 1rem" }}>
+                      <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#ecfdf5", color: "#166534", fontSize: "0.78rem", fontWeight: 700 }}>
+                        {stat.conversionRate}
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{fmt(stat.revenue, "USD")}</td>
+                  </tr>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {offerStats.map((stat, index) => (
-                <tr key={stat.offerId} style={{ borderBottom: index < offerStats.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <td style={{ padding: "0.85rem 1rem", fontWeight: 600, color: "#111827" }}>{stat.name}</td>
-                  <td style={{ padding: "0.85rem 1rem", color: "#374151", fontSize: "0.85rem" }}>{stat.productLabel}</td>
-                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.viewed}</td>
-                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.accepted}</td>
-                  <td style={{ padding: "0.85rem 1rem" }}>
-                    <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#eff6ff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700 }}>
-                      {stat.conversionRate}
-                    </span>
-                  </td>
-                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{fmt(stat.revenue, "USD")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </>
+              </tbody>
+            </table>
+          )}
+        </div>
+      </>
+    </PolarisProvider>
   );
-}
-
-interface RuleStat {
-  ruleId: string;
-  triggerProductTitle: string;
-  upsellProductTitle: string; // comma-joined suggestion titles
-  views: number;
-  clicks: number;
-  added: number;
-  ctr: string;
-  convRate: string;
 }
 
 function StatsTab() {
@@ -2268,3 +2297,4 @@ export default function DashboardPage() {
     </DashboardShell>
   );
 }
+
