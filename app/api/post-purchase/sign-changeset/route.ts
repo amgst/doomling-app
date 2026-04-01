@@ -16,8 +16,11 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const corsHeaders = buildPostPurchaseCorsHeaders(req.headers.get("origin"));
   try {
-    const { shop, accessToken } = await verifyCheckoutRequest(req.headers.get("authorization"));
     const body = await req.json();
+    const { shop, accessToken } = await verifyCheckoutRequest(
+      req.headers.get("authorization"),
+      body?.shopDomain,
+    );
     const referenceId = String(body?.referenceId ?? "");
     const offerId = String(body?.changes ?? "");
 

@@ -25,6 +25,7 @@ extend("Checkout::PostPurchase::ShouldRender", async ({ inputData, storage }) =>
     body: JSON.stringify({
       referenceId: inputData.initialPurchase.referenceId,
       initialPurchase: inputData.initialPurchase,
+      shopDomain: inputData.shop?.domain,
     }),
   }).then((result) => result.json());
 
@@ -53,6 +54,7 @@ extend(
         body: JSON.stringify({
           referenceId: inputData.initialPurchase.referenceId,
           changes: purchaseOption.id,
+          shopDomain: inputData.shop?.domain,
         }),
       })
         .then((response) => response.json())

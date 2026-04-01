@@ -31,10 +31,21 @@ function getBearerToken(header: string | null) {
   return match?.[1] ?? null;
 }
 
-function getShopFromPayload(payload: CheckoutJwtPayload) {
+function getShopFromPayload(payload: CheckoutJwtPayload, fallbackShopDomain?: string) {
   const dest = String(payload.dest ?? "");
-  if (!dest) throw new Error("Missing destination shop in checkout token");
-  return getShopify().utils.sanitizeShop(new URL(dest).hostname, true)!;
+  if (dest) {
+    const hostname = dest.startsWith("http://") || dest.startsWith("https://")
+      ? new URL(dest).hostname
+      : dest;
+    return getShopify().utils.sanitizeShop(hostname, true)!;
+  }
+
+  const fallback = String(fallbackShopDomain ?? "");
+  if (fallback) {
+    return getShopify().utils.sanitizeShop(fallback, true)!;
+  }
+
+  throw new Error("Missing destination shop in checkout token");
 }
 
 function parseAmount(value: unknown) {
@@ -76,12 +87,12 @@ function signHs256(payload: Record<string, unknown>) {
   return `${content}.${signature}`;
 }
 
-export async function verifyCheckoutRequest(authHeader: string | null) {
+export async function verifyCheckoutRequest(authHeader: string | null, fallbackShopDomain?: string) {
   const token = getBearerToken(authHeader);
   if (!token) throw new Error("Missing checkout token");
 
   const payload = await getShopify().session.decodeSessionToken(token, { checkAudience: false }) as CheckoutJwtPayload;
-  const shop = getShopFromPayload(payload);
+  const shop = getShopFromPayload(payload, fallbackShopDomain);
   const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
   if (!session?.accessToken) throw new Error("No access token");
 
