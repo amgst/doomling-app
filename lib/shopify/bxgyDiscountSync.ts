@@ -12,6 +12,11 @@ type DiscountRecord = {
   functionId: string;
 };
 
+type AppDiscountTypeRecord = {
+  functionId: string;
+  discountClasses: string[];
+};
+
 function variantGidFromId(variantId: string) {
   const value = String(variantId || "").trim();
   if (!value) return null;
@@ -37,10 +42,10 @@ function buildConfig(rules: BxgyRule[]) {
   };
 }
 
-let cachedFunctionIdByShop = new Map<string, string>();
+let cachedAppDiscountTypeByShop = new Map<string, AppDiscountTypeRecord>();
 
-async function resolveFunctionId(shop: string, accessToken: string): Promise<string> {
-  const cached = cachedFunctionIdByShop.get(shop);
+async function resolveAppDiscountType(shop: string, accessToken: string): Promise<AppDiscountTypeRecord> {
+  const cached = cachedAppDiscountTypeByShop.get(shop);
   if (cached) return cached;
 
   const response = await shopifyAdminGraphql(
@@ -69,6 +74,11 @@ async function resolveFunctionId(shop: string, accessToken: string): Promise<str
 
   const functionId =
     typeof preferred?.functionId === "string" && preferred.functionId.trim() ? preferred.functionId.trim() : null;
+  const discountClasses = Array.isArray(preferred?.discountClasses)
+    ? preferred.discountClasses
+        .map((entry: unknown) => (typeof entry === "string" ? entry.trim() : ""))
+        .filter(Boolean)
+    : [];
 
   if (!functionId) {
     throw new Error(
@@ -76,12 +86,19 @@ async function resolveFunctionId(shop: string, accessToken: string): Promise<str
     );
   }
 
-  cachedFunctionIdByShop.set(shop, functionId);
-  return functionId;
+  if (discountClasses.length === 0) {
+    throw new Error(
+      "Shopify did not return any discount classes for the released discount function. Re-release the function and try again.",
+    );
+  }
+
+  const record = { functionId, discountClasses };
+  cachedAppDiscountTypeByShop.set(shop, record);
+  return record;
 }
 
 async function findExistingDiscount(shop: string, accessToken: string): Promise<DiscountRecord | null> {
-  const functionId = await resolveFunctionId(shop, accessToken);
+  const { functionId } = await resolveAppDiscountType(shop, accessToken);
   const stored = await getShop(shop);
   const storedId = stored?.settings?.bxgyDiscountId;
 
@@ -138,7 +155,7 @@ async function findExistingDiscount(shop: string, accessToken: string): Promise<
 }
 
 export async function syncBxgyDiscount(shop: string, accessToken: string, rules: BxgyRule[]) {
-  const functionId = await resolveFunctionId(shop, accessToken);
+  const { functionId, discountClasses } = await resolveAppDiscountType(shop, accessToken);
   const config = buildConfig(rules);
   const metafields = [
     {
@@ -177,6 +194,7 @@ export async function syncBxgyDiscount(shop: string, accessToken: string, rules:
         automaticAppDiscount: {
           title: TITLE,
           functionId,
+          discountClasses,
           startsAt,
           combinesWith: {
             orderDiscounts: true,
@@ -226,6 +244,8 @@ export async function syncBxgyDiscount(shop: string, accessToken: string, rules:
       id: existing.id,
       automaticAppDiscount: {
         title: TITLE,
+        functionId,
+        discountClasses,
         startsAt,
         metafields,
       },
