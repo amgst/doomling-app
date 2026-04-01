@@ -1,8 +1,10 @@
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { shopifyAdminGraphql } from "@/lib/shopify/adminGraphql";
 import type { BxgyRule } from "@/lib/shopify/bxgyRuleStore";
 import { getShop, updateShopSettings } from "@/lib/firebase/shopStore";
 
-const FUNCTION_ID = "ca9f669b-dd58-1d8c-2599-4e065cc68d8e310c87c1";
+const FUNCTION_HANDLE = "upsale-discount";
 const TITLE = "Upsale Buy X Get Y";
 const NS = "upsale";
 const KEY = "config";
@@ -38,7 +40,61 @@ function buildConfig(rules: BxgyRule[]) {
   };
 }
 
+let cachedFunctionId: string | null | undefined;
+
+function readFunctionIdFromManifest(manifestPath: string): string | null {
+  if (!existsSync(manifestPath)) return null;
+
+  try {
+    const raw = readFileSync(manifestPath, "utf8");
+    const parsed = JSON.parse(raw) as {
+      modules?: Array<{
+        type?: string;
+        handle?: string;
+        config?: {
+          module_id?: string;
+        };
+      }>;
+    };
+
+    const functionModule = parsed.modules?.find(
+      (entry) => entry?.type === "function" && entry?.handle === FUNCTION_HANDLE,
+    );
+
+    const moduleId = functionModule?.config?.module_id;
+    return typeof moduleId === "string" && moduleId ? moduleId : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveFunctionId(): string {
+  if (cachedFunctionId) return cachedFunctionId;
+  if (cachedFunctionId === null) {
+    throw new Error("Could not resolve the released Shopify Function ID for BXGY discounts.");
+  }
+
+  const candidates = [
+    join(process.cwd(), ".shopify", "deploy-bundle", "manifest.json"),
+    join(process.cwd(), ".shopify", "dev-bundle", "manifest.json"),
+  ];
+
+  for (const manifestPath of candidates) {
+    const functionId = readFunctionIdFromManifest(manifestPath);
+    if (functionId) {
+      cachedFunctionId = functionId;
+      return functionId;
+    }
+  }
+
+  cachedFunctionId = null;
+  throw new Error(
+    "Could not find the released Shopify Function ID. Rebuild/redeploy the app bundle so the BXGY discount can target the current app version.",
+  );
+}
+
 async function findExistingDiscount(shop: string, accessToken: string): Promise<DiscountRecord | null> {
+  const functionId = resolveFunctionId();
   const stored = await getShop(shop);
   const storedId = stored?.settings?.bxgyDiscountId;
 
@@ -46,7 +102,7 @@ async function findExistingDiscount(shop: string, accessToken: string): Promise<
     return {
       id: storedId,
       title: TITLE,
-      functionId: FUNCTION_ID,
+      functionId,
     };
   }
 
@@ -75,7 +131,7 @@ async function findExistingDiscount(shop: string, accessToken: string): Promise<
   const nodes = response?.data?.automaticDiscountNodes?.nodes ?? [];
   const match = nodes.find((node: any) => {
     const discount = node?.automaticDiscount;
-    return discount?.appDiscountType?.functionId === FUNCTION_ID;
+    return discount?.appDiscountType?.functionId === functionId;
   });
 
   if (!match?.id) return null;
@@ -83,7 +139,7 @@ async function findExistingDiscount(shop: string, accessToken: string): Promise<
   const record = {
     id: String(match.id),
     title: String(match?.automaticDiscount?.title ?? TITLE),
-    functionId: FUNCTION_ID,
+    functionId,
   };
 
   await updateShopSettings(shop, {
@@ -95,6 +151,7 @@ async function findExistingDiscount(shop: string, accessToken: string): Promise<
 }
 
 export async function syncBxgyDiscount(shop: string, accessToken: string, rules: BxgyRule[]) {
+  const functionId = resolveFunctionId();
   const config = buildConfig(rules);
   const metafields = [
     {
@@ -132,7 +189,7 @@ export async function syncBxgyDiscount(shop: string, accessToken: string, rules:
       {
         automaticAppDiscount: {
           title: TITLE,
-          functionId: FUNCTION_ID,
+          functionId,
           startsAt,
           combinesWith: {
             orderDiscounts: true,
