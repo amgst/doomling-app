@@ -2174,12 +2174,14 @@ function PostPurchaseTab() {
 }
 
 interface RuleStat {
-  id: string;
+  ruleId: string;
   triggerProductTitle: string;
-  upsellTitle: string;
+  upsellProductTitle: string;
   views: number;
   clicks: number;
   added: number;
+  ctr: string;
+  convRate: string;
 }
 
 function StatsTab() {
