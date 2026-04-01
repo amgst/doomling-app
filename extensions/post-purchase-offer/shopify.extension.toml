@@ -1,0 +1,11 @@
+name = "post-purchase-offer"
+type = "checkout_post_purchase"
+api_version = "2026-01"
+
+[[extension_points]]
+target = "Checkout::PostPurchase::ShouldRender"
+module = "./src/index.js"
+
+[[extension_points]]
+target = "Checkout::PostPurchase::Render"
+module = "./src/index.js"

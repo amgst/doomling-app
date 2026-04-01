@@ -108,6 +108,50 @@ interface BxgyRuleStat {
   conversionRate: string;
 }
 
+interface PostPurchaseProduct {
+  productId: string;
+  variantId: string;
+  title: string;
+  image: string;
+  price: string;
+  handle: string;
+}
+
+interface PostPurchaseOffer {
+  id: string;
+  name: string;
+  offerProduct: PostPurchaseProduct | null;
+  headline: string;
+  body: string;
+  ctaLabel: string;
+  discountPercent: number;
+  priority: number;
+  triggerType: "all_orders" | "minimum_subtotal" | "contains_product";
+  triggerProductIds: string[];
+  minimumSubtotal: number;
+  enabled: boolean;
+}
+
+interface PostPurchaseSummary {
+  activeOffers: number;
+  totalViews: number;
+  totalAccepted: number;
+  totalRevenue: number;
+  conversionRate: string;
+}
+
+interface PostPurchaseOfferStat {
+  offerId: string;
+  name: string;
+  productLabel: string;
+  triggerType: string;
+  discountPercent: number;
+  viewed: number;
+  accepted: number;
+  revenue: number;
+  conversionRate: string;
+}
+
 async function safeJson<T = any>(response: Response): Promise<T | null> {
   const text = await response.text();
   if (!text) return null;
@@ -1332,6 +1376,438 @@ function BuyXGetYTab() {
   );
 }
 
+function PostPurchaseTab() {
+  const [offers, setOffers] = useState<PostPurchaseOffer[]>([]);
+  const [summary, setSummary] = useState<PostPurchaseSummary | null>(null);
+  const [offerStats, setOfferStats] = useState<PostPurchaseOfferStat[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState("Post-purchase offer");
+  const [headline, setHeadline] = useState("One more thing before you go");
+  const [body, setBody] = useState("Add this bonus item to the order you just placed without starting checkout again.");
+  const [ctaLabel, setCtaLabel] = useState("Add to my order");
+  const [discountPercent, setDiscountPercent] = useState("15");
+  const [priority, setPriority] = useState("1");
+  const [triggerType, setTriggerType] = useState<PostPurchaseOffer["triggerType"]>("all_orders");
+  const [triggerProductIds, setTriggerProductIds] = useState<string[]>([""]);
+  const [minimumSubtotal, setMinimumSubtotal] = useState("0");
+  const [offerProductId, setOfferProductId] = useState("");
+  const [offerVariantId, setOfferVariantId] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/standalone/post-purchase").then((r) => safeJson(r)),
+      fetch("/api/standalone/post-purchase-stats").then((r) => safeJson(r)),
+      fetch("/api/standalone/products").then((r) => safeJson(r)),
+    ])
+      .then(([offerData, statsData, productData]) => {
+        setOffers(offerData?.offers ?? []);
+        setSummary(statsData?.summary ?? null);
+        setOfferStats(statsData?.offers ?? []);
+        setProducts(productData?.products ?? []);
+      })
+      .catch(() => setError("Failed to load post-purchase offers."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const sel: React.CSSProperties = { width: "100%", padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
+  const inp: React.CSSProperties = { padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
+
+  const getSelectedVariantId = (productId: string, variantId?: string) => {
+    const product = products.find((entry) => String(entry.id) === productId);
+    if (!product?.variants?.length) return "";
+    if (!hasMeaningfulVariants(product)) {
+      return String(product.variants[0]?.id ?? "");
+    }
+    if (variantId && product.variants.some((entry) => String(entry.id) === variantId)) {
+      return variantId;
+    }
+    return "";
+  };
+
+  const updateOfferProduct = (productId: string) => {
+    setOfferProductId(productId);
+    setOfferVariantId(getSelectedVariantId(productId));
+  };
+
+  const updateTriggerProduct = (index: number, productId: string) => {
+    setTriggerProductIds((current) => current.map((entry, idx) => idx === index ? productId : entry));
+  };
+
+  const addTriggerProduct = () => {
+    if (triggerProductIds.length >= 6) return;
+    setTriggerProductIds((current) => [...current, ""]);
+  };
+
+  const removeTriggerProduct = (index: number) => {
+    setTriggerProductIds((current) => current.filter((_, idx) => idx !== index));
+  };
+
+  const productToOffer = (productId: string, variantId: string): PostPurchaseProduct | null => {
+    const product = products.find((entry) => String(entry.id) === productId);
+    const resolvedVariantId = getSelectedVariantId(productId, variantId);
+    const variant = product?.variants?.find((entry) => String(entry.id) === resolvedVariantId);
+    if (!product || !variant) return null;
+    return {
+      productId: String(product.id),
+      variantId: String(variant.id),
+      title: bxgyOptionLabel(product, variant),
+      image: product.image?.src ?? "",
+      price: variant.price ?? "",
+      handle: product.handle,
+    };
+  };
+
+  const refreshData = async () => {
+    const [offerData, statsData] = await Promise.all([
+      fetch("/api/standalone/post-purchase").then((r) => safeJson(r)),
+      fetch("/api/standalone/post-purchase-stats").then((r) => safeJson(r)),
+    ]);
+    setOffers(offerData?.offers ?? []);
+    setSummary(statsData?.summary ?? null);
+    setOfferStats(statsData?.offers ?? []);
+  };
+
+  const resetForm = () => {
+    setName("Post-purchase offer");
+    setHeadline("One more thing before you go");
+    setBody("Add this bonus item to the order you just placed without starting checkout again.");
+    setCtaLabel("Add to my order");
+    setDiscountPercent("15");
+    setPriority("1");
+    setTriggerType("all_orders");
+    setTriggerProductIds([""]);
+    setMinimumSubtotal("0");
+    setOfferProductId("");
+    setOfferVariantId("");
+  };
+
+  const handleSave = async () => {
+    const offerProduct = productToOffer(offerProductId, offerVariantId);
+    const sanitizedTriggerProductIds = triggerProductIds.filter(Boolean);
+
+    if (!name.trim()) {
+      setError("Enter an offer name.");
+      return;
+    }
+    if (!offerProduct) {
+      setError("Select the product to offer after checkout.");
+      return;
+    }
+    if (triggerType === "contains_product" && sanitizedTriggerProductIds.length === 0) {
+      setError("Choose at least one trigger product for contains-product targeting.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    const response = await fetch("/api/standalone/post-purchase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        offerProduct,
+        headline,
+        body,
+        ctaLabel,
+        discountPercent,
+        priority,
+        triggerType,
+        triggerProductIds: sanitizedTriggerProductIds,
+        minimumSubtotal,
+        enabled: true,
+      }),
+    });
+    const data = await safeJson<{ error?: string }>(response);
+    if (!response.ok) {
+      setError(data?.error ?? "Failed to save post-purchase offer.");
+      setSaving(false);
+      return;
+    }
+
+    await refreshData();
+    resetForm();
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    const response = await fetch(`/api/standalone/post-purchase/${id}`, { method: "DELETE" });
+    const data = await safeJson<{ error?: string }>(response);
+    if (!response.ok) {
+      setError(data?.error ?? "Failed to delete post-purchase offer.");
+      return;
+    }
+    await refreshData();
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
+
+  const selectedOfferProduct = products.find((product) => String(product.id) === offerProductId);
+
+  return (
+    <>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Post-Purchase</h1>
+        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>
+          Build one-click offers for the moment right after checkout, with targeting, discounting, and offer stats in one place.
+        </p>
+      </div>
+
+      {error && <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c0392b", fontSize: "0.875rem" }}>{error}</div>}
+
+      <div style={{
+        background: "linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #ffffff 100%)",
+        border: "1px solid #dbeafe",
+        borderRadius: "16px",
+        padding: "1.5rem",
+        marginBottom: "1.5rem",
+        boxShadow: "0 6px 24px rgba(37, 99, 235, 0.06)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+          <div>
+            <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#1d4ed8", textTransform: "uppercase", letterSpacing: "0.05em" }}>New post-purchase offer</p>
+            <h2 style={{ margin: "0.35rem 0 0.2rem", fontSize: "1.25rem", color: "#0f172a" }}>Launch a one-click offer after checkout</h2>
+            <p style={{ margin: 0, color: "#4b5563", fontSize: "0.86rem", maxWidth: 720 }}>
+              Rebuy-style flow for the order-complete moment: choose the product, set the offer copy, and decide whether it appears for all orders, qualifying carts, or orders above a threshold.
+            </p>
+          </div>
+          <div style={{ padding: "0.5rem 0.75rem", borderRadius: "999px", background: "#dbeafe", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700 }}>
+            Checkout upsell layer
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.7fr 0.7fr", gap: "1rem", marginBottom: "1rem" }}>
+          <div>
+            <label style={lbl}>Offer name</label>
+            <input type="text" style={inp} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Discount percent</label>
+            <input type="number" min="1" max="100" style={inp} value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Priority</label>
+            <input type="number" min="1" style={inp} value={priority} onChange={(e) => setPriority(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+          <div>
+            <label style={lbl}>Headline</label>
+            <input type="text" style={inp} value={headline} onChange={(e) => setHeadline(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>CTA label</label>
+            <input type="text" style={inp} value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: "1rem" }}>
+          <label style={lbl}>Offer body</label>
+          <textarea
+            rows={3}
+            style={{ ...inp, width: "100%", resize: "vertical" }}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <div style={{ background: "#fff", border: "1px solid #dbeafe", borderRadius: "14px", padding: "1rem" }}>
+            <p style={{ margin: "0 0 0.8rem", fontWeight: 700, color: "#0f172a" }}>Offer product</p>
+            <select style={sel} value={offerProductId} onChange={(e) => updateOfferProduct(e.target.value)}>
+              <option value="">Select product to offer</option>
+              {products.map((product) => (
+                <option key={product.id} value={String(product.id)}>{product.title}</option>
+              ))}
+            </select>
+            {hasMeaningfulVariants(selectedOfferProduct) && (
+              <select style={{ ...sel, marginTop: "0.65rem" }} value={offerVariantId} onChange={(e) => setOfferVariantId(e.target.value)}>
+                <option value="">Select variant</option>
+                {selectedOfferProduct?.variants?.map((variant) => (
+                  <option key={variant.id} value={String(variant.id)}>
+                    {variant.title}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", color: "#6d7175" }}>
+              This is the item the customer can add after completing checkout.
+            </p>
+          </div>
+
+          <div style={{ background: "#fff", border: "1px solid #dbeafe", borderRadius: "14px", padding: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center", marginBottom: "0.8rem" }}>
+              <p style={{ margin: 0, fontWeight: 700, color: "#0f172a" }}>Targeting</p>
+              {triggerType === "contains_product" && (
+                <button type="button" onClick={addTriggerProduct} style={{ padding: "0.35rem 0.8rem", borderRadius: "8px", border: "1px solid #3b82f6", background: "#fff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
+                  + Add product
+                </button>
+              )}
+            </div>
+            <div style={{ marginBottom: "0.75rem" }}>
+              <label style={lbl}>Show offer when</label>
+              <select style={sel} value={triggerType} onChange={(e) => setTriggerType(e.target.value as PostPurchaseOffer["triggerType"])}>
+                <option value="all_orders">Every eligible order can see it</option>
+                <option value="minimum_subtotal">Order subtotal reaches a threshold</option>
+                <option value="contains_product">The order contains selected products</option>
+              </select>
+            </div>
+            {triggerType === "minimum_subtotal" && (
+              <div>
+                <label style={lbl}>Minimum subtotal</label>
+                <input type="number" min="0" step="0.01" style={inp} value={minimumSubtotal} onChange={(e) => setMinimumSubtotal(e.target.value)} />
+              </div>
+            )}
+            {triggerType === "contains_product" && (
+              <div style={{ display: "grid", gap: "0.55rem" }}>
+                {triggerProductIds.map((productId, index) => (
+                  <div key={index} style={{ display: "flex", gap: "0.55rem", alignItems: "stretch" }}>
+                    <select style={sel} value={productId} onChange={(e) => updateTriggerProduct(index, e.target.value)}>
+                      <option value="">Select qualifying product</option>
+                      {products.map((product) => (
+                        <option key={product.id} value={String(product.id)}>{product.title}</option>
+                      ))}
+                    </select>
+                    {triggerProductIds.length > 1 && (
+                      <button type="button" onClick={() => removeTriggerProduct(index)} style={{ border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", borderRadius: "10px", padding: "0 0.8rem", cursor: "pointer" }}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
+          <button onClick={handleSave} disabled={saving} style={{
+            padding: "0.75rem 1.5rem",
+            background: "#1d4ed8",
+            color: "#fff",
+            border: "none",
+            borderRadius: "10px",
+            fontSize: "0.9rem",
+            fontWeight: 700,
+            cursor: saving ? "not-allowed" : "pointer",
+            opacity: saving ? 0.7 : 1,
+          }}>
+            {saving ? "Saving…" : "Save post-purchase offer"}
+          </button>
+        </div>
+      </div>
+
+      {summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+          {[
+            { label: "Active offers", value: summary.activeOffers, sub: "Available in the current setup" },
+            { label: "Offer views", value: summary.totalViews, sub: "Rendered after checkout" },
+            { label: "Accepted", value: summary.totalAccepted, sub: "Customers who took the offer" },
+            { label: "Conversion", value: summary.conversionRate, sub: "Views to accepted" },
+            { label: "Revenue", value: fmt(summary.totalRevenue, "USD"), sub: "Tracked post-purchase sales" },
+          ].map((card) => (
+            <div key={card.label} style={{ background: "#fff", borderRadius: "12px", padding: "1rem 1.15rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+              <p style={{ margin: 0, fontSize: "0.74rem", color: "#6d7175", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{card.label}</p>
+              <p style={{ margin: "0.35rem 0 0.15rem", fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>{card.value}</p>
+              <p style={{ margin: 0, fontSize: "0.76rem", color: "#6d7175" }}>{card.sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: "1.5rem" }}>
+        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
+          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Configured offers</p>
+        </div>
+        {offers.length === 0 ? (
+          <p style={{ margin: 0, padding: "2rem", textAlign: "center", color: "#6b7280" }}>
+            No post-purchase offers yet. Create your first offer above.
+          </p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                {["Offer", "Product", "Trigger", "Discount", "Priority", ""].map((heading) => (
+                  <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {offers.map((offer, index) => (
+                <tr key={offer.id} style={{ borderBottom: index < offers.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <td style={{ padding: "0.95rem 1rem", verticalAlign: "top" }}>
+                    <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>{offer.name}</p>
+                    <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "#6b7280", maxWidth: 280 }}>{offer.headline || offer.body}</p>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.86rem", color: "#111827" }}>{offer.offerProduct?.title ?? "—"}</td>
+                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.84rem", color: "#111827" }}>
+                    {offer.triggerType === "all_orders" && "All eligible orders"}
+                    {offer.triggerType === "minimum_subtotal" && `Subtotal at least ${fmt(offer.minimumSubtotal, "USD")}`}
+                    {offer.triggerType === "contains_product" && `${offer.triggerProductIds.length} qualifying product${offer.triggerProductIds.length !== 1 ? "s" : ""}`}
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.84rem", color: "#111827" }}>{offer.discountPercent}% off</td>
+                  <td style={{ padding: "0.95rem 1rem" }}>
+                    <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#eff6ff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700 }}>
+                      {offer.priority}
+                    </span>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
+                    <button onClick={() => handleDelete(offer.id)} style={{ padding: "0.45rem 0.8rem", background: "#fff", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
+          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Post-purchase performance</p>
+        </div>
+        {offerStats.length === 0 ? (
+          <p style={{ margin: 0, padding: "2rem", textAlign: "center", color: "#6b7280" }}>
+            Stats will appear once the checkout extension starts rendering offers and customers accept them.
+          </p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                {["Offer", "Product", "Views", "Accepted", "Conversion", "Revenue"].map((heading) => (
+                  <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {offerStats.map((stat, index) => (
+                <tr key={stat.offerId} style={{ borderBottom: index < offerStats.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <td style={{ padding: "0.85rem 1rem", fontWeight: 600, color: "#111827" }}>{stat.name}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#374151", fontSize: "0.85rem" }}>{stat.productLabel}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.viewed}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.accepted}</td>
+                  <td style={{ padding: "0.85rem 1rem" }}>
+                    <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#eff6ff", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700 }}>
+                      {stat.conversionRate}
+                    </span>
+                  </td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{fmt(stat.revenue, "USD")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  );
+}
+
 interface RuleStat {
   ruleId: string;
   triggerProductTitle: string;
@@ -1437,7 +1913,7 @@ interface ShopInfo {
   adminUrl: string;
 }
 
-const VALID_TABS = ["overview", "products", "upsells", "buyxgety", "stats"] as const;
+const VALID_TABS = ["overview", "products", "upsells", "buyxgety", "postpurchase", "stats"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
@@ -1462,6 +1938,7 @@ export default function DashboardPage() {
       {tab === "products" && <ProductsTab />}
       {tab === "upsells" && <UpsellsTab />}
       {tab === "buyxgety" && <BuyXGetYTab />}
+      {tab === "postpurchase" && <PostPurchaseTab />}
       {tab === "stats" && <StatsTab />}
     </DashboardShell>
   );

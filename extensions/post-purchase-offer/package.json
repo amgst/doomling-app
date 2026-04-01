@@ -1,0 +1,10 @@
+{
+  "name": "post-purchase-offer",
+  "private": true,
+  "version": "0.0.1",
+  "dependencies": {
+    "@shopify/post-purchase-ui-extensions": "^0.13.2",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^11.1.0"
+  }
+}
