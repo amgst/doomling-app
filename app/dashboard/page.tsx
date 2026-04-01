@@ -872,6 +872,9 @@ function BuyXGetYTab() {
 
   const sel: React.CSSProperties = { width: "100%", padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
   const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
+  const bxgySelect: React.CSSProperties = { ...sel, minWidth: 0, flex: 1 };
+  const bxgyVariantSelect: React.CSSProperties = { ...sel, minWidth: "190px", flex: "0 0 220px" };
+  const bxgyGiftSelect: React.CSSProperties = { ...sel, maxWidth: "560px" };
 
   if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loadingâ€¦</div>;
 
@@ -948,15 +951,15 @@ function BuyXGetYTab() {
               const showVariantSelect = hasMeaningfulVariants(selectedProduct);
 
               return (
-              <div key={index} style={{ display: "flex", gap: "0.55rem", marginBottom: index === buyProductIds.length - 1 ? 0 : "0.55rem" }}>
-                <select style={sel} value={productId} onChange={(e) => updateBuyProduct(index, e.target.value)}>
+              <div key={index} style={{ display: "flex", gap: "0.55rem", alignItems: "stretch", marginBottom: index === buyProductIds.length - 1 ? 0 : "0.55rem" }}>
+                <select style={showVariantSelect ? bxgySelect : bxgyGiftSelect} value={productId} onChange={(e) => updateBuyProduct(index, e.target.value)}>
                   <option value="">Select trigger product</option>
                   {products.map((product) => (
                     <option key={product.id} value={String(product.id)}>{product.title}</option>
                   ))}
                 </select>
                 {showVariantSelect && (
-                  <select style={sel} value={buyVariantIds[index] ?? ""} onChange={(e) => updateBuyVariant(index, e.target.value)}>
+                  <select style={bxgyVariantSelect} value={buyVariantIds[index] ?? ""} onChange={(e) => updateBuyVariant(index, e.target.value)}>
                     <option value="">Select variant</option>
                     {selectedProduct?.variants?.map((variant) => (
                       <option key={variant.id} value={String(variant.id)}>
@@ -976,14 +979,14 @@ function BuyXGetYTab() {
 
           <div style={{ background: "#fff", border: "1px solid #d1fae5", borderRadius: "14px", padding: "1rem" }}>
             <p style={{ margin: "0 0 0.8rem", fontWeight: 700, color: "#14532d" }}>Gift product</p>
-            <select style={sel} value={giftProductId} onChange={(e) => updateGiftProduct(e.target.value)}>
+            <select style={bxgyGiftSelect} value={giftProductId} onChange={(e) => updateGiftProduct(e.target.value)}>
               <option value="">Select free gift product</option>
               {products.map((product) => (
                 <option key={product.id} value={String(product.id)}>{product.title}</option>
               ))}
             </select>
             {hasMeaningfulVariants(products.find((product) => String(product.id) === giftProductId)) && (
-              <select style={{ ...sel, marginTop: "0.65rem" }} value={giftVariantId} onChange={(e) => setGiftVariantId(e.target.value)}>
+              <select style={{ ...bxgyVariantSelect, marginTop: "0.65rem", display: "block" }} value={giftVariantId} onChange={(e) => setGiftVariantId(e.target.value)}>
                 <option value="">Select variant</option>
                 {products.find((product) => String(product.id) === giftProductId)?.variants?.map((variant) => (
                   <option key={variant.id} value={String(variant.id)}>

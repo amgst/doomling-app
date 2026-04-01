@@ -5,22 +5,22 @@ This file lists the Shopify theme files we added or edited for the Pebble theme 
 ## Pebble theme files
 
 - Added [theme/assets/upsale-bxgy.js](/c:/shopify%20apps/doomling/theme/assets/upsale-bxgy.js)
-  - Handles Buy X Get Y auto-gift logic inside the Pebble theme.
-  - Hooks into Pebble cart updates.
-  - Adds/removes the free gift in the cart and drawer.
-  - Renders the BXGY gift panel and toast UI.
+  - Legacy Pebble-specific BXGY theme script.
+  - Kept in the repo for reference, but it is no longer auto-loaded by the theme.
 
 - Edited [theme/snippets/scripts.liquid](/c:/shopify%20apps/doomling/theme/snippets/scripts.liquid)
-  - Loads `upsale-bxgy.js`.
-  - Sets the app backend URL used by the theme integration.
+  - Removed the unconditional `upsale-bxgy.js` script include.
+  - Removed the old always-on `FoxTheme.upsale.appUrl` config.
+  - Storefront BXGY should now be activated through the app embed/block instead of always loading from the theme.
 
 ## Related app theme extension file
 
 - Added [extensions/upsell-widget/blocks/gift-notification.liquid](/c:/shopify%20apps/doomling/extensions/upsell-widget/blocks/gift-notification.liquid)
   - Theme app extension version of the BXGY gift notifier.
-  - This is separate from the direct Pebble theme integration above.
+  - This is now the recommended activation path for BXGY storefront behavior.
 
 ## Notes
 
-- For Pebble, the main live storefront integration is the theme-native script in `theme/assets/upsale-bxgy.js`.
-- If the app backend URL changes, update it in `theme/snippets/scripts.liquid`.
+- No app embed/app block enabled means no BXGY storefront script is loaded.
+- Enable the relevant app blocks/embeds only on the theme you want to test.
+- If the app backend URL changes, update the extension block settings where the embed/block is enabled.
