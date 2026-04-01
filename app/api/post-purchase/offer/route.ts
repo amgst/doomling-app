@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildRuntimeOffer, resolvePostPurchaseOffer, trackOfferView, verifyCheckoutRequest } from "@/lib/shopify/postPurchaseRuntime";
-import { listPostPurchaseOffers } from "@/lib/shopify/postPurchaseOfferStore";
 import { buildPostPurchaseCorsHeaders } from "@/lib/utils/postPurchaseCors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const FORCE_RENDER_FOR_TESTING = true;
 
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, {
@@ -22,14 +20,7 @@ export async function POST(req: NextRequest) {
       req.headers.get("authorization"),
       body?.shopDomain,
     );
-    let offer = await resolvePostPurchaseOffer(shop, accessToken, body?.initialPurchase);
-
-    // Temporary test override: always render the first active offer so we can
-    // verify the extension and checkout wiring independently of targeting.
-    if (!offer && FORCE_RENDER_FOR_TESTING) {
-      const offers = await listPostPurchaseOffers(shop, accessToken);
-      offer = offers[0] ?? null;
-    }
+    const offer = await resolvePostPurchaseOffer(shop, accessToken, body?.initialPurchase);
 
     if (!offer) {
       return NextResponse.json({ offer: null, render: false }, { headers: corsHeaders });

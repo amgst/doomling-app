@@ -38,33 +38,56 @@ extend(
   "Checkout::PostPurchase::Render",
   (root, { done, storage, calculateChangeset, applyChangeset, inputData }) => {
     const purchaseOption = storage.initialData?.offer;
+    let actionInFlight = false;
+    let acceptOfferButton = null;
+    let declineOfferButton = null;
 
     if (!purchaseOption) {
       done();
       return;
     }
 
-    async function acceptOffer() {
-      const token = await fetch(`${APP_URL}/api/post-purchase/sign-changeset`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${inputData.token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          referenceId: inputData.initialPurchase.referenceId,
-          changes: purchaseOption.id,
-          shopDomain: inputData.shop?.domain,
-        }),
-      })
-        .then((response) => response.json())
-        .then((response) => response.token);
+    function setActionState(loading) {
+      actionInFlight = loading;
+      acceptOfferButton?.updateProps?.({ loading, disabled: loading });
+      declineOfferButton?.updateProps?.({ loading, disabled: loading });
+    }
 
-      await applyChangeset(token);
-      done();
+    async function acceptOffer() {
+      if (actionInFlight) return;
+      setActionState(true);
+
+      try {
+        const token = await fetch(`${APP_URL}/api/post-purchase/sign-changeset`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${inputData.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            referenceId: inputData.initialPurchase.referenceId,
+            changes: purchaseOption.id,
+            shopDomain: inputData.shop?.domain,
+          }),
+        })
+          .then((response) => response.json())
+          .then((response) => response.token);
+
+        if (!token) {
+          throw new Error("Missing signed changeset token");
+        }
+
+        await applyChangeset(token);
+        done();
+      } catch (error) {
+        console.error("[post-purchase] accept failed", error);
+        setActionState(false);
+      }
     }
 
     function declineOffer() {
+      if (actionInFlight) return;
+      setActionState(true);
       done();
     }
 
@@ -78,14 +101,33 @@ extend(
       const total =
         result.calculatedPurchase?.totalOutstandingSet?.presentmentMoney?.amount ?? purchaseOption.discountedPrice;
 
+      acceptOfferButton = root.createComponent(
+        Button,
+        { onPress: acceptOffer, submit: true },
+        `Pay now · ${formatCurrency(total)}`,
+      );
+      declineOfferButton = root.createComponent(
+        Button,
+        { onPress: declineOffer, subdued: true },
+        "Decline upsell offer",
+      );
+
       const content = root.createComponent(BlockStack, { spacing: "loose" }, [
         root.createComponent(CalloutBanner, {}, [
           root.createComponent(BlockStack, { spacing: "tight" }, [
-              root.createComponent(TextContainer, {}, [
-                root.createComponent(Text, { size: "medium", emphasized: true }, "It's not too late to add this to your order"),
+            root.createComponent(TextContainer, {}, [
+              root.createComponent(
+                Text,
+                { size: "medium", emphasized: true },
+                "It's not too late to add this to your order",
+              ),
             ]),
             root.createComponent(TextContainer, {}, [
-              root.createComponent(Text, { size: "medium" }, `${purchaseOption.productTitle} is available right now.`),
+              root.createComponent(
+                Text,
+                { size: "medium" },
+                `${purchaseOption.productTitle} is available right now.`,
+              ),
             ]),
           ]),
         ]),
@@ -107,13 +149,25 @@ extend(
             root.createComponent(BlockStack, {}, [
               root.createComponent(Heading, {}, purchaseOption.productTitle),
               root.createComponent(TextContainer, { alignment: "leading", spacing: "loose" }, [
-                root.createComponent(Text, { role: "deletion", size: "large" }, formatCurrency(purchaseOption.originalPrice)),
+                root.createComponent(
+                  Text,
+                  { role: "deletion", size: "large" },
+                  formatCurrency(purchaseOption.originalPrice),
+                ),
                 " ",
-                root.createComponent(Text, { emphasized: true, size: "large", appearance: "critical" }, formatCurrency(purchaseOption.discountedPrice)),
+                root.createComponent(
+                  Text,
+                  { emphasized: true, size: "large", appearance: "critical" },
+                  formatCurrency(purchaseOption.discountedPrice),
+                ),
               ]),
-              root.createComponent(BlockStack, { spacing: "xtight" }, purchaseOption.productDescription.map((line) =>
-                root.createComponent(TextBlock, { subdued: true }, line),
-              )),
+              root.createComponent(
+                BlockStack,
+                { spacing: "xtight" },
+                purchaseOption.productDescription.map((line) =>
+                  root.createComponent(TextBlock, { subdued: true }, line),
+                ),
+              ),
               root.createComponent(BlockStack, { spacing: "tight" }, [
                 root.createComponent(Separator),
                 moneyLine(root, "Subtotal", purchaseOption.discountedPrice),
@@ -123,8 +177,8 @@ extend(
                 moneySummary(root, "Total", total),
               ]),
               root.createComponent(BlockStack, {}, [
-                root.createComponent(Button, { onPress: acceptOffer, submit: true }, `Pay now · ${formatCurrency(total)}`),
-                root.createComponent(Button, { onPress: declineOffer, subdued: true }, "Decline upsell offer"),
+                acceptOfferButton,
+                declineOfferButton,
               ]),
             ]),
           ],
