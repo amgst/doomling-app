@@ -23,6 +23,18 @@ const TABS = [
     ),
   },
   {
+    key: "cartlimits",
+    label: "Cart Limits",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 5h6" />
+        <path d="M7 3h10v4H7z" />
+        <path d="M6 9h12l-1 11H7L6 9z" />
+        <path d="M10 13h4" />
+      </svg>
+    ),
+  },
+  {
     key: "upsells",
     label: "Upsells",
     icon: (
