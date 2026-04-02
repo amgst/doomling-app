@@ -17,7 +17,34 @@
   quantity-selector-component[data-upsale-cart-locked='true'] .quantity-input {
     cursor: default;
   }
+
+  #upsale-cart-limit-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.25rem;
+    transform: translate(-50%, calc(100% + 1rem));
+    opacity: 0;
+    z-index: 99999;
+    width: min(420px, calc(100vw - 1.5rem));
+    border-radius: 16px;
+    padding: 0.95rem 1rem;
+    background: #ffffff;
+    border: 1px solid #fecaca;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+    color: #b42318;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.4;
+    transition: transform 0.25s ease, opacity 0.2s ease;
+  }
+
+  #upsale-cart-limit-toast.upsale-cart-limit-toast-visible {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
 </style>
+
+<div id="upsale-cart-limit-toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
   (function () {
@@ -40,6 +67,7 @@
     var pendingErrors = {};
     var observer = null;
     var observerTimeout = 0;
+    var toastTimeout = 0;
 
     function buildMessage(quantity) {
       return limitMessageTemplate.replace(/\[quantity\]/g, String(quantity));
@@ -118,6 +146,22 @@
       }, 5000);
     }
 
+    function showToast(message) {
+      var toast = document.getElementById('upsale-cart-limit-toast');
+      if (!(toast instanceof HTMLElement)) return;
+
+      if (toastTimeout) {
+        window.clearTimeout(toastTimeout);
+      }
+
+      toast.textContent = message;
+      toast.classList.add('upsale-cart-limit-toast-visible');
+
+      toastTimeout = window.setTimeout(function () {
+        toast.classList.remove('upsale-cart-limit-toast-visible');
+      }, 3500);
+    }
+
     function queueError(productId, quantity) {
       pendingErrors[String(productId)] = buildMessage(quantity);
     }
@@ -126,6 +170,7 @@
       var key = String(productId);
       if (!pendingErrors[key]) return;
       showRowError(row, pendingErrors[key]);
+      showToast(pendingErrors[key]);
       delete pendingErrors[key];
     }
 
@@ -239,6 +284,12 @@
       document.dispatchEvent(new CustomEvent('cart:updated'));
     }
 
+    function showPendingToasts() {
+      Object.keys(pendingErrors).forEach(function (key) {
+        showToast(pendingErrors[key]);
+      });
+    }
+
     function syncCartLimits() {
       if (syncRunning) {
         syncQueued = true;
@@ -276,6 +327,7 @@
         return chain;
       }).then(function (changed) {
         applyLocks();
+        showPendingToasts();
         if (changed) {
           dispatchRefreshEvents();
         }
@@ -314,13 +366,19 @@
       });
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function init() {
       fetchRules().then(function () {
         applyLocks();
         syncCartLimits();
         bootObserver();
       });
-    });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+      init();
+    }
 
     document.addEventListener('shopify:section:load', function () {
       queueApply();
