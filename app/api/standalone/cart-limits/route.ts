@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyShop, COOKIE_NAME } from "@/lib/utils/standaloneSession";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
+import { getShop as getStoredShop, updateShopSettings } from "@/lib/firebase/shopStore";
 import {
   getShopCartQuantityRulesMetafield,
   setShopCartQuantityRulesMetafield,
@@ -10,7 +11,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function getShop(req: NextRequest) {
+async function getAuthenticatedShop(req: NextRequest) {
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
   return cookie ? await verifyShop(cookie) : null;
 }
@@ -41,11 +42,17 @@ function normalizeRule(input: unknown, index: number): CartQuantityRule | null {
 
 export async function GET(req: NextRequest) {
   try {
-    const shop = await getShop(req);
+    const shop = await getAuthenticatedShop(req);
     if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const accessToken = await getAccessToken(shop);
     if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
+
+    const stored = await getStoredShop(shop);
+    const savedRules = stored?.settings?.cartQuantityRules;
+    if (Array.isArray(savedRules)) {
+      return NextResponse.json({ rules: savedRules });
+    }
 
     const rules = await getShopCartQuantityRulesMetafield(shop, accessToken);
     return NextResponse.json({ rules });
@@ -60,7 +67,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const shop = await getShop(req);
+    const shop = await getAuthenticatedShop(req);
     if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const accessToken = await getAccessToken(shop);
@@ -76,7 +83,18 @@ export async function PUT(req: NextRequest) {
       new Map(rules.map((rule) => [rule.productId, rule])).values(),
     ).sort((a, b) => a.productTitle.localeCompare(b.productTitle));
 
-    await setShopCartQuantityRulesMetafield(shop, accessToken, deduped);
+    const stored = await getStoredShop(shop);
+    await updateShopSettings(shop, {
+      ...(stored?.settings ?? {}),
+      cartQuantityRules: deduped,
+    });
+
+    try {
+      await setShopCartQuantityRulesMetafield(shop, accessToken, deduped);
+    } catch (syncError) {
+      console.error("[cart-limits] metafield sync failed", syncError);
+    }
+
     return NextResponse.json({ ok: true, rules: deduped });
   } catch (error) {
     console.error("[cart-limits] PUT failed", error);

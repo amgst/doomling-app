@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/utils/verifyRequest";
+import { getShop, updateShopSettings } from "@/lib/firebase/shopStore";
 import {
   getShopCartQuantityRulesMetafield,
   setShopCartQuantityRulesMetafield,
@@ -36,6 +37,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const stored = await getShop(shop);
+    const savedRules = stored?.settings?.cartQuantityRules;
+    if (Array.isArray(savedRules)) {
+      return NextResponse.json({ rules: savedRules });
+    }
+
     const rules = await getShopCartQuantityRulesMetafield(shop, session.accessToken);
     return NextResponse.json({ rules });
   } catch (error) {
@@ -65,7 +72,18 @@ export async function PUT(req: NextRequest) {
       a.productTitle.localeCompare(b.productTitle),
     );
 
-    await setShopCartQuantityRulesMetafield(shop, session.accessToken, deduped);
+    const stored = await getShop(shop);
+    await updateShopSettings(shop, {
+      ...(stored?.settings ?? {}),
+      cartQuantityRules: deduped,
+    });
+
+    try {
+      await setShopCartQuantityRulesMetafield(shop, session.accessToken, deduped);
+    } catch (syncError) {
+      console.error("[api/cart-limits] metafield sync failed", syncError);
+    }
+
     return NextResponse.json({ ok: true, rules: deduped });
   } catch (error) {
     console.error("[api/cart-limits] PUT failed", error);
