@@ -3287,7 +3287,7 @@ function GeoCountdownTab() {
           </InlineGrid>
           <InlineStack align="space-between" blockAlign="center">
             <Text as="p" tone="subdued">
-              Enable the `Geo countdown` app embed in the theme customizer to display the active matching campaign.
+              Enable the `Geo countdown` app embed in the theme customizer to display the active matching campaign, or set Display mode to Specific campaign and paste a Campaign ID from the table below.
             </Text>
             <Button variant="primary" onClick={handleAddCampaign} loading={saving}>
               Add campaign
@@ -3309,6 +3309,7 @@ function GeoCountdownTab() {
             <thead>
               <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#fafafa" }}>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Campaign</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Campaign ID</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Target</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Ends</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Status</th>
@@ -3322,6 +3323,7 @@ function GeoCountdownTab() {
                     <div style={{ fontSize: "0.86rem", fontWeight: 700, color: "#111827" }}>{campaign.name}</div>
                     <div style={{ fontSize: "0.77rem", color: "#6b7280", marginTop: "0.15rem" }}>{campaign.heading}</div>
                   </td>
+                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.77rem", color: "#6b7280", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>{campaign.id}</td>
                   <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>
                     <div>{campaign.pageTarget === "all" ? "All pages" : campaign.pageTarget}</div>
                     <div style={{ color: "#6b7280", marginTop: "0.15rem" }}>
@@ -3947,4 +3949,7 @@ export default function DashboardPage() {
     </DashboardShell>
   );
 }
+
+
+
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getShop } from "@/lib/firebase/shopStore";
-import { matchGeoCountdownCampaign, normalizeGeoCountdownCampaign, type GeoCountdownCampaign } from "@/lib/geoCountdown";
+import { getSpecificGeoCountdownCampaign, matchGeoCountdownCampaign, normalizeGeoCountdownCampaign, type GeoCountdownCampaign } from "@/lib/geoCountdown";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,10 +32,13 @@ export async function GET(req: NextRequest) {
   try {
     const stored = await getShop(shop);
     const campaigns = getStoredCampaigns(stored?.settings);
-    const campaign = matchGeoCountdownCampaign(campaigns, {
-      country: req.nextUrl.searchParams.get("country"),
-      pageTarget: req.nextUrl.searchParams.get("pageTarget"),
-    });
+    const mode = req.nextUrl.searchParams.get("mode") ?? "auto";
+    const campaign = mode === "specific"
+      ? getSpecificGeoCountdownCampaign(campaigns, req.nextUrl.searchParams.get("campaignId"))
+      : matchGeoCountdownCampaign(campaigns, {
+          country: req.nextUrl.searchParams.get("country"),
+          pageTarget: req.nextUrl.searchParams.get("pageTarget"),
+        });
 
     return NextResponse.json({ campaign }, { headers: CORS });
   } catch (error) {
@@ -43,3 +46,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ campaign: null }, { headers: CORS });
   }
 }
+

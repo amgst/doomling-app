@@ -22,6 +22,9 @@
     class="upsale-geo-countdown color-{{ block.settings.color_scheme }}"
     data-upsale-geo-countdown
     data-shop="{{ shop.permanent_domain | escape }}"
+    data-api-base="{{ settings.api_base | default: 'https://doomling-app-navy.vercel.app' }}"
+    data-display-mode="{{ block.settings.display_mode | default: 'auto' }}"
+    data-campaign-id="{{ block.settings.campaign_id | escape }}"
     data-country="{{ localization.country.iso_code | upcase | escape }}"
     data-page-target="{{ request.page_type | default: template.name | escape }}"
     data-end-at="{{ block.settings.end_at | escape }}"
@@ -204,6 +207,9 @@
       var hideOnExpire = root.dataset.hideOnExpire === 'true';
       var defaultShouldRender = root.dataset.defaultShouldRender === 'true';
       var shop = root.dataset.shop || '';
+      var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
+      var displayMode = root.dataset.displayMode || 'auto';
+      var campaignId = root.dataset.campaignId || '';
       var country = root.dataset.country || '';
       var pageTarget = (root.dataset.pageTarget || 'all').toLowerCase();
       var expiredNode = root.querySelector('[data-role="expired"]');
@@ -326,18 +332,25 @@
         intervalId = window.setInterval(tick, 1000);
       }
 
-      if (!shop) {
+      if (!shop || !apiBase) {
         start();
         return;
       }
 
       var params = new URLSearchParams({
         shop: shop,
+        mode: displayMode,
+        campaignId: campaignId,
         country: country,
         pageTarget: pageTarget === 'index' ? 'home' : pageTarget,
       });
 
-      fetch('/api/public/geo-countdown?' + params.toString())
+      fetch(apiBase + '/api/public/geo-countdown?' + params.toString(), {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-store'
+      })
         .then(function (response) { return response.ok ? response.json() : null; })
         .then(function (data) {
           if (!applyCampaign(data && data.campaign ? data.campaign : null)) return;
@@ -367,6 +380,29 @@
         { "value": "scheme-5", "label": "Scheme 5" }
       ],
       "default": "scheme-1"
+    },
+    {
+      "type": "text",
+      "id": "api_base",
+      "label": "App base URL",
+      "default": "https://doomling-app-navy.vercel.app",
+      "info": "Your app domain used to load countdown campaigns, for example https://doomling-app-navy.vercel.app"
+    },
+    {
+      "type": "select",
+      "id": "display_mode",
+      "label": "Display mode",
+      "options": [
+        { "value": "auto", "label": "Auto match" },
+        { "value": "specific", "label": "Specific campaign" }
+      ],
+      "default": "auto"
+    },
+    {
+      "type": "text",
+      "id": "campaign_id",
+      "label": "Campaign ID",
+      "info": "When Display mode is Specific campaign, paste the campaign ID from the app dashboard here."
     },
     {
       "type": "text",
@@ -454,3 +490,7 @@
   ]
 }
 {% endschema %}
+
+
+
+

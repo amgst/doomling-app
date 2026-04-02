@@ -82,3 +82,20 @@ export function matchGeoCountdownCampaign(
     return true;
   }) ?? null;
 }
+
+export function getSpecificGeoCountdownCampaign(
+  campaigns: GeoCountdownCampaign[],
+  campaignId: string | null | undefined,
+  options?: { now?: number },
+) {
+  const id = String(campaignId ?? "").trim();
+  if (!id) return null;
+
+  const now = options?.now ?? Date.now();
+  return campaigns.find((campaign) => {
+    if (campaign.id !== id) return false;
+    if (!campaign.enabled) return false;
+    if (Date.parse(campaign.endAt) <= now) return false;
+    return true;
+  }) ?? null;
+}
