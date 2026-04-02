@@ -15,12 +15,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing shop parameter" }, { status: 400 });
   }
 
-  let sanitizedShop: string;
-  try {
-    sanitizedShop = getShopify().utils.sanitizeShop(shop, true)!;
-  } catch {
+  const shopPattern = /^[a-zA-Z0-9][a-zA-Z0-9-_]*\.(myshopify\.com|shopify\.com|myshopify\.io|shop\.dev)$/;
+  if (!shopPattern.test(shop)) {
     return NextResponse.json({ error: "Invalid shop domain" }, { status: 400 });
   }
+
+  if (!process.env.SHOPIFY_API_KEY || !process.env.SHOPIFY_API_SECRET || !process.env.HOST) {
+    return NextResponse.json(
+      { error: "Missing Shopify app configuration. Check SHOPIFY_API_KEY, SHOPIFY_API_SECRET, and HOST." },
+      { status: 500 },
+    );
+  }
+
+  const sanitizedShop = shop;
 
   const { url, headers } = await getShopify().auth.begin({
     shop: sanitizedShop,
