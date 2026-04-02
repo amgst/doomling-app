@@ -122,6 +122,23 @@
     font-size: 0.78rem;
     color: #4b5563;
   }
+  quantity-selector-component[data-upsale-bxgy-locked='true'] {
+    pointer-events: none;
+  }
+  quantity-selector-component[data-upsale-bxgy-locked='true'] .quantity-button {
+    display: none !important;
+  }
+  quantity-selector-component[data-upsale-bxgy-locked='true'] .quantity-input {
+    cursor: default;
+  }
+  .upsale-bxgy-lock-note {
+    display: block;
+    margin-top: 0.45rem;
+    color: #166534;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
   @media (max-width: 640px) {
     #upsale-bxgy-floating {
       left: 0.75rem;
@@ -166,6 +183,7 @@
   var rulesPromise = null;
   var syncPending = false;
   var syncRunning = false;
+  var latestCart = null;
   var seenToasts;
   try {
     seenToasts = new Set(JSON.parse(sessionStorage.getItem('upsale_bxgy_seen') || '[]'));
@@ -296,6 +314,102 @@
     document.dispatchEvent(new CustomEvent('cart:updated'));
   }
 
+  function getGiftLockQuantityByLine(cart, line) {
+    if (!cart || !Array.isArray(cart.items) || !line) return 0;
+    var item = cart.items[line - 1];
+    if (!item || !item.properties || String(item.properties[GIFT_FLAG] || '') !== 'true') return 0;
+
+    return Math.max(Number(item.quantity || 0), 0);
+  }
+
+  function resetGiftSelector(selector) {
+    if (!(selector instanceof HTMLElement)) return;
+
+    var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
+    var buttons = selector.querySelectorAll('button[ref="quantityButtons[]"], .quantity-button');
+    var row = selector.closest('tr[data-key], tr[data-product-id]');
+
+    delete selector.dataset.upsaleBxgyLocked;
+    delete selector.dataset.lockedQuantity;
+
+    if (input instanceof HTMLInputElement) {
+      input.readOnly = false;
+      input.disabled = false;
+      input.removeAttribute('aria-disabled');
+    }
+
+    buttons.forEach(function (button) {
+      if (button instanceof HTMLButtonElement) {
+        button.hidden = false;
+        button.disabled = false;
+      }
+    });
+
+    if (row instanceof HTMLElement) {
+      var note = row.querySelector('.upsale-bxgy-lock-note');
+      if (note instanceof HTMLElement) {
+        note.remove();
+      }
+    }
+  }
+
+  function lockGiftSelector(selector, quantity) {
+    if (!(selector instanceof HTMLElement) || !quantity) return;
+
+    var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
+    var buttons = selector.querySelectorAll('button[ref="quantityButtons[]"], .quantity-button');
+    var row = selector.closest('tr[data-key], tr[data-product-id]');
+
+    selector.dataset.upsaleBxgyLocked = 'true';
+    selector.dataset.lockedQuantity = String(quantity);
+
+    if (input instanceof HTMLInputElement) {
+      input.value = String(quantity);
+      input.readOnly = true;
+      input.disabled = true;
+      input.setAttribute('aria-disabled', 'true');
+    }
+
+    buttons.forEach(function (button) {
+      if (button instanceof HTMLButtonElement) {
+        button.hidden = true;
+        button.disabled = true;
+      }
+    });
+
+    if (row instanceof HTMLElement) {
+      var quantityCell = row.querySelector('.cart-items__quantity .flex');
+      if (quantityCell instanceof HTMLElement) {
+        var note = row.querySelector('.upsale-bxgy-lock-note');
+        if (!(note instanceof HTMLElement)) {
+          note = document.createElement('small');
+          note.className = 'upsale-bxgy-lock-note';
+          quantityCell.appendChild(note);
+        }
+        note.textContent = 'Free gift quantity is managed automatically.';
+      }
+    }
+  }
+
+  function applyGiftGuards(cart) {
+    var selectors = document.querySelectorAll('quantity-selector-component');
+    selectors.forEach(function (selector) {
+      resetGiftSelector(selector);
+    });
+
+    selectors.forEach(function (selector) {
+      if (!(selector instanceof HTMLElement)) return;
+      var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
+      var line = input instanceof HTMLInputElement ? Number(input.dataset.cartLine || 0) : 0;
+      if (!line) return;
+
+      var quantity = getGiftLockQuantityByLine(cart, line);
+      if (!quantity) return;
+
+      lockGiftSelector(selector, quantity);
+    });
+  }
+
   function sync(cart, rules) {
     if (!Array.isArray(rules) || !rules.length) return Promise.resolve(false);
 
@@ -368,12 +482,15 @@
     syncRunning = true;
     Promise.all([fetchCart(), loadRules()]).then(function (payload) {
       var cart = payload[0];
+      latestCart = cart;
       var rules = payload[1];
       return sync(cart, rules).then(function (changed) {
         return fetchCart().then(function (nextCart) {
+          latestCart = nextCart;
           var gifts = (nextCart.items || []).filter(function (item) {
             return item.properties && String(item.properties[GIFT_FLAG] || '') === 'true';
           });
+          applyGiftGuards(nextCart);
           renderFloating(gifts);
           if (changed) refreshTheme();
         });
@@ -392,6 +509,41 @@
     document.addEventListener(eventName, function () { setTimeout(runSync, 120); });
   });
 
+  document.addEventListener('click', function (event) {
+    var target = event.target;
+    if (!(target instanceof Element)) return;
+
+    var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
+    if (!selector) return;
+
+    if (target.closest('.quantity-button')) {
+      event.preventDefault();
+      event.stopPropagation();
+      showToast('Free gift');
+    }
+  }, true);
+
+  document.addEventListener('input', function (event) {
+    var target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
+    if (!selector) return;
+
+    event.preventDefault();
+    target.value = selector.dataset.lockedQuantity || target.value;
+  }, true);
+
+  document.addEventListener('keydown', function (event) {
+    var target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
+    if (!selector) return;
+
+    event.preventDefault();
+  }, true);
+
   var originalFetch = window.fetch;
   window.fetch = function (input) {
     var request = originalFetch.apply(this, arguments);
@@ -409,6 +561,10 @@
     }
     return xhrOpen.apply(this, arguments);
   };
+
+  setTimeout(function () {
+    applyGiftGuards(latestCart);
+  }, 120);
 
   runSync();
 })();
