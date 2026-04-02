@@ -2,7 +2,7 @@
 
 client_id = "d758557fe11ba3e2d67c0376240d16c8"
 name = "Upsallerapp"
-application_url = "https://980b-39-37-242-62.ngrok-free.app"
+application_url = "https://09f6-39-60-232-79.ngrok-free.app"
 embedded = true
 
 [webhooks]
@@ -14,8 +14,8 @@ scopes = "read_analytics,read_cart_transforms,read_customers,read_discounts,read
 
 [auth]
 redirect_urls = [
-  "https://980b-39-37-242-62.ngrok-free.app/auth/callback",
-  "https://980b-39-37-242-62.ngrok-free.app/standalone/callback",
+  "https://09f6-39-60-232-79.ngrok-free.app/auth/callback",
+  "https://09f6-39-60-232-79.ngrok-free.app/standalone/callback",
   "https://upsale-cyan.vercel.app/auth/callback",
   "https://upsale-cyan.vercel.app/standalone/callback"
 ]
