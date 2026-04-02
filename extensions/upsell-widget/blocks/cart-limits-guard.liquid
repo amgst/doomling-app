@@ -72,6 +72,7 @@
     var observer = null;
     var observerTimeout = 0;
     var toastTimeout = 0;
+    var latestCart = null;
 
     function buildMessage(quantity) {
       return limitMessageTemplate.replace(/\[quantity\]/g, String(quantity));
@@ -154,6 +155,25 @@
       }
 
       return '';
+    }
+
+    function getCartLine(selector) {
+      if (!(selector instanceof HTMLElement)) return 0;
+
+      var input = getQuantityInput(selector);
+      if (!(input instanceof HTMLInputElement)) return 0;
+
+      return Number(input.dataset.cartLine || 0);
+    }
+
+    function getProductIdFromCart(selector, cart) {
+      var line = getCartLine(selector);
+      if (!line || !cart || !Array.isArray(cart.items)) return '';
+
+      var item = cart.items[line - 1];
+      if (!item) return '';
+
+      return String(item.product_id || '');
     }
 
     function isCartSelector(selector) {
@@ -264,13 +284,22 @@
       });
     }
 
-    function applyLocks() {
+    function applyLocks(cart) {
       var selectors = document.querySelectorAll('quantity-selector-component');
 
       selectors.forEach(function (selector) {
         if (!(selector instanceof HTMLElement)) return;
 
-        var productId = getSelectorProductId(selector);
+        var productId = '';
+
+        if (isCartSelector(selector)) {
+          productId = getProductIdFromCart(selector, cart || latestCart);
+        }
+
+        if (!productId) {
+          productId = getSelectorProductId(selector);
+        }
+
         if (!productId) return;
 
         var rule = getRuleByProductId(productId);
@@ -336,9 +365,10 @@
       syncRunning = true;
 
       fetchRules().then(function () {
-        applyLocks();
+        applyLocks(latestCart);
         return fetchCart();
       }).then(function (cart) {
+        latestCart = cart;
         if (!cart || !Array.isArray(cart.items) || !cart.items.length) return false;
 
         var chain = Promise.resolve(false);
@@ -363,7 +393,7 @@
 
         return chain;
       }).then(function (changed) {
-        applyLocks();
+        applyLocks(latestCart);
         showPendingToasts();
         if (changed) {
           dispatchRefreshEvents();
@@ -385,7 +415,7 @@
 
       observerTimeout = window.setTimeout(function () {
         fetchRules().then(function () {
-          applyLocks();
+          applyLocks(latestCart);
         });
       }, 80);
     }
@@ -441,8 +471,9 @@
     }
 
     function init() {
-      fetchRules().then(function () {
-        applyLocks();
+      Promise.all([fetchRules(), fetchCart()]).then(function (payload) {
+        latestCart = payload[1];
+        applyLocks(latestCart);
         syncCartLimits();
         bootObserver();
       });
