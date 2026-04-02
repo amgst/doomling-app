@@ -263,6 +263,36 @@
       }
     }
 
+    function resetSelector(selector) {
+      if (!(selector instanceof HTMLElement)) return;
+
+      var input = getQuantityInput(selector);
+      var buttons = getQuantityButtons(selector);
+      var row = getCartRow(selector);
+
+      delete selector.dataset.upsaleCartLocked;
+      delete selector.dataset.lockedQuantity;
+
+      if (input instanceof HTMLInputElement) {
+        input.readOnly = false;
+        input.disabled = false;
+        input.removeAttribute('aria-disabled');
+      }
+
+      buttons.forEach(function (button) {
+        if (button instanceof HTMLButtonElement) {
+          button.hidden = false;
+          button.disabled = false;
+          button.classList.remove('upsale-cart-limit-hidden');
+        }
+      });
+
+      if (row instanceof HTMLElement) {
+        delete row.dataset.lockedQuantity;
+        delete row.dataset.maxQuantity;
+      }
+    }
+
     function primeProductSelector(selector, maxQuantity) {
       if (!(selector instanceof HTMLElement)) return;
 
@@ -286,6 +316,10 @@
 
     function applyLocks(cart) {
       var selectors = document.querySelectorAll('quantity-selector-component');
+
+      selectors.forEach(function (selector) {
+        resetSelector(selector);
+      });
 
       selectors.forEach(function (selector) {
         if (!(selector instanceof HTMLElement)) return;
