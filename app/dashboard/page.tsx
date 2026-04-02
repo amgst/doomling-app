@@ -1568,6 +1568,34 @@ function BuyXGetYTab() {
   const [giftProductId, setGiftProductId] = useState("");
   const [giftVariantId, setGiftVariantId] = useState("");
 
+  const sel: React.CSSProperties = {
+    width: "100%",
+    padding: "0.7rem 0.8rem",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    fontSize: "0.875rem",
+    background: "#fff",
+    color: "#1a1a1a",
+  };
+  const inp: React.CSSProperties = {
+    padding: "0.7rem 0.8rem",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    fontSize: "0.875rem",
+    background: "#fff",
+    color: "#1a1a1a",
+  };
+  const lbl: React.CSSProperties = {
+    display: "block",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    color: "#374151",
+    marginBottom: "0.35rem",
+  };
+  const bxgySelect: React.CSSProperties = { ...sel, minWidth: 0, flex: 1 };
+  const bxgyVariantSelect: React.CSSProperties = { ...sel, minWidth: "190px", flex: "0 0 220px" };
+  const bxgyGiftSelect: React.CSSProperties = { ...sel, maxWidth: "560px" };
+
   useEffect(() => {
     Promise.all([
       fetch("/api/standalone/bxgy").then(r => safeJson(r)),
