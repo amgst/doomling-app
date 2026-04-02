@@ -8,6 +8,7 @@ import {
   BlockStack,
   Button,
   Card,
+  Checkbox,
   InlineGrid,
   InlineStack,
   Select,
@@ -1697,13 +1698,6 @@ function BuyXGetYTab() {
     setRuleStats(updatedStats.rules ?? []);
   };
 
-  const sel: React.CSSProperties = { width: "100%", padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
-  const inp: React.CSSProperties = { padding: "0.7rem 0.8rem", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
-  const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
-  const bxgySelect: React.CSSProperties = { ...sel, minWidth: 0, flex: 1 };
-  const bxgyVariantSelect: React.CSSProperties = { ...sel, minWidth: "190px", flex: "0 0 220px" };
-  const bxgyGiftSelect: React.CSSProperties = { ...sel, maxWidth: "560px" };
-
   if (loading) {
     return (
       <PolarisProvider>
@@ -1717,6 +1711,10 @@ function BuyXGetYTab() {
       </PolarisProvider>
     );
   }
+
+  const selectedGiftProduct = products.find((product) => String(product.id) === giftProductId);
+  const selectedTriggerCount = buyProductIds.filter(Boolean).length;
+  const selectedGiftLabel = selectedGiftProduct ? selectedGiftProduct.title : "Choose a gift product";
 
   return (
     <>
@@ -1858,6 +1856,470 @@ function BuyXGetYTab() {
             {saving ? "Savingâ€¦" : "Save BXGY rule"}
           </button>
         </div>
+      </div>
+
+      {summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+          {[
+            { label: "Active rules", value: summary.activeRules, sub: "Currently compiled" },
+            { label: "Qualified carts", value: summary.totalQualified, sub: "Gift unlocked" },
+            { label: "Auto-added gifts", value: summary.totalAutoAdded, sub: "Inserted by app" },
+            { label: "Conversion", value: summary.conversionRate, sub: "Qualified to added" },
+          ].map((card) => (
+            <div key={card.label} style={{ background: "#fff", borderRadius: "12px", padding: "1rem 1.15rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+              <p style={{ margin: 0, fontSize: "0.74rem", color: "#6d7175", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{card.label}</p>
+              <p style={{ margin: "0.35rem 0 0.15rem", fontSize: "1.5rem", fontWeight: 700, color: "#14532d" }}>{card.value}</p>
+              <p style={{ margin: 0, fontSize: "0.76rem", color: "#6d7175" }}>{card.sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {rules.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "3rem", color: "#6d7175", background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+          No Buy X Get Y rules yet. Create your first one above.
+        </div>
+      ) : (
+        <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
+                {["Rule", "Buy", "Gift", "Quantities", "Priority", ""].map((heading) => (
+                  <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((rule, index) => (
+                <tr key={rule.id} style={{ borderBottom: index < rules.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <td style={{ padding: "0.95rem 1rem", verticalAlign: "top" }}>
+                    <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>{rule.name}</p>
+                    <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "#6b7280", maxWidth: 260 }}>{rule.message}</p>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.86rem", color: "#111827" }}>{rule.buyProducts.map((product) => product.title).join(", ")}</td>
+                  <td style={{ padding: "0.95rem 1rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+                      {rule.giftProduct?.image ? <img src={rule.giftProduct.image} alt={rule.giftProduct.title} style={{ width: 36, height: 36, borderRadius: "8px", objectFit: "cover", border: "1px solid #e5e7eb" }} /> : null}
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 600, color: "#111827", fontSize: "0.86rem" }}>{rule.giftProduct?.title ?? "—"}</p>
+                        <p style={{ margin: "0.1rem 0 0", fontSize: "0.76rem", color: "#16a34a", fontWeight: 700 }}>Free gift</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", fontSize: "0.84rem", color: "#111827" }}>Buy {rule.buyQuantity}, get {rule.giftQuantity}</td>
+                  <td style={{ padding: "0.95rem 1rem" }}>
+                    <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#ecfdf5", color: "#166534", fontSize: "0.78rem", fontWeight: 700 }}>
+                      {rule.priority}
+                    </span>
+                  </td>
+                  <td style={{ padding: "0.95rem 1rem", textAlign: "right" }}>
+                    <button onClick={() => handleDelete(rule.id)} style={{ padding: "0.45rem 0.8rem", background: "#fff", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer" }}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginTop: "1.5rem" }}>
+        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
+          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>BXGY performance</p>
+        </div>
+        {ruleStats.length === 0 ? (
+          <p style={{ margin: 0, padding: "2rem", textAlign: "center", color: "#6b7280" }}>Statistics will appear once carts qualify and gifts are auto-added.</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                {["Rule", "Buy", "Gift", "Qualified", "Added", "Conversion"].map((heading) => (
+                  <th key={heading} style={{ padding: "0.8rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: "#6d7175", textTransform: "uppercase" }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ruleStats.map((stat, index) => (
+                <tr key={stat.ruleId} style={{ borderBottom: index < ruleStats.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <td style={{ padding: "0.85rem 1rem", fontWeight: 600, color: "#111827" }}>{stat.name}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#374151", fontSize: "0.85rem" }}>{stat.buyLabel}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#374151", fontSize: "0.85rem" }}>{stat.giftLabel}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.qualified}</td>
+                  <td style={{ padding: "0.85rem 1rem", color: "#111827" }}>{stat.autoAdded}</td>
+                  <td style={{ padding: "0.85rem 1rem" }}>
+                    <span style={{ display: "inline-flex", padding: "0.25rem 0.55rem", borderRadius: "999px", background: "#ecfdf5", color: "#166534", fontSize: "0.78rem", fontWeight: 700 }}>
+                      {stat.conversionRate}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  );
+}
+
+function BuyXGetYTabPolaris() {
+  const [rules, setRules] = useState<BxgyRule[]>([]);
+  const [summary, setSummary] = useState<BxgySummary | null>(null);
+  const [ruleStats, setRuleStats] = useState<BxgyRuleStat[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState("Cart gift");
+  const [buyQuantity, setBuyQuantity] = useState("1");
+  const [giftQuantity, setGiftQuantity] = useState("1");
+  const [message, setMessage] = useState("Free gift added automatically when the rule qualifies.");
+  const [priority, setPriority] = useState("1");
+  const [autoAdd, setAutoAdd] = useState(true);
+  const [buyProductIds, setBuyProductIds] = useState<string[]>([""]);
+  const [buyVariantIds, setBuyVariantIds] = useState<string[]>([""]);
+  const [giftProductId, setGiftProductId] = useState("");
+  const [giftVariantId, setGiftVariantId] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/standalone/bxgy").then((r) => safeJson(r)),
+      fetch("/api/standalone/bxgy-stats").then((r) => safeJson(r)),
+      fetch("/api/standalone/products").then((r) => safeJson(r)),
+    ])
+      .then(([bxgy, bxgyStats, productData]) => {
+        setRules(bxgy?.rules ?? []);
+        setSummary(bxgyStats?.summary ?? null);
+        setRuleStats(bxgyStats?.rules ?? []);
+        setProducts(productData?.products ?? []);
+      })
+      .catch(() => setError("Failed to load Buy X Get Y data."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const addBuyTrigger = () => {
+    if (buyProductIds.length >= 6) return;
+    setBuyProductIds((current) => [...current, ""]);
+    setBuyVariantIds((current) => [...current, ""]);
+  };
+
+  const getSelectedVariantId = (productId: string, variantId?: string) => {
+    const product = products.find((entry) => String(entry.id) === productId);
+    if (!product?.variants?.length) return "";
+    if (!hasMeaningfulVariants(product)) {
+      return String(product.variants[0]?.id ?? "");
+    }
+    if (variantId && product.variants.some((entry) => String(entry.id) === variantId)) {
+      return variantId;
+    }
+    return "";
+  };
+
+  const updateBuyProduct = (index: number, productId: string) => {
+    setBuyProductIds((current) => current.map((entry, idx) => (idx === index ? productId : entry)));
+    setBuyVariantIds((current) =>
+      current.map((entry, idx) => (idx === index ? getSelectedVariantId(productId) : entry)),
+    );
+  };
+
+  const updateBuyVariant = (index: number, variantId: string) => {
+    setBuyVariantIds((current) => current.map((entry, idx) => (idx === index ? variantId : entry)));
+  };
+
+  const removeBuyTrigger = (index: number) => {
+    setBuyProductIds((current) => current.filter((_, idx) => idx !== index));
+    setBuyVariantIds((current) => current.filter((_, idx) => idx !== index));
+  };
+
+  const updateGiftProduct = (productId: string) => {
+    setGiftProductId(productId);
+    setGiftVariantId(getSelectedVariantId(productId));
+  };
+
+  const productToBxgy = (productId: string, variantId: string): BxgyProduct | null => {
+    const product = products.find((entry) => String(entry.id) === productId);
+    const resolvedVariantId = getSelectedVariantId(productId, variantId);
+    const variant = product?.variants?.find((entry) => String(entry.id) === resolvedVariantId);
+    if (!product || !variant) return null;
+    return {
+      productId: String(product.id),
+      variantId: String(variant.id),
+      title: bxgyOptionLabel(product, variant),
+      image: product.image?.src ?? "",
+      price: variant.price ?? "",
+      handle: product.handle,
+    };
+  };
+
+  const resetForm = () => {
+    setName("Cart gift");
+    setBuyQuantity("1");
+    setGiftQuantity("1");
+    setMessage("Free gift added automatically when the rule qualifies.");
+    setPriority("1");
+    setAutoAdd(true);
+    setBuyProductIds([""]);
+    setBuyVariantIds([""]);
+    setGiftProductId("");
+    setGiftVariantId("");
+  };
+
+  const refreshData = async () => {
+    const [updated, updatedStats] = await Promise.all([
+      fetch("/api/standalone/bxgy").then((r) => safeJson(r)),
+      fetch("/api/standalone/bxgy-stats").then((r) => safeJson(r)),
+    ]);
+    setRules(updated?.rules ?? []);
+    setSummary(updatedStats?.summary ?? null);
+    setRuleStats(updatedStats?.rules ?? []);
+  };
+
+  const handleSave = async () => {
+    const buyProducts = buyProductIds
+      .map((productId, index) => productToBxgy(productId, buyVariantIds[index] ?? ""))
+      .filter(Boolean) as BxgyProduct[];
+    const giftProduct = productToBxgy(giftProductId, giftVariantId);
+
+    if (!name.trim()) {
+      setError("Enter a rule name.");
+      return;
+    }
+    if (buyProducts.length === 0) {
+      setError("Select at least one Buy product.");
+      return;
+    }
+    if (!giftProduct) {
+      setError("Select the free Gift product.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    const response = await fetch("/api/standalone/bxgy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        buyProducts,
+        giftProduct,
+        buyQuantity,
+        giftQuantity,
+        message,
+        priority,
+        autoAdd,
+        enabled: true,
+      }),
+    });
+    const data = await safeJson<{ error?: string; warning?: string }>(response);
+    if (!response.ok) {
+      setError(data?.error ?? "Failed to save BXGY rule.");
+      setSaving(false);
+      return;
+    }
+    if (data?.warning) {
+      setError(data.warning);
+    }
+
+    await refreshData();
+    resetForm();
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    const response = await fetch(`/api/standalone/bxgy/${id}`, { method: "DELETE" });
+    const data = await safeJson<{ error?: string; warning?: string }>(response);
+    if (!response.ok) {
+      setError(data?.error ?? "Failed to delete BXGY rule.");
+      return;
+    }
+    if (data?.warning) {
+      setError(data.warning);
+    }
+    await refreshData();
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: "2rem 0" }}>
+        <Card>
+          <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}>
+            <Text as="p" tone="subdued">Loading...</Text>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  const selectedGiftProduct = products.find((product) => String(product.id) === giftProductId);
+  const selectedTriggerCount = buyProductIds.filter(Boolean).length;
+  const selectedGiftLabel = selectedGiftProduct ? selectedGiftProduct.title : "Choose a gift product";
+
+  return (
+    <>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Buy X Get Y</h1>
+        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>
+          Dynamic free-gift rules powered by metaobjects, automatic cart insertion, and dashboard stats.
+        </p>
+      </div>
+
+      {error && (
+        <div style={{ marginBottom: "1rem" }}>
+          <Card>
+            <Text as="p" tone="critical">{error}</Text>
+          </Card>
+        </div>
+      )}
+
+      <div style={{ marginBottom: "1.5rem" }}>
+        <Card>
+          <BlockStack gap="500">
+            <InlineStack align="space-between" blockAlign="start">
+              <BlockStack gap="100">
+                <Text as="p" variant="bodySm" tone="subdued">
+                  New free gift rule
+                </Text>
+                <Text as="h2" variant="headingLg">
+                  Launch a Buy X Get Y campaign
+                </Text>
+                <Text as="p" variant="bodyMd" tone="subdued">
+                  Use the same Polaris structure as the other admin tabs while keeping the exact BXGY functionality.
+                </Text>
+              </BlockStack>
+              <Badge tone="success">Auto-add gift flow</Badge>
+            </InlineStack>
+
+            <InlineGrid columns={{ xs: 1, md: 3 }} gap="300">
+              {[
+                { label: "Buy triggers", value: `${selectedTriggerCount || 0} selected` },
+                { label: "Gift product", value: selectedGiftLabel },
+                { label: "Rule outcome", value: `Buy ${buyQuantity || "1"}, get ${giftQuantity || "1"}` },
+              ].map((item) => (
+                <Card key={item.label}>
+                  <BlockStack gap="100">
+                    <Text as="p" variant="bodySm" tone="subdued">{item.label}</Text>
+                    <Text as="p" variant="headingMd">{item.value}</Text>
+                  </BlockStack>
+                </Card>
+              ))}
+            </InlineGrid>
+
+            <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+              <Card>
+                <BlockStack gap="400">
+                  <BlockStack gap="100">
+                    <Text as="h3" variant="headingMd">Rule setup</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Set the campaign name, quantities, shopper message, and execution priority.
+                    </Text>
+                  </BlockStack>
+                  <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
+                    <TextField label="Rule name" value={name} onChange={setName} autoComplete="off" />
+                    <TextField label="Priority" type="number" min={1} value={priority} onChange={setPriority} autoComplete="off" />
+                  </InlineGrid>
+                  <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
+                    <TextField label="Buy quantity" type="number" min={1} value={buyQuantity} onChange={setBuyQuantity} autoComplete="off" />
+                    <TextField label="Gift quantity" type="number" min={1} value={giftQuantity} onChange={setGiftQuantity} autoComplete="off" />
+                  </InlineGrid>
+                  <TextField label="Gift message" value={message} onChange={setMessage} autoComplete="off" />
+                  <Checkbox label="Auto-add gift when the rule qualifies" checked={autoAdd} onChange={setAutoAdd} />
+                </BlockStack>
+              </Card>
+
+              <BlockStack gap="400">
+                <Card>
+                  <BlockStack gap="400">
+                    <BlockStack gap="100">
+                      <Text as="h3" variant="headingMd">Gift product</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Choose the exact free gift product and variant to add into the cart when the rule qualifies.
+                      </Text>
+                    </BlockStack>
+                    <PolarisProductAutocomplete
+                      products={products}
+                      value={giftProductId}
+                      onChange={updateGiftProduct}
+                      label="Gift product"
+                      placeholder="Search free gift product"
+                      helpText="This item is the free gift attached to the rule."
+                    />
+                    {hasMeaningfulVariants(selectedGiftProduct) && (
+                      <Select
+                        label="Gift variant"
+                        options={[
+                          { label: "Select variant", value: "" },
+                          ...(selectedGiftProduct?.variants?.map((variant) => ({
+                            label: variant.title,
+                            value: String(variant.id),
+                          })) ?? []),
+                        ]}
+                        value={giftVariantId}
+                        onChange={setGiftVariantId}
+                      />
+                    )}
+                  </BlockStack>
+                </Card>
+
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <BlockStack gap="100">
+                        <Text as="h3" variant="headingMd">Qualifying products</Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Add one or more products that should count toward the Buy quantity.
+                        </Text>
+                      </BlockStack>
+                      <Button onClick={addBuyTrigger} disabled={buyProductIds.length >= 6}>Add trigger</Button>
+                    </InlineStack>
+                    {buyProductIds.map((productId, index) => {
+                      const selectedProduct = products.find((product) => String(product.id) === productId);
+                      const variantOptions = selectedProduct?.variants?.map((variant) => ({
+                        label: variant.title,
+                        value: String(variant.id),
+                      })) ?? [];
+
+                      return (
+                        <InlineStack key={index} gap="200" blockAlign="end">
+                          <div style={{ flex: 1 }}>
+                            <PolarisProductAutocomplete
+                              products={products}
+                              value={productId}
+                              onChange={(value) => updateBuyProduct(index, value)}
+                              label={`Buy product ${index + 1}`}
+                              placeholder="Search trigger product"
+                            />
+                          </div>
+                          {hasMeaningfulVariants(selectedProduct) && (
+                            <div style={{ minWidth: 220 }}>
+                              <Select
+                                label="Variant"
+                                options={[{ label: "Select variant", value: "" }, ...variantOptions]}
+                                value={buyVariantIds[index] ?? ""}
+                                onChange={(value) => updateBuyVariant(index, value)}
+                              />
+                            </div>
+                          )}
+                          {buyProductIds.length > 1 && (
+                            <Button tone="critical" variant="secondary" onClick={() => removeBuyTrigger(index)}>
+                              Remove
+                            </Button>
+                          )}
+                        </InlineStack>
+                      );
+                    })}
+                  </BlockStack>
+                </Card>
+              </BlockStack>
+            </InlineGrid>
+
+            <InlineStack align="end">
+              <Button variant="primary" onClick={handleSave} loading={saving}>
+                Save BXGY rule
+              </Button>
+            </InlineStack>
+          </BlockStack>
+        </Card>
       </div>
 
       {summary && (
@@ -2571,7 +3033,7 @@ export default function DashboardPage() {
       {tab === "products" && <ProductsTab storeUrl={shopInfo?.storeUrl} adminUrl={shopInfo?.adminUrl} />}
       {tab === "cartlimits" && <CartLimitsTab />}
       {tab === "upsells" && <UpsellsTab storeUrl={shopInfo?.storeUrl} />}
-      {tab === "buyxgety" && <BuyXGetYTab />}
+      {tab === "buyxgety" && <BuyXGetYTabPolaris />}
       {tab === "postpurchase" && <PostPurchaseTab />}
       {tab === "stats" && <StatsTab />}
     </DashboardShell>
