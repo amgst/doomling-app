@@ -85,6 +85,16 @@ interface BxgyProduct {
   handle: string;
 }
 
+interface ThemeSummary {
+  id: string;
+  name: string;
+  role: string;
+  createdAt?: string;
+  updatedAt?: string;
+  processing?: boolean;
+  processingFailed?: boolean;
+}
+
 function isDefaultVariantTitle(title: string) {
   const value = String(title || "").trim().toLowerCase();
   return !value || value === "default title" || value === "default" || value === "main";
@@ -3273,6 +3283,159 @@ function GeoCountdownTab() {
   );
 }
 
+function ThemeSwitcherTab() {
+  const [themes, setThemes] = useState<ThemeSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadThemes = useCallback(async () => {
+    const response = await fetch("/api/standalone/themes");
+    const data = await safeJson<{ themes?: ThemeSummary[]; error?: string }>(response);
+    if (!response.ok) throw new Error(data?.error ?? `HTTP ${response.status}`);
+    setThemes(data?.themes ?? []);
+  }, []);
+
+  useEffect(() => {
+    loadThemes()
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load themes."))
+      .finally(() => setLoading(false));
+  }, [loadThemes]);
+
+  const handlePublish = async (themeId: string) => {
+    setPublishingId(themeId);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/standalone/themes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: themeId }),
+      });
+      const data = await safeJson<{ themes?: ThemeSummary[]; error?: string }>(response);
+      if (!response.ok) throw new Error(data?.error ?? `HTTP ${response.status}`);
+      setThemes(data?.themes ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to publish theme.");
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
+  const mainTheme = themes.find((theme) => theme.role === "MAIN") ?? null;
+  const publishableThemes = themes.filter((theme) => theme.role !== "MAIN");
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading themes...</div>;
+  }
+
+  return (
+    <>
+      <div style={{ marginBottom: "1rem" }}>
+        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Theme Switcher</h1>
+        <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.84rem", maxWidth: 780 }}>
+          View the current live theme and publish another theme from your dashboard. This changes the storefront immediately.
+        </p>
+      </div>
+
+      {error && (
+        <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", color: "#c0392b", fontSize: "0.875rem", marginBottom: "1rem" }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
+        {[
+          { label: "Live theme", value: mainTheme?.name ?? "None", sub: mainTheme?.role ?? "No main theme found" },
+          { label: "Drafts ready", value: publishableThemes.length, sub: "Themes available to switch" },
+          { label: "Publishing", value: publishingId ? "Yes" : "No", sub: publishingId ? "Theme update in progress" : "No active publish" },
+        ].map((card) => (
+          <div key={card.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "0.85rem 0.95rem" }}>
+            <p style={{ margin: 0, fontSize: "0.73rem", color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em" }}>{card.label}</p>
+            <p style={{ margin: "0.24rem 0 0.12rem", fontSize: "1.15rem", fontWeight: 700, color: "#111827" }}>{card.value}</p>
+            <p style={{ margin: 0, fontSize: "0.76rem", color: "#6b7280" }}>{card.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {mainTheme && (
+        <Card>
+          <BlockStack gap="200">
+            <Text as="h2" variant="headingMd">Current live theme</Text>
+            <InlineStack align="space-between" blockAlign="center">
+              <BlockStack gap="100">
+                <Text as="p" variant="bodyMd" fontWeight="semibold">{mainTheme.name}</Text>
+                <Text as="p" tone="subdued">Role: {mainTheme.role}</Text>
+              </BlockStack>
+              <Badge tone="success">Live</Badge>
+            </InlineStack>
+          </BlockStack>
+        </Card>
+      )}
+
+      <div style={{ marginTop: "1rem", background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden" }}>
+        <div style={{ padding: "1rem 1.1rem", borderBottom: "1px solid #e5e7eb" }}>
+          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Available themes</p>
+        </div>
+        {publishableThemes.length === 0 ? (
+          <p style={{ margin: 0, padding: "1.5rem", color: "#6b7280" }}>
+            No additional themes are available to publish right now.
+          </p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#fafafa" }}>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Theme</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Role</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Updated</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "right", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {publishableThemes.map((theme, index) => (
+                <tr key={theme.id} style={{ borderBottom: index < publishableThemes.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <td style={{ padding: "0.85rem 0.9rem" }}>
+                    <div style={{ fontSize: "0.86rem", fontWeight: 700, color: "#111827" }}>{theme.name}</div>
+                    {(theme.processing || theme.processingFailed) && (
+                      <div style={{ fontSize: "0.76rem", color: theme.processingFailed ? "#b91c1c" : "#6b7280", marginTop: "0.18rem" }}>
+                        {theme.processingFailed ? "Theme processing failed" : "Theme processing"}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>{theme.role}</td>
+                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>
+                    {theme.updatedAt ? new Date(theme.updatedAt).toLocaleString() : "—"}
+                  </td>
+                  <td style={{ padding: "0.85rem 0.9rem", textAlign: "right" }}>
+                    <button
+                      type="button"
+                      onClick={() => void handlePublish(theme.id)}
+                      disabled={Boolean(publishingId) || theme.processing}
+                      style={{
+                        padding: "0.45rem 0.85rem",
+                        background: "#111827",
+                        color: "#fff",
+                        border: "1px solid #111827",
+                        borderRadius: "8px",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        cursor: publishingId || theme.processing ? "not-allowed" : "pointer",
+                        opacity: publishingId === theme.id ? 0.7 : 1,
+                      }}
+                    >
+                      {publishingId === theme.id ? "Publishing..." : "Publish"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  );
+}
+
 function StatsTab() {
   const [rules, setRules] = useState<RuleStat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3367,7 +3530,7 @@ interface ShopInfo {
   adminUrl: string;
 }
 
-const VALID_TABS = ["overview", "products", "cartlimits", "upsells", "buyxgety", "geocountdown", "postpurchase", "stats"] as const;
+const VALID_TABS = ["overview", "products", "cartlimits", "upsells", "buyxgety", "geocountdown", "themeswitcher", "postpurchase", "stats"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
@@ -3394,6 +3557,7 @@ export default function DashboardPage() {
       {tab === "upsells" && <UpsellsTab storeUrl={shopInfo?.storeUrl} />}
       {tab === "buyxgety" && <BuyXGetYTabPolaris />}
       {tab === "geocountdown" && <GeoCountdownTab />}
+      {tab === "themeswitcher" && <ThemeSwitcherTab />}
       {tab === "postpurchase" && <PostPurchaseTab />}
       {tab === "stats" && <StatsTab />}
     </DashboardShell>
