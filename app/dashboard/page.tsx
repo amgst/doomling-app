@@ -3636,7 +3636,7 @@ function LaunchpadTab() {
   return (
     <>
       <div style={{ marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Launchpad</h1>
+        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Theme Scheduler</h1>
         <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.84rem", maxWidth: 840 }}>
           Schedule a theme to auto-publish later. The time is entered in the timezone you choose, then stored in UTC for reliable execution by the background cron.
         </p>
@@ -3651,7 +3651,7 @@ function LaunchpadTab() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
         {[
           { label: "Live theme", value: mainTheme?.name ?? "None", sub: "Current published storefront theme" },
-          { label: "Pending schedules", value: pendingCount, sub: "Queued for automatic publish" },
+          { label: "Scheduled publishes", value: pendingCount, sub: "Queued for automatic publish" },
           { label: "Timezone", value: timezone, sub: "Used for new schedules" },
         ].map((card) => (
           <div key={card.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "0.85rem 0.95rem" }}>
@@ -3893,7 +3893,7 @@ interface ShopInfo {
   adminUrl: string;
 }
 
-const VALID_TABS = ["overview", "products", "cartlimits", "upsells", "buyxgety", "geocountdown", "themeswitcher", "launchpad", "postpurchase", "stats"] as const;
+const VALID_TABS = ["overview", "products", "cartlimits", "upsells", "buyxgety", "geocountdown", "themeswitcher", "postpurchase", "stats"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
@@ -3920,8 +3920,7 @@ export default function DashboardPage() {
       {tab === "upsells" && <UpsellsTab storeUrl={shopInfo?.storeUrl} />}
       {tab === "buyxgety" && <BuyXGetYTabPolaris />}
       {tab === "geocountdown" && <GeoCountdownTab />}
-      {tab === "themeswitcher" && <ThemeSwitcherTab />}
-      {tab === "launchpad" && <LaunchpadTab />}
+      {tab === "themeswitcher" && <LaunchpadTab />}
       {tab === "postpurchase" && <PostPurchaseTab />}
       {tab === "stats" && <StatsTab />}
     </DashboardShell>
