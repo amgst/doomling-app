@@ -56,9 +56,9 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const incomingRules = Array.isArray(body?.rules) ? body.rules : [];
+    const incomingRules: unknown[] = Array.isArray(body?.rules) ? body.rules : [];
     const rules = incomingRules
-      .map((rule, index) => normalizeRule(rule, index))
+      .map((rule: unknown, index: number) => normalizeRule(rule, index))
       .filter((rule): rule is CartQuantityRule => Boolean(rule));
 
     const deduped = Array.from(new Map(rules.map((rule) => [rule.productId, rule])).values()).sort((a, b) =>
