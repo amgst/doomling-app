@@ -3,24 +3,30 @@
   assign normalized_country_codes = country_codes_raw | upcase | replace: ' ', ''
   assign allowed_countries = normalized_country_codes | split: ','
   assign visitor_country = localization.country.iso_code | upcase
-  assign should_render = true
+  assign default_should_render = true
 
   if normalized_country_codes != ''
-    assign should_render = false
+    assign default_should_render = false
     for country_code in allowed_countries
       if country_code == visitor_country
-        assign should_render = true
+        assign default_should_render = true
         break
       endif
     endfor
   endif
 %}
 
-{% if should_render %}
   <div
     class="upsale-geo-countdown color-{{ block.settings.color_scheme }}"
     data-upsale-geo-countdown
+    data-shop="{{ shop.permanent_domain | escape }}"
+    data-country="{{ localization.country.iso_code | upcase | escape }}"
+    data-page-target="{{ request.page_type | default: template.name | escape }}"
     data-end-at="{{ block.settings.end_at | escape }}"
+    data-default-should-render="{{ default_should_render }}"
+    data-fallback-eyebrow="{{ block.settings.eyebrow | escape }}"
+    data-fallback-heading="{{ block.settings.heading | escape }}"
+    data-fallback-message="{{ block.settings.message | escape }}"
     data-expired-label="{{ block.settings.expired_label | escape }}"
     data-hide-on-expire="{{ block.settings.hide_on_expire }}"
     style="
@@ -29,19 +35,22 @@
       --upsale-countdown-padding-x: {{ block.settings.padding_x }}px;
       --upsale-countdown-gap: {{ block.settings.gap }}px;
     "
+    {% unless default_should_render %}
+      hidden
+    {% endunless %}
     {{ block.shopify_attributes }}
   >
     <div class="upsale-geo-countdown__content">
       {% if block.settings.eyebrow != blank %}
-        <p class="upsale-geo-countdown__eyebrow">{{ block.settings.eyebrow }}</p>
+        <p class="upsale-geo-countdown__eyebrow" data-role="eyebrow">{{ block.settings.eyebrow }}</p>
       {% endif %}
 
       {% if block.settings.heading != blank %}
-        <h3 class="upsale-geo-countdown__heading">{{ block.settings.heading }}</h3>
+        <h3 class="upsale-geo-countdown__heading" data-role="heading">{{ block.settings.heading }}</h3>
       {% endif %}
 
       {% if block.settings.message != blank %}
-        <p class="upsale-geo-countdown__message">{{ block.settings.message }}</p>
+        <p class="upsale-geo-countdown__message" data-role="message">{{ block.settings.message }}</p>
       {% endif %}
 
       <div class="upsale-geo-countdown__timer" aria-live="polite" aria-atomic="true">
@@ -63,7 +72,7 @@
         </div>
       </div>
 
-      <p class="upsale-geo-countdown__expired" hidden></p>
+      <p class="upsale-geo-countdown__expired" data-role="expired" hidden></p>
     </div>
   </div>
 
@@ -155,17 +164,21 @@
       var endAt = root.dataset.endAt || '';
       var expiredLabel = root.dataset.expiredLabel || 'Offer expired';
       var hideOnExpire = root.dataset.hideOnExpire === 'true';
-      var expiredNode = root.querySelector('.upsale-geo-countdown__expired');
+      var defaultShouldRender = root.dataset.defaultShouldRender === 'true';
+      var shop = root.dataset.shop || '';
+      var country = root.dataset.country || '';
+      var pageTarget = (root.dataset.pageTarget || 'all').toLowerCase();
+      var expiredNode = root.querySelector('[data-role="expired"]');
+      var eyebrowNode = root.querySelector('[data-role="eyebrow"]');
+      var headingNode = root.querySelector('[data-role="heading"]');
+      var messageNode = root.querySelector('[data-role="message"]');
       var dayNode = root.querySelector('[data-unit="days"]');
       var hourNode = root.querySelector('[data-unit="hours"]');
       var minuteNode = root.querySelector('[data-unit="minutes"]');
       var secondNode = root.querySelector('[data-unit="seconds"]');
       var timerNode = root.querySelector('.upsale-geo-countdown__timer');
 
-      if (!endAt || !(expiredNode instanceof HTMLElement) || !(timerNode instanceof HTMLElement)) return;
-
-      var target = new Date(endAt).getTime();
-      if (!target || Number.isNaN(target)) return;
+      if (!(expiredNode instanceof HTMLElement) || !(timerNode instanceof HTMLElement)) return;
 
       function pad(value) {
         return String(value).padStart(2, '0');
@@ -182,7 +195,73 @@
         expiredNode.textContent = expiredLabel;
       }
 
+      function ensureTextNode(currentNode, selector, tagName) {
+        if (currentNode instanceof HTMLElement) return currentNode;
+
+        var contentNode = root.querySelector('.upsale-geo-countdown__content');
+        if (!(contentNode instanceof HTMLElement)) return null;
+
+        var node = document.createElement(tagName);
+        node.className = selector;
+        contentNode.insertBefore(node, timerNode);
+        return node;
+      }
+
+      function applyCampaign(campaign) {
+        if (campaign && typeof campaign === 'object') {
+          if (campaign.eyebrow) {
+            var eyebrow = ensureTextNode(eyebrowNode, 'upsale-geo-countdown__eyebrow', 'p');
+            if (eyebrow) {
+              eyebrow.setAttribute('data-role', 'eyebrow');
+              eyebrow.textContent = campaign.eyebrow;
+              eyebrow.hidden = false;
+            }
+          } else if (eyebrowNode instanceof HTMLElement) {
+            eyebrowNode.hidden = true;
+          }
+
+          if (campaign.heading) {
+            var heading = ensureTextNode(headingNode, 'upsale-geo-countdown__heading', 'h3');
+            if (heading) {
+              heading.setAttribute('data-role', 'heading');
+              heading.textContent = campaign.heading;
+              heading.hidden = false;
+            }
+          }
+
+          if (campaign.message) {
+            var message = ensureTextNode(messageNode, 'upsale-geo-countdown__message', 'p');
+            if (message) {
+              message.setAttribute('data-role', 'message');
+              message.textContent = campaign.message;
+              message.hidden = false;
+            }
+          } else if (messageNode instanceof HTMLElement) {
+            messageNode.hidden = true;
+          }
+
+          endAt = campaign.endAt || endAt;
+          expiredLabel = campaign.expiredLabel || expiredLabel;
+          hideOnExpire = campaign.hideOnExpire !== false;
+          root.hidden = false;
+          return true;
+        }
+
+        if (!defaultShouldRender) {
+          root.hidden = true;
+          return false;
+        }
+
+        return true;
+      }
+
       function tick() {
+        var target = new Date(endAt).getTime();
+        if (!target || Number.isNaN(target)) {
+          root.hidden = true;
+          return;
+        }
+
         var delta = target - Date.now();
         if (delta <= 0) {
           window.clearInterval(intervalId);
@@ -201,11 +280,37 @@
         if (secondNode) secondNode.textContent = pad(seconds);
       }
 
-      tick();
-      var intervalId = window.setInterval(tick, 1000);
+      var intervalId = 0;
+
+      function start() {
+        if (!applyCampaign(null) || !endAt) return;
+        tick();
+        intervalId = window.setInterval(tick, 1000);
+      }
+
+      if (!shop) {
+        start();
+        return;
+      }
+
+      var params = new URLSearchParams({
+        shop: shop,
+        country: country,
+        pageTarget: pageTarget === 'index' ? 'home' : pageTarget,
+      });
+
+      fetch('/api/public/geo-countdown?' + params.toString())
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (data) {
+          if (!applyCampaign(data && data.campaign ? data.campaign : null)) return;
+          tick();
+          intervalId = window.setInterval(tick, 1000);
+        })
+        .catch(function () {
+          start();
+        });
     })();
   </script>
-{% endif %}
 
 {% schema %}
 {
