@@ -3,6 +3,7 @@
   data-shop="{{ shop.permanent_domain }}"
   data-api-base="{{ settings.api_base | default: 'https://upsale-cyan.vercel.app' }}"
   data-limit-message="{{ settings.limit_message | default: 'Only [quantity] of this item can be added to your cart.' | escape }}"
+  data-limit-note="{{ settings.limit_note | default: 'Limit [quantity] per order.' | escape }}"
 ></div>
 
 <style>
@@ -46,6 +47,15 @@
     transform: translate(-50%, 0);
     opacity: 1;
   }
+
+  .upsale-cart-limit-note {
+    display: block;
+    margin-top: 0.45rem;
+    color: #b42318;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
 </style>
 
 <div id="upsale-cart-limit-toast" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -61,6 +71,7 @@
     var shop = root.dataset.shop || '';
     var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
     var limitMessageTemplate = root.dataset.limitMessage || 'Only [quantity] of this item can be added to your cart.';
+    var limitNoteTemplate = root.dataset.limitNote || 'Limit [quantity] per order.';
 
     if (!shop || !apiBase) return;
 
@@ -76,6 +87,10 @@
 
     function buildMessage(quantity) {
       return limitMessageTemplate.replace(/\[quantity\]/g, String(quantity));
+    }
+
+    function buildNote(quantity) {
+      return limitNoteTemplate.replace(/\[quantity\]/g, String(quantity));
     }
 
     function safeJson(response) {
@@ -219,6 +234,31 @@
       pendingErrors[String(productId)] = buildMessage(quantity);
     }
 
+    function upsertRowNote(row, quantity) {
+      if (!(row instanceof HTMLElement)) return;
+
+      var quantityCell = row.querySelector('.cart-items__quantity .flex');
+      if (!(quantityCell instanceof HTMLElement)) return;
+
+      var note = row.querySelector('.upsale-cart-limit-note');
+      if (!(note instanceof HTMLElement)) {
+        note = document.createElement('small');
+        note.className = 'upsale-cart-limit-note';
+        quantityCell.appendChild(note);
+      }
+
+      note.textContent = buildNote(quantity);
+    }
+
+    function removeRowNote(row) {
+      if (!(row instanceof HTMLElement)) return;
+
+      var note = row.querySelector('.upsale-cart-limit-note');
+      if (note instanceof HTMLElement) {
+        note.remove();
+      }
+    }
+
     function consumeQueuedError(row, productId) {
       var key = String(productId);
       if (!pendingErrors[key]) return;
@@ -259,6 +299,7 @@
       if (row instanceof HTMLElement) {
         row.dataset.lockedQuantity = String(lockedQuantity);
         row.dataset.maxQuantity = String(maxQuantity);
+        upsertRowNote(row, maxQuantity);
         consumeQueuedError(row, row.dataset.productId || selector.dataset.productId || '');
       }
     }
@@ -290,6 +331,7 @@
       if (row instanceof HTMLElement) {
         delete row.dataset.lockedQuantity;
         delete row.dataset.maxQuantity;
+        removeRowNote(row);
       }
     }
 
@@ -580,6 +622,12 @@
       "id": "limit_message",
       "label": "Cart limit message",
       "default": "Only [quantity] of this item can be added to your cart."
+    },
+    {
+      "type": "text",
+      "id": "limit_note",
+      "label": "Cart limit note",
+      "default": "Limit [quantity] per order."
     }
   ]
 }
