@@ -1,0 +1,385 @@
+<div
+  id="upsale-cart-limits-root"
+  data-shop="{{ shop.permanent_domain }}"
+  data-api-base="{{ settings.api_base | default: 'https://upsale-cyan.vercel.app' }}"
+  data-limit-message="{{ settings.limit_message | default: 'Only [quantity] of this item can be added to your cart.' | escape }}"
+></div>
+
+<style>
+  .upsale-cart-limit-hidden {
+    display: none !important;
+  }
+
+  quantity-selector-component[data-upsale-cart-locked='true'] {
+    pointer-events: none;
+  }
+
+  quantity-selector-component[data-upsale-cart-locked='true'] .quantity-input {
+    cursor: default;
+  }
+</style>
+
+<script>
+  (function () {
+    if (window.__upsaleCartLimitsEmbedLoaded) return;
+    window.__upsaleCartLimitsEmbedLoaded = true;
+
+    var root = document.getElementById('upsale-cart-limits-root');
+    if (!root) return;
+
+    var shop = root.dataset.shop || '';
+    var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
+    var limitMessageTemplate = root.dataset.limitMessage || 'Only [quantity] of this item can be added to your cart.';
+
+    if (!shop || !apiBase) return;
+
+    var rulesCache = [];
+    var loadPromise = null;
+    var syncRunning = false;
+    var syncQueued = false;
+    var pendingErrors = {};
+    var observer = null;
+    var observerTimeout = 0;
+
+    function buildMessage(quantity) {
+      return limitMessageTemplate.replace(/\[quantity\]/g, String(quantity));
+    }
+
+    function safeJson(response) {
+      return response.text().then(function (text) {
+        if (!text) return null;
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return null;
+        }
+      });
+    }
+
+    function fetchRules() {
+      if (rulesCache.length) return Promise.resolve(rulesCache);
+      if (loadPromise) return loadPromise;
+
+      loadPromise = fetch(apiBase + '/api/public/cart-limits?shop=' + encodeURIComponent(shop), {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-store'
+      }).then(function (response) {
+        return safeJson(response);
+      }).then(function (data) {
+        rulesCache = Array.isArray(data && data.rules)
+          ? data.rules.filter(function (rule) { return rule && rule.enabled !== false; })
+          : [];
+        return rulesCache;
+      }).catch(function () {
+        rulesCache = [];
+        return rulesCache;
+      }).finally(function () {
+        loadPromise = null;
+      });
+
+      return loadPromise;
+    }
+
+    function getRuleByProductId(productId) {
+      for (var index = 0; index < rulesCache.length; index += 1) {
+        var rule = rulesCache[index];
+        if (String(rule.productId) === String(productId)) return rule;
+      }
+      return null;
+    }
+
+    function getQuantityInput(selector) {
+      return selector.querySelector('input[ref="quantityInput"], .quantity-input');
+    }
+
+    function getQuantityButtons(selector) {
+      return selector.querySelectorAll('button[ref="quantityButtons[]"], .quantity-button');
+    }
+
+    function getCartRow(selector) {
+      return selector.closest('tr[data-product-id]');
+    }
+
+    function showRowError(row, message) {
+      if (!(row instanceof HTMLElement)) return;
+
+      var container = row.querySelector('.cart-items__error');
+      var text = row.querySelector('.cart-item__error-text');
+
+      if (!(container instanceof HTMLElement) || !(text instanceof HTMLElement)) return;
+
+      text.textContent = message;
+      container.classList.remove('hidden');
+
+      window.setTimeout(function () {
+        container.classList.add('hidden');
+      }, 5000);
+    }
+
+    function queueError(productId, quantity) {
+      pendingErrors[String(productId)] = buildMessage(quantity);
+    }
+
+    function consumeQueuedError(row, productId) {
+      var key = String(productId);
+      if (!pendingErrors[key]) return;
+      showRowError(row, pendingErrors[key]);
+      delete pendingErrors[key];
+    }
+
+    function lockCartSelector(selector, maxQuantity) {
+      if (!(selector instanceof HTMLElement)) return;
+
+      var input = getQuantityInput(selector);
+      var buttons = getQuantityButtons(selector);
+      var currentQuantity = input instanceof HTMLInputElement ? Number(input.value || 0) : 0;
+      var lockedQuantity = Math.min(Math.max(currentQuantity, 1), maxQuantity);
+      var row = getCartRow(selector);
+
+      selector.dataset.upsaleCartLocked = 'true';
+      selector.dataset.maxQuantity = String(maxQuantity);
+      selector.dataset.lockedQuantity = String(lockedQuantity);
+
+      if (input instanceof HTMLInputElement) {
+        input.value = String(lockedQuantity);
+        input.max = String(maxQuantity);
+        input.readOnly = true;
+        input.disabled = true;
+      }
+
+      buttons.forEach(function (button) {
+        if (button instanceof HTMLButtonElement) {
+          button.disabled = true;
+          button.hidden = true;
+          button.classList.add('upsale-cart-limit-hidden');
+        }
+      });
+
+      if (row instanceof HTMLElement) {
+        row.dataset.lockedQuantity = String(lockedQuantity);
+        row.dataset.maxQuantity = String(maxQuantity);
+        consumeQueuedError(row, row.dataset.productId || selector.dataset.productId || '');
+      }
+    }
+
+    function primeProductSelector(selector, maxQuantity) {
+      if (!(selector instanceof HTMLElement)) return;
+
+      var input = getQuantityInput(selector);
+      var buttons = getQuantityButtons(selector);
+
+      selector.dataset.maxQuantity = String(maxQuantity);
+
+      if (input instanceof HTMLInputElement) {
+        input.max = String(maxQuantity);
+        if (Number(input.value || 0) > maxQuantity) {
+          input.value = String(maxQuantity);
+        }
+      }
+
+      buttons.forEach(function (button) {
+        if (!(button instanceof HTMLButtonElement)) return;
+        button.disabled = Number((input && input.value) || 0) >= maxQuantity && button.name === 'plus';
+      });
+    }
+
+    function applyLocks() {
+      var selectors = document.querySelectorAll('quantity-selector-component[data-product-id]');
+
+      selectors.forEach(function (selector) {
+        if (!(selector instanceof HTMLElement)) return;
+
+        var rule = getRuleByProductId(selector.dataset.productId);
+        if (!rule) return;
+
+        var maxQuantity = Math.max(Number(rule.quantity || 1), 1);
+
+        if (selector.dataset.context === 'cart-items') {
+          lockCartSelector(selector, maxQuantity);
+          return;
+        }
+
+        primeProductSelector(selector, maxQuantity);
+      });
+    }
+
+    function fetchCart() {
+      return fetch('/cart.js', {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json'
+        },
+        cache: 'no-store'
+      }).then(function (response) {
+        return safeJson(response);
+      });
+    }
+
+    function updateCartLine(line, quantity) {
+      return fetch('/cart/change.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          line: line,
+          quantity: quantity,
+          sections_url: window.location.pathname
+        })
+      }).then(function (response) {
+        return safeJson(response);
+      });
+    }
+
+    function dispatchRefreshEvents() {
+      document.dispatchEvent(new CustomEvent('cart:refresh'));
+      document.dispatchEvent(new CustomEvent('cart:updated'));
+    }
+
+    function syncCartLimits() {
+      if (syncRunning) {
+        syncQueued = true;
+        return;
+      }
+
+      syncRunning = true;
+
+      fetchRules().then(function () {
+        applyLocks();
+        return fetchCart();
+      }).then(function (cart) {
+        if (!cart || !Array.isArray(cart.items) || !cart.items.length) return false;
+
+        var chain = Promise.resolve(false);
+
+        cart.items.forEach(function (item, index) {
+          chain = chain.then(function (changed) {
+            var rule = getRuleByProductId(item.product_id);
+            if (!rule) return changed;
+
+            var maxQuantity = Math.max(Number(rule.quantity || 1), 1);
+            var itemQuantity = Number(item.quantity || 0);
+            if (itemQuantity <= maxQuantity) return changed;
+
+            queueError(item.product_id, maxQuantity);
+            return updateCartLine(index + 1, maxQuantity).then(function () {
+              return true;
+            }).catch(function () {
+              return changed;
+            });
+          });
+        });
+
+        return chain;
+      }).then(function (changed) {
+        applyLocks();
+        if (changed) {
+          dispatchRefreshEvents();
+        }
+      }).catch(function () {
+      }).finally(function () {
+        syncRunning = false;
+        if (syncQueued) {
+          syncQueued = false;
+          window.setTimeout(syncCartLimits, 80);
+        }
+      });
+    }
+
+    function queueApply() {
+      if (observerTimeout) {
+        window.clearTimeout(observerTimeout);
+      }
+
+      observerTimeout = window.setTimeout(function () {
+        fetchRules().then(function () {
+          applyLocks();
+        });
+      }, 80);
+    }
+
+    function bootObserver() {
+      if (observer) return;
+
+      observer = new MutationObserver(function () {
+        queueApply();
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      fetchRules().then(function () {
+        applyLocks();
+        syncCartLimits();
+        bootObserver();
+      });
+    });
+
+    document.addEventListener('shopify:section:load', function () {
+      queueApply();
+      window.setTimeout(syncCartLimits, 80);
+    });
+
+    document.addEventListener('cart:updated', function () {
+      window.setTimeout(syncCartLimits, 80);
+    });
+
+    document.addEventListener('cart:refresh', function () {
+      window.setTimeout(syncCartLimits, 80);
+    });
+
+    var originalFetch = window.fetch;
+    window.fetch = function (input) {
+      var request = originalFetch.apply(this, arguments);
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+
+      if (/\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
+        request.then(function () {
+          window.setTimeout(syncCartLimits, 100);
+        }).catch(function () {
+        });
+      }
+
+      return request;
+    };
+
+    var xhrOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (method, url) {
+      if (typeof url === 'string' && /\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
+        this.addEventListener('load', function () {
+          window.setTimeout(syncCartLimits, 100);
+        });
+      }
+
+      return xhrOpen.apply(this, arguments);
+    };
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Cart limits guard",
+  "target": "body",
+  "settings": [
+    {
+      "type": "text",
+      "id": "api_base",
+      "label": "App URL",
+      "default": "https://upsale-cyan.vercel.app"
+    },
+    {
+      "type": "text",
+      "id": "limit_message",
+      "label": "Cart limit message",
+      "default": "Only [quantity] of this item can be added to your cart."
+    }
+  ]
+}
+{% endschema %}
