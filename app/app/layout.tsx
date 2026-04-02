@@ -1,4 +1,3 @@
-import PolarisProvider from "@/components/PolarisProvider";
 import EmbeddedAppNav from "@/components/EmbeddedAppNav";
 import { Suspense } from "react";
 
@@ -19,10 +18,8 @@ export default function EmbeddedLayout({ children }: { children: React.ReactNode
         async
       />
       <Suspense fallback={null}>
-        <PolarisProvider>
-          <EmbeddedAppNav />
-          {children}
-        </PolarisProvider>
+        <EmbeddedAppNav />
+        {children}
       </Suspense>
     </>
   );
