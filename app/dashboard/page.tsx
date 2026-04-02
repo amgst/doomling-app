@@ -3367,7 +3367,7 @@ interface ShopInfo {
   adminUrl: string;
 }
 
-const VALID_TABS = ["overview", "products", "cartlimits", "upsells", "buyxgety", "postpurchase", "stats"] as const;
+const VALID_TABS = ["overview", "products", "cartlimits", "upsells", "buyxgety", "geocountdown", "postpurchase", "stats"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
