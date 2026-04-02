@@ -24,3 +24,4 @@ This file lists the Shopify theme files we added or edited for the Pebble theme 
 - No app embed/app block enabled means no BXGY storefront script is loaded.
 - Enable the relevant app blocks/embeds only on the theme you want to test.
 - If the app backend URL changes, update the extension block settings where the embed/block is enabled.
+one more 
