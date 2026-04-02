@@ -10,10 +10,28 @@ export interface ShopData {
   settings?: Record<string, unknown>;
 }
 
+function stripUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => stripUndefinedDeep(entry))
+      .filter((entry) => entry !== undefined) as T;
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, entry]) => entry !== undefined)
+        .map(([key, entry]) => [key, stripUndefinedDeep(entry)]),
+    ) as T;
+  }
+
+  return value;
+}
+
 export async function saveShop(shop: string, data: ShopData): Promise<void> {
   await setDoc(
     doc(getDb(), COLLECTION, shop),
-    { ...data, updatedAt: serverTimestamp() },
+    stripUndefinedDeep({ ...data, updatedAt: serverTimestamp() }),
     { merge: true }
   );
 }
@@ -27,7 +45,7 @@ export async function getShop(shop: string): Promise<ShopData | null> {
 export async function markUninstalled(shop: string): Promise<void> {
   await setDoc(
     doc(getDb(), COLLECTION, shop),
-    { uninstalledAt: new Date().toISOString(), updatedAt: serverTimestamp() },
+    stripUndefinedDeep({ uninstalledAt: new Date().toISOString(), updatedAt: serverTimestamp() }),
     { merge: true }
   );
 }
@@ -38,7 +56,7 @@ export async function updateShopSettings(
 ): Promise<void> {
   await setDoc(
     doc(getDb(), COLLECTION, shop),
-    { settings, updatedAt: serverTimestamp() },
+    stripUndefinedDeep({ settings, updatedAt: serverTimestamp() }),
     { merge: true }
   );
 }
