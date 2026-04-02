@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["@shopify/shopify-api"],
+  experimental: {
+    serverComponentsExternalPackages: ["@shopify/shopify-api"],
+  },
   async headers() {
     return [
       {
