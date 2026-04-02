@@ -67,9 +67,9 @@ export async function PUT(req: NextRequest) {
     if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
     const body = await req.json();
-    const incomingRules = Array.isArray(body?.rules) ? body.rules : [];
+    const incomingRules: unknown[] = Array.isArray(body?.rules) ? body.rules : [];
     const rules = incomingRules
-      .map((rule, index) => normalizeRule(rule, index))
+      .map((rule: unknown, index: number) => normalizeRule(rule, index))
       .filter((rule): rule is CartQuantityRule => Boolean(rule));
 
     const deduped = Array.from(
