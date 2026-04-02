@@ -18,6 +18,10 @@
     cursor: default;
   }
 
+  quantity-selector-component[data-upsale-cart-locked='true'] .quantity-button {
+    display: none !important;
+  }
+
   #upsale-cart-limit-toast {
     position: fixed;
     left: 50%;
@@ -130,6 +134,35 @@
       return selector.closest('tr[data-product-id]');
     }
 
+    function getSelectorProductId(selector) {
+      if (!(selector instanceof HTMLElement)) return '';
+
+      if (selector.dataset.productId) {
+        return selector.dataset.productId;
+      }
+
+      var row = getCartRow(selector);
+      if (row instanceof HTMLElement && row.dataset.productId) {
+        selector.dataset.productId = row.dataset.productId;
+        return row.dataset.productId;
+      }
+
+      var productForm = selector.closest('product-form-component');
+      if (productForm instanceof HTMLElement && productForm.dataset.productId) {
+        selector.dataset.productId = productForm.dataset.productId;
+        return productForm.dataset.productId;
+      }
+
+      return '';
+    }
+
+    function isCartSelector(selector) {
+      if (!(selector instanceof HTMLElement)) return false;
+      if (selector.dataset.context === 'cart-items') return true;
+      if (getCartRow(selector)) return true;
+      return !!selector.querySelector('input[data-cart-line]');
+    }
+
     function showRowError(row, message) {
       if (!(row instanceof HTMLElement)) return;
 
@@ -192,6 +225,7 @@
         input.max = String(maxQuantity);
         input.readOnly = true;
         input.disabled = true;
+        input.setAttribute('aria-disabled', 'true');
       }
 
       buttons.forEach(function (button) {
@@ -231,17 +265,20 @@
     }
 
     function applyLocks() {
-      var selectors = document.querySelectorAll('quantity-selector-component[data-product-id]');
+      var selectors = document.querySelectorAll('quantity-selector-component');
 
       selectors.forEach(function (selector) {
         if (!(selector instanceof HTMLElement)) return;
 
-        var rule = getRuleByProductId(selector.dataset.productId);
+        var productId = getSelectorProductId(selector);
+        if (!productId) return;
+
+        var rule = getRuleByProductId(productId);
         if (!rule) return;
 
         var maxQuantity = Math.max(Number(rule.quantity || 1), 1);
 
-        if (selector.dataset.context === 'cart-items') {
+        if (isCartSelector(selector)) {
           lockCartSelector(selector, maxQuantity);
           return;
         }
@@ -352,6 +389,43 @@
         });
       }, 80);
     }
+
+    document.addEventListener('click', function (event) {
+      var target = event.target;
+      if (!(target instanceof Element)) return;
+
+      var selector = target.closest("quantity-selector-component[data-upsale-cart-locked='true']");
+      if (!selector) return;
+
+      if (target.closest('.quantity-button')) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        var maxQuantity = Number(selector.dataset.maxQuantity || selector.dataset.lockedQuantity || 1);
+        showToast(buildMessage(maxQuantity));
+      }
+    }, true);
+
+    document.addEventListener('input', function (event) {
+      var target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+
+      var selector = target.closest("quantity-selector-component[data-upsale-cart-locked='true']");
+      if (!selector) return;
+
+      event.preventDefault();
+      target.value = selector.dataset.lockedQuantity || target.value;
+    }, true);
+
+    document.addEventListener('keydown', function (event) {
+      var target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+
+      var selector = target.closest("quantity-selector-component[data-upsale-cart-locked='true']");
+      if (!selector) return;
+
+      event.preventDefault();
+    }, true);
 
     function bootObserver() {
       if (observer) return;
