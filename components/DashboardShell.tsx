@@ -81,6 +81,17 @@ const TABS = [
     ),
   },
   {
+    key: "launchpad",
+    label: "Launchpad",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 19c5.5-1.5 10.5-6.5 12-12" />
+        <path d="M15 5h4v4" />
+        <path d="M4 20l4-1-3-3-1 4z" />
+      </svg>
+    ),
+  },
+  {
     key: "postpurchase",
     label: "Post-Purchase",
     icon: (

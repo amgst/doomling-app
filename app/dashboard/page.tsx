@@ -95,6 +95,21 @@ interface ThemeSummary {
   processingFailed?: boolean;
 }
 
+type LaunchpadScheduleStatus = "pending" | "published" | "failed" | "cancelled";
+
+interface LaunchpadSchedule {
+  id: string;
+  themeId: string;
+  themeName: string;
+  scheduledForUtc: string;
+  timezone: string;
+  status: LaunchpadScheduleStatus;
+  createdAt: string;
+  publishedAt?: string;
+  cancelledAt?: string;
+  lastError?: string;
+}
+
 function isDefaultVariantTitle(title: string) {
   const value = String(title || "").trim().toLowerCase();
   return !value || value === "default title" || value === "default" || value === "main";
@@ -486,6 +501,87 @@ function AppHealthCheck({ storeName }: { storeName?: string }) {
   );
 }
 
+function ModuleOverviewStrip() {
+  const [data, setData] = useState<{
+    upsells: number | null;
+    cartLimits: number | null;
+    bxgyRules: number | null;
+    postPurchaseOffers: number | null;
+    geoCountdowns: number | null;
+    liveTheme: string | null;
+    launchpadPending: number | null;
+  }>({
+    upsells: null,
+    cartLimits: null,
+    bxgyRules: null,
+    postPurchaseOffers: null,
+    geoCountdowns: null,
+    liveTheme: null,
+    launchpadPending: null,
+  });
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/standalone/upsells").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/standalone/cart-limits").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/standalone/bxgy-stats").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/standalone/post-purchase-stats").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/standalone/geo-countdown").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/standalone/themes").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/standalone/launchpad").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([upsells, cartLimits, bxgyStats, postPurchaseStats, geoCountdown, themes, launchpad]) => {
+      const themeList: ThemeSummary[] = themes?.themes ?? [];
+      const liveTheme = themeList.find((theme) => theme.role === "MAIN")?.name ?? null;
+      const launchpadSchedules: LaunchpadSchedule[] = launchpad?.schedules ?? [];
+
+      setData({
+        upsells: upsells?.rules?.length ?? 0,
+        cartLimits: cartLimits?.rules?.length ?? 0,
+        bxgyRules: bxgyStats?.summary?.activeRules ?? 0,
+        postPurchaseOffers: postPurchaseStats?.summary?.activeOffers ?? 0,
+        geoCountdowns: geoCountdown?.campaigns?.length ?? 0,
+        liveTheme,
+        launchpadPending: launchpadSchedules.filter((schedule) => schedule.status === "pending").length,
+      });
+    });
+  }, []);
+
+  const cards = [
+    { label: "Upsells", value: data.upsells, sub: "Active product upsell rules" },
+    { label: "Cart Limits", value: data.cartLimits, sub: "Restricted cart products" },
+    { label: "Buy X Get Y", value: data.bxgyRules, sub: "Live free gift campaigns" },
+    { label: "Post-Purchase", value: data.postPurchaseOffers, sub: "Offers after checkout" },
+    { label: "Geo Countdown", value: data.geoCountdowns, sub: "Countdown campaigns" },
+    { label: "Live Theme", value: data.liveTheme, sub: "Current published storefront" },
+    { label: "Launchpad", value: data.launchpadPending, sub: "Pending scheduled publishes" },
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+      {cards.map((card) => (
+        <div
+          key={card.label}
+          style={{
+            background: "#fff",
+            borderRadius: "12px",
+            padding: "1rem 1.1rem",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+            border: "1px solid #eef0f2",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "0.74rem", color: "#6d7175", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            {card.label}
+          </p>
+          <p style={{ margin: "0.35rem 0 0.18rem", fontSize: "1.35rem", fontWeight: 700, color: "#111827" }}>
+            {card.value === null ? "..." : String(card.value)}
+          </p>
+          <p style={{ margin: 0, fontSize: "0.78rem", color: "#6d7175" }}>{card.sub}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BxgyOverviewStrip() {
   const [summary, setSummary] = useState<BxgySummary | null>(null);
 
@@ -606,6 +702,7 @@ function OverviewTab({ days, setDays, storeName }: { days: string; setDays: (d: 
       </div>
 
       <AppHealthCheck storeName={storeName} />
+      <ModuleOverviewStrip />
       <BxgyOverviewStrip />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
@@ -3436,6 +3533,272 @@ function ThemeSwitcherTab() {
   );
 }
 
+function LaunchpadTab() {
+  const [themes, setThemes] = useState<ThemeSummary[]>([]);
+  const [schedules, setSchedules] = useState<LaunchpadSchedule[]>([]);
+  const [timezones, setTimezones] = useState<string[]>(["UTC"]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedThemeId, setSelectedThemeId] = useState("");
+  const [localDateTime, setLocalDateTime] = useState("");
+  const [timezone, setTimezone] = useState("UTC");
+
+  const loadData = useCallback(async () => {
+    const [themesResponse, launchpadResponse] = await Promise.all([
+      fetch("/api/standalone/themes"),
+      fetch("/api/standalone/launchpad"),
+    ]);
+
+    const themesData = await safeJson<{ themes?: ThemeSummary[]; error?: string }>(themesResponse);
+    const launchpadData = await safeJson<{ schedules?: LaunchpadSchedule[]; timezones?: string[]; error?: string }>(launchpadResponse);
+
+    if (!themesResponse.ok) throw new Error(themesData?.error ?? `HTTP ${themesResponse.status}`);
+    if (!launchpadResponse.ok) throw new Error(launchpadData?.error ?? `HTTP ${launchpadResponse.status}`);
+
+    setThemes(themesData?.themes ?? []);
+    setSchedules(launchpadData?.schedules ?? []);
+    setTimezones(launchpadData?.timezones ?? ["UTC"]);
+    setTimezone((current) => (launchpadData?.timezones?.includes(current) ? current : (launchpadData?.timezones?.[0] ?? "UTC")));
+  }, []);
+
+  useEffect(() => {
+    loadData()
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load launchpad data."))
+      .finally(() => setLoading(false));
+  }, [loadData]);
+
+  const scheduleTheme = async () => {
+    const selectedTheme = themes.find((theme) => theme.id === selectedThemeId);
+    if (!selectedTheme) {
+      setError("Choose a theme to schedule.");
+      return;
+    }
+    if (!localDateTime) {
+      setError("Choose a local date and time.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/standalone/launchpad", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          themeId: selectedTheme.id,
+          themeName: selectedTheme.name,
+          localDateTime,
+          timezone,
+        }),
+      });
+      const data = await safeJson<{ schedules?: LaunchpadSchedule[]; timezones?: string[]; error?: string }>(response);
+      if (!response.ok) throw new Error(data?.error ?? `HTTP ${response.status}`);
+      setSchedules(data?.schedules ?? []);
+      setTimezones(data?.timezones ?? timezones);
+      setSelectedThemeId("");
+      setLocalDateTime("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to schedule theme publish.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateSchedule = async (id: string, action: "cancel" | "retry") => {
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/standalone/launchpad", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      const data = await safeJson<{ schedules?: LaunchpadSchedule[]; error?: string }>(response);
+      if (!response.ok) throw new Error(data?.error ?? `HTTP ${response.status}`);
+      setSchedules(data?.schedules ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update launchpad schedule.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const mainTheme = themes.find((theme) => theme.role === "MAIN") ?? null;
+  const draftThemes = themes.filter((theme) => theme.role !== "MAIN");
+  const pendingCount = schedules.filter((schedule) => schedule.status === "pending").length;
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading launchpad...</div>;
+  }
+
+  return (
+    <>
+      <div style={{ marginBottom: "1rem" }}>
+        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Launchpad</h1>
+        <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.84rem", maxWidth: 840 }}>
+          Schedule a theme to auto-publish later. The time is entered in the timezone you choose, then stored in UTC for reliable execution by the background cron.
+        </p>
+      </div>
+
+      {error && (
+        <div style={{ background: "#fff4f4", border: "1px solid #ffd2d2", borderRadius: "8px", padding: "0.75rem 1rem", color: "#c0392b", fontSize: "0.875rem", marginBottom: "1rem" }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
+        {[
+          { label: "Live theme", value: mainTheme?.name ?? "None", sub: "Current published storefront theme" },
+          { label: "Pending schedules", value: pendingCount, sub: "Queued for automatic publish" },
+          { label: "Timezone", value: timezone, sub: "Used for new schedules" },
+        ].map((card) => (
+          <div key={card.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "0.85rem 0.95rem" }}>
+            <p style={{ margin: 0, fontSize: "0.73rem", color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em" }}>{card.label}</p>
+            <p style={{ margin: "0.24rem 0 0.12rem", fontSize: "1.1rem", fontWeight: 700, color: "#111827" }}>{card.value}</p>
+            <p style={{ margin: 0, fontSize: "0.76rem", color: "#6b7280" }}>{card.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <Card>
+        <BlockStack gap="400">
+          <InlineGrid columns={{ xs: 1, md: 3 }} gap="400">
+            <Select
+              label="Theme to publish"
+              options={[
+                { label: draftThemes.length > 0 ? "Choose theme" : "No publishable themes found", value: "" },
+                ...draftThemes.map((theme) => ({ label: `${theme.name} (${theme.role})`, value: theme.id })),
+              ]}
+              value={selectedThemeId}
+              onChange={setSelectedThemeId}
+            />
+            <TextField
+              label="Date and time"
+              type="datetime-local"
+              value={localDateTime}
+              onChange={setLocalDateTime}
+              autoComplete="off"
+              helpText="Enter the launch time in the timezone selected on the right."
+            />
+            <Select
+              label="Timezone"
+              options={timezones.map((value) => ({ label: value, value }))}
+              value={timezone}
+              onChange={setTimezone}
+            />
+          </InlineGrid>
+          <InlineStack align="space-between" blockAlign="center">
+            <Text as="p" tone="subdued">
+              The background scheduler checks due launches and publishes the theme automatically.
+            </Text>
+            <Button variant="primary" onClick={scheduleTheme} loading={saving} disabled={!selectedThemeId || !localDateTime}>
+              Schedule publish
+            </Button>
+          </InlineStack>
+        </BlockStack>
+      </Card>
+
+      <div style={{ marginTop: "1rem", background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden" }}>
+        <div style={{ padding: "1rem 1.1rem", borderBottom: "1px solid #e5e7eb" }}>
+          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Scheduled launches</p>
+        </div>
+        {schedules.length === 0 ? (
+          <p style={{ margin: 0, padding: "1.5rem", color: "#6b7280" }}>
+            No launches scheduled yet. Pick a theme, choose the local time, and queue it above.
+          </p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#fafafa" }}>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Theme</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Scheduled time</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Status</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "right", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {schedules.map((schedule, index) => (
+                <tr key={schedule.id} style={{ borderBottom: index < schedules.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <td style={{ padding: "0.85rem 0.9rem" }}>
+                    <div style={{ fontSize: "0.86rem", fontWeight: 700, color: "#111827" }}>{schedule.themeName}</div>
+                    <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem" }}>{schedule.themeId}</div>
+                  </td>
+                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>
+                    <div>{new Date(schedule.scheduledForUtc).toLocaleString()}</div>
+                    <div style={{ color: "#6b7280", marginTop: "0.15rem" }}>
+                      Saved with timezone: {schedule.timezone}
+                    </div>
+                  </td>
+                  <td style={{ padding: "0.85rem 0.9rem" }}>
+                    <span style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "0.25rem 0.6rem",
+                      borderRadius: "999px",
+                      border: "1px solid " + (schedule.status === "published" ? "#bbf7d0" : schedule.status === "failed" ? "#fecaca" : "#e5e7eb"),
+                      background: schedule.status === "published" ? "#f0fdf4" : schedule.status === "failed" ? "#fff1f2" : "#f9fafb",
+                      color: schedule.status === "published" ? "#166534" : schedule.status === "failed" ? "#b91c1c" : "#6b7280",
+                      fontSize: "0.76rem",
+                      fontWeight: 700,
+                    }}>
+                      {schedule.status}
+                    </span>
+                    {schedule.lastError && (
+                      <div style={{ fontSize: "0.75rem", color: "#b91c1c", marginTop: "0.25rem", maxWidth: 320 }}>
+                        {schedule.lastError}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: "0.85rem 0.9rem", textAlign: "right" }}>
+                    {schedule.status === "pending" && (
+                      <button
+                        type="button"
+                        onClick={() => void updateSchedule(schedule.id, "cancel")}
+                        disabled={saving}
+                        style={{
+                          padding: "0.45rem 0.8rem",
+                          background: "#fff",
+                          color: "#b91c1c",
+                          border: "1px solid #fecaca",
+                          borderRadius: "8px",
+                          fontSize: "0.8rem",
+                          cursor: saving ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {schedule.status === "failed" && (
+                      <button
+                        type="button"
+                        onClick={() => void updateSchedule(schedule.id, "retry")}
+                        disabled={saving}
+                        style={{
+                          padding: "0.45rem 0.8rem",
+                          background: "#111827",
+                          color: "#fff",
+                          border: "1px solid #111827",
+                          borderRadius: "8px",
+                          fontSize: "0.8rem",
+                          cursor: saving ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  );
+}
+
 function StatsTab() {
   const [rules, setRules] = useState<RuleStat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3530,7 +3893,7 @@ interface ShopInfo {
   adminUrl: string;
 }
 
-const VALID_TABS = ["overview", "products", "cartlimits", "upsells", "buyxgety", "geocountdown", "themeswitcher", "postpurchase", "stats"] as const;
+const VALID_TABS = ["overview", "products", "cartlimits", "upsells", "buyxgety", "geocountdown", "themeswitcher", "launchpad", "postpurchase", "stats"] as const;
 type Tab = typeof VALID_TABS[number];
 
 export default function DashboardPage() {
@@ -3558,6 +3921,7 @@ export default function DashboardPage() {
       {tab === "buyxgety" && <BuyXGetYTabPolaris />}
       {tab === "geocountdown" && <GeoCountdownTab />}
       {tab === "themeswitcher" && <ThemeSwitcherTab />}
+      {tab === "launchpad" && <LaunchpadTab />}
       {tab === "postpurchase" && <PostPurchaseTab />}
       {tab === "stats" && <StatsTab />}
     </DashboardShell>

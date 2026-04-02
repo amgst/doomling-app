@@ -1,5 +1,5 @@
 import { getDb } from "./admin";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, serverTimestamp } from "firebase/firestore";
 
 const COLLECTION = "shops";
 
@@ -41,4 +41,12 @@ export async function updateShopSettings(
     { settings, updatedAt: serverTimestamp() },
     { merge: true }
   );
+}
+
+export async function listShops(): Promise<Array<{ shop: string; data: ShopData }>> {
+  const snap = await getDocs(collection(getDb(), COLLECTION));
+  return snap.docs.map((entry) => ({
+    shop: entry.id,
+    data: entry.data() as ShopData,
+  }));
 }
