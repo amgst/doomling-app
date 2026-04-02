@@ -1,6 +1,6 @@
 import PolarisProvider from "@/components/PolarisProvider";
+import EmbeddedAppNav from "@/components/EmbeddedAppNav";
 import { Suspense } from "react";
-import { NavigationMenu } from "@shopify/app-bridge-react";
 
 /**
  * App Bridge v4: initialized by the Shopify Admin via a <script> tag with
@@ -20,14 +20,7 @@ export default function EmbeddedLayout({ children }: { children: React.ReactNode
       />
       <Suspense fallback={null}>
         <PolarisProvider>
-          <NavigationMenu
-            navigationLinks={[
-              { label: "Dashboard", destination: "/app/dashboard" },
-              { label: "Analytics", destination: "/app/analytics" },
-              { label: "Cart Limits", destination: "/app/cart-limits" },
-              { label: "Settings", destination: "/app/settings" },
-            ]}
-          />
+          <EmbeddedAppNav />
           {children}
         </PolarisProvider>
       </Suspense>
