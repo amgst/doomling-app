@@ -1,4 +1,5 @@
 {% liquid
+  assign countdown_dom_id = 'upsale-geo-countdown-' | append: block.id
   assign country_codes_raw = block.settings.country_codes | default: ''
   assign normalized_country_codes = country_codes_raw | upcase | replace: ' ', ''
   assign allowed_countries = normalized_country_codes | split: ','
@@ -17,6 +18,7 @@
 %}
 
   <div
+    id="{{ countdown_dom_id }}"
     class="upsale-geo-countdown color-{{ block.settings.color_scheme }}"
     data-upsale-geo-countdown
     data-shop="{{ shop.permanent_domain | escape }}"
@@ -29,29 +31,25 @@
     data-fallback-message="{{ block.settings.message | escape }}"
     data-expired-label="{{ block.settings.expired_label | escape }}"
     data-hide-on-expire="{{ block.settings.hide_on_expire }}"
-    style="
-      --upsale-countdown-radius: {{ block.settings.corner_radius }}px;
-      --upsale-countdown-padding-y: {{ block.settings.padding_y }}px;
-      --upsale-countdown-padding-x: {{ block.settings.padding_x }}px;
-      --upsale-countdown-gap: {{ block.settings.gap }}px;
-    "
     {% unless default_should_render %}
       hidden
     {% endunless %}
     {{ block.shopify_attributes }}
   >
     <div class="upsale-geo-countdown__content">
-      {% if block.settings.eyebrow != blank %}
-        <p class="upsale-geo-countdown__eyebrow" data-role="eyebrow">{{ block.settings.eyebrow }}</p>
-      {% endif %}
+      <div class="upsale-geo-countdown__copy">
+        {% if block.settings.eyebrow != blank %}
+          <p class="upsale-geo-countdown__eyebrow" data-role="eyebrow">{{ block.settings.eyebrow }}</p>
+        {% endif %}
 
-      {% if block.settings.heading != blank %}
-        <h3 class="upsale-geo-countdown__heading" data-role="heading">{{ block.settings.heading }}</h3>
-      {% endif %}
+        {% if block.settings.heading != blank %}
+          <h3 class="upsale-geo-countdown__heading" data-role="heading">{{ block.settings.heading }}</h3>
+        {% endif %}
 
-      {% if block.settings.message != blank %}
-        <p class="upsale-geo-countdown__message" data-role="message">{{ block.settings.message }}</p>
-      {% endif %}
+        {% if block.settings.message != blank %}
+          <p class="upsale-geo-countdown__message" data-role="message">{{ block.settings.message }}</p>
+        {% endif %}
+      </div>
 
       <div class="upsale-geo-countdown__timer" aria-live="polite" aria-atomic="true">
         <div class="upsale-geo-countdown__unit">
@@ -77,81 +75,117 @@
   </div>
 
   <style>
+    #{{ countdown_dom_id }} {
+      --upsale-countdown-radius: {{ block.settings.corner_radius }}px;
+      --upsale-countdown-padding-y: {{ block.settings.padding_y }}px;
+      --upsale-countdown-padding-x: {{ block.settings.padding_x }}px;
+      --upsale-countdown-gap: {{ block.settings.gap }}px;
+    }
+
     .upsale-geo-countdown {
-      border-radius: var(--upsale-countdown-radius);
+      width: 100%;
       padding: var(--upsale-countdown-padding-y) var(--upsale-countdown-padding-x);
-      background: rgba(17, 24, 39, 0.04);
+      border-radius: var(--upsale-countdown-radius);
+      background: rgb(var(--color-background));
+      color: rgb(var(--color-foreground));
+      border: 1px solid rgba(var(--color-foreground), 0.08);
+      box-sizing: border-box;
     }
 
     .upsale-geo-countdown__content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .upsale-geo-countdown__copy {
       display: grid;
-      gap: 0.6rem;
+      gap: 0.3rem;
+      min-width: 0;
+      flex: 1 1 260px;
     }
 
     .upsale-geo-countdown__eyebrow {
       margin: 0;
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      opacity: 0.72;
+      color: rgba(var(--color-foreground), 0.72);
     }
 
     .upsale-geo-countdown__heading {
       margin: 0;
-      font-size: 1.35rem;
-      line-height: 1.1;
+      font-size: 1rem;
+      line-height: 1.25;
+      font-weight: 700;
+      color: inherit;
     }
 
     .upsale-geo-countdown__message {
       margin: 0;
-      font-size: 0.92rem;
-      line-height: 1.45;
-      opacity: 0.84;
+      font-size: 0.88rem;
+      line-height: 1.4;
+      color: rgba(var(--color-foreground), 0.78);
     }
 
     .upsale-geo-countdown__timer {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(56px, auto));
       gap: var(--upsale-countdown-gap);
+      flex: 0 0 auto;
     }
 
     .upsale-geo-countdown__unit {
       display: grid;
-      gap: 0.3rem;
-      padding: 0.75rem 0.5rem;
-      border-radius: calc(var(--upsale-countdown-radius) - 6px);
-      background: rgba(255, 255, 255, 0.72);
+      gap: 0.15rem;
+      min-width: 56px;
+      padding: 0.55rem 0.5rem;
+      border-radius: calc(var(--upsale-countdown-radius) - 8px);
+      background: rgba(var(--color-foreground), 0.04);
+      border: 1px solid rgba(var(--color-foreground), 0.08);
       text-align: center;
     }
 
     .upsale-geo-countdown__number {
-      font-size: 1.6rem;
+      font-size: 1.15rem;
       line-height: 1;
       font-weight: 800;
+      color: inherit;
     }
 
     .upsale-geo-countdown__label {
-      font-size: 0.72rem;
+      font-size: 0.64rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      opacity: 0.7;
+      color: rgba(var(--color-foreground), 0.62);
     }
 
     .upsale-geo-countdown__expired {
       margin: 0;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 600;
-      opacity: 0.78;
+      color: rgba(var(--color-foreground), 0.78);
     }
 
     @media (max-width: 749px) {
+      .upsale-geo-countdown {
+        padding: calc(var(--upsale-countdown-padding-y) * 0.85) calc(var(--upsale-countdown-padding-x) * 0.75);
+      }
+
+      .upsale-geo-countdown__content {
+        align-items: flex-start;
+      }
+
       .upsale-geo-countdown__timer {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
       }
 
       .upsale-geo-countdown__heading {
-        font-size: 1.15rem;
+        font-size: 0.94rem;
       }
     }
   </style>
@@ -198,12 +232,12 @@
       function ensureTextNode(currentNode, selector, tagName) {
         if (currentNode instanceof HTMLElement) return currentNode;
 
-        var contentNode = root.querySelector('.upsale-geo-countdown__content');
-        if (!(contentNode instanceof HTMLElement)) return null;
+        var copyNode = root.querySelector('.upsale-geo-countdown__copy');
+        if (!(copyNode instanceof HTMLElement)) return null;
 
         var node = document.createElement(tagName);
         node.className = selector;
-        contentNode.insertBefore(node, timerNode);
+        copyNode.appendChild(node);
         return node;
       }
 
