@@ -3539,6 +3539,7 @@ function LaunchpadTab() {
   const [timezones, setTimezones] = useState<string[]>(["UTC"]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [runningNow, setRunningNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState("");
   const [localDateTime, setLocalDateTime] = useState("");
@@ -3625,6 +3626,21 @@ function LaunchpadTab() {
     }
   };
 
+  const runDueSchedulesNow = async () => {
+    setRunningNow(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/standalone/launchpad/run", { method: "POST" });
+      const data = await safeJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data?.error ?? `HTTP ${response.status}`);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run scheduled publishes.");
+    } finally {
+      setRunningNow(false);
+    }
+  };
+
   const mainTheme = themes.find((theme) => theme.role === "MAIN") ?? null;
   const draftThemes = themes.filter((theme) => theme.role !== "MAIN");
   const pendingCount = schedules.filter((schedule) => schedule.status === "pending").length;
@@ -3691,11 +3707,16 @@ function LaunchpadTab() {
           </InlineGrid>
           <InlineStack align="space-between" blockAlign="center">
             <Text as="p" tone="subdued">
-              The background scheduler checks due launches and publishes the theme automatically.
+              On Hobby, use `Run due schedules now` or an external scheduler to trigger queued publishes.
             </Text>
-            <Button variant="primary" onClick={scheduleTheme} loading={saving} disabled={!selectedThemeId || !localDateTime}>
-              Schedule publish
-            </Button>
+            <InlineStack gap="200">
+              <Button onClick={runDueSchedulesNow} loading={runningNow}>
+                Run due schedules now
+              </Button>
+              <Button variant="primary" onClick={scheduleTheme} loading={saving} disabled={!selectedThemeId || !localDateTime}>
+                Schedule publish
+              </Button>
+            </InlineStack>
           </InlineStack>
         </BlockStack>
       </Card>
