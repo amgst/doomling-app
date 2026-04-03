@@ -1,18 +1,31 @@
+"use client";
+
+import EmbeddedStandaloneRedirect from "@/components/EmbeddedStandaloneRedirect";
 import EmbeddedAppNav from "@/components/EmbeddedAppNav";
+import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
-/**
- * App Bridge v4: initialized by the Shopify Admin via a <script> tag with
- * data-api-key set to your app's API key. The admin iFrame calls this script
- * automatically when the embedded app loads.
- */
-export default function EmbeddedLayout({ children }: { children: React.ReactNode }) {
+function EmbeddedLayoutInner({ children }: { children: React.ReactNode }) {
+  const params = useSearchParams();
+  const embedded = params.get("embedded");
+  const shop = params.get("shop");
+
+  if (embedded === "1" || shop) {
+    return <EmbeddedStandaloneRedirect message="Opening the full dashboard outside Shopify admin..." />;
+  }
+
   return (
     <>
-      <Suspense fallback={null}>
-        <EmbeddedAppNav />
-        {children}
-      </Suspense>
+      <EmbeddedAppNav />
+      {children}
     </>
+  );
+}
+
+export default function EmbeddedLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <EmbeddedLayoutInner>{children}</EmbeddedLayoutInner>
+    </Suspense>
   );
 }

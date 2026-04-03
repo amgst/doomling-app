@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import EmbeddedStandaloneRedirect from "@/components/EmbeddedStandaloneRedirect";
 
 function LoginForm() {
   const [shop, setShop] = useState("upsellertheme.myshopify.com");
@@ -32,6 +33,10 @@ function LoginForm() {
     if (!s.endsWith(".myshopify.com")) s = `${s}.myshopify.com`;
     window.location.href = `/standalone/auth?shop=${s}`;
   };
+
+  if (embedded === "1" && shopParam) {
+    return <EmbeddedStandaloneRedirect message={`Opening the full dashboard for ${shopParam}...`} />;
+  }
 
   return (
     <main style={{
@@ -82,11 +87,6 @@ function LoginForm() {
           </div>
         )}
 
-        {embedded === "1" && shopParam ? (
-          <div style={{ textAlign: "center", color: "#6d7175", fontSize: "0.92rem" }}>
-            Opening <strong>{shopParam}</strong> in the embedded app...
-          </div>
-        ) : (
         <form onSubmit={handleSubmit}>
           <label style={{ display: "block", marginBottom: "0.4rem", fontSize: "0.875rem", fontWeight: 500, color: "#1a1a1a" }}>
             Store domain
@@ -125,7 +125,6 @@ function LoginForm() {
             Login with Shopify
           </button>
         </form>
-        )}
       </div>
     </main>
   );
