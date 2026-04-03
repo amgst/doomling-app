@@ -11,7 +11,12 @@ function EmbeddedLayoutInner({ children }: { children: React.ReactNode }) {
   const shop = params.get("shop");
 
   if (embedded === "1" || shop) {
-    return <EmbeddedStandaloneRedirect message="Opening the full dashboard outside Shopify admin..." />;
+    return (
+      <EmbeddedStandaloneRedirect
+        appBaseUrl={process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || undefined}
+        message="Opening the full dashboard outside Shopify admin..."
+      />
+    );
   }
 
   return (

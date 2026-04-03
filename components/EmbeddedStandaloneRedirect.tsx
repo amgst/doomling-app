@@ -4,17 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type EmbeddedStandaloneRedirectProps = {
+  appBaseUrl?: string;
   message?: string;
 };
 
 export default function EmbeddedStandaloneRedirect({
+  appBaseUrl,
   message = "Opening the full dashboard...",
 }: EmbeddedStandaloneRedirectProps) {
   const params = useSearchParams();
   const [autoRedirectFailed, setAutoRedirectFailed] = useState(false);
 
   const targetUrl = useMemo(() => {
-    const next = new URL("/dashboard", window.location.origin);
+    const baseUrl = appBaseUrl || window.location.origin;
+    const next = new URL("/dashboard", baseUrl);
     const shop = params.get("shop");
     const locale = params.get("locale");
 
@@ -22,7 +25,7 @@ export default function EmbeddedStandaloneRedirect({
     if (locale) next.searchParams.set("locale", locale);
 
     return next.toString();
-  }, [params]);
+  }, [appBaseUrl, params]);
 
   useEffect(() => {
     let timeoutId: number | undefined;
@@ -81,7 +84,13 @@ export default function EmbeddedStandaloneRedirect({
             </p>
             <button
               type="button"
-              onClick={() => window.open(targetUrl, "_top")}
+              onClick={() => {
+                if (window.top && window.top !== window) {
+                  window.top.location.assign(targetUrl);
+                  return;
+                }
+                window.location.assign(targetUrl);
+              }}
               style={{
                 marginTop: "1.2rem",
                 padding: "0.8rem 1rem",

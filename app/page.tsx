@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import EmbeddedStandaloneRedirect from "@/components/EmbeddedStandaloneRedirect";
@@ -10,21 +10,7 @@ function LoginForm() {
   const params = useSearchParams();
   const error = params.get("error");
   const embedded = params.get("embedded");
-  const host = params.get("host");
-  const locale = params.get("locale");
   const shopParam = params.get("shop");
-
-  useEffect(() => {
-    if (embedded !== "1" || !shopParam) return;
-
-    const next = new URL("/app/dashboard", window.location.origin);
-    next.searchParams.set("shop", shopParam);
-    if (host) next.searchParams.set("host", host);
-    next.searchParams.set("embedded", "1");
-    if (locale) next.searchParams.set("locale", locale);
-
-    window.location.replace(next.toString());
-  }, [embedded, host, locale, shopParam]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +21,12 @@ function LoginForm() {
   };
 
   if (embedded === "1" && shopParam) {
-    return <EmbeddedStandaloneRedirect message={`Opening the full dashboard for ${shopParam}...`} />;
+    return (
+      <EmbeddedStandaloneRedirect
+        appBaseUrl={process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || undefined}
+        message={`Opening the full dashboard for ${shopParam}...`}
+      />
+    );
   }
 
   return (
