@@ -25,7 +25,7 @@ function activeEndsAt(offer: BundleOffer) {
 }
 
 export async function syncBundleOfferDiscount(shop: string, accessToken: string, offer: BundleOffer) {
-  const { functionId } = await resolveAppDiscountType(shop, accessToken);
+  const { functionId, discountClasses } = await resolveAppDiscountType(shop, accessToken);
   const metafields = [
     {
       namespace: "upsale",
@@ -39,6 +39,7 @@ export async function syncBundleOfferDiscount(shop: string, accessToken: string,
     title: offer.name,
     code: offer.code,
     functionId,
+    discountClasses,
     startsAt: offer.createdAt || new Date().toISOString(),
     endsAt: activeEndsAt(offer),
     combinesWith: {
@@ -111,7 +112,7 @@ export async function syncBundleOfferDiscount(shop: string, accessToken: string,
 export async function archiveBundleOfferDiscount(shop: string, accessToken: string, offer: BundleOffer) {
   if (!offer.discountId) return;
 
-  const { functionId } = await resolveAppDiscountType(shop, accessToken);
+  const { functionId, discountClasses } = await resolveAppDiscountType(shop, accessToken);
   const updateResponse = await shopifyAdminGraphql(
     shop,
     accessToken,
@@ -131,6 +132,7 @@ export async function archiveBundleOfferDiscount(shop: string, accessToken: stri
         title: offer.name,
         code: offer.code,
         functionId,
+        discountClasses,
         startsAt: offer.createdAt || new Date().toISOString(),
         endsAt: new Date().toISOString(),
         combinesWith: {
