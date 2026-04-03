@@ -1,8 +1,11 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getShopify } from "@/lib/shopify/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const SCOPES =
+  "read_orders,write_orders,read_products,write_products,read_themes,write_themes,read_customers,read_analytics,read_discounts,write_discounts,read_cart_transforms,write_cart_transforms,read_metaobjects,write_metaobjects,write_metaobject_definitions";
 
 function buildTopLevelRedirectPage(url: string) {
   const safeUrl = JSON.stringify(url);
@@ -29,10 +32,6 @@ function buildTopLevelRedirectPage(url: string) {
 </html>`;
 }
 
-/**
- * GET /auth?shop=example.mygetShopify().com
- * Starts the Shopify OAuth flow — redirects to the Shopify permissions screen.
- */
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get("shop") ?? "";
   const host = req.nextUrl.searchParams.get("host") ?? "";
@@ -54,21 +53,25 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const sanitizedShop = shop;
+  const state = crypto.randomBytes(16).toString("hex");
+  const redirectUri = `${process.env.HOST}/auth/callback`;
+  const authUrl =
+    `https://${shop}/admin/oauth/authorize` +
+    `?client_id=${process.env.SHOPIFY_API_KEY}` +
+    `&scope=${encodeURIComponent(SCOPES)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&state=${state}`;
 
-  const { url, headers } = await getShopify().auth.begin({
-    shop: sanitizedShop,
-    callbackPath: "/auth/callback",
-    isOnline: false,
-    rawRequest: req,
-    rawResponse: { getHeaders: () => ({}), setHeader: () => {}, end: () => {} } as any,
-  });
-
-  const res = NextResponse.redirect(url);
-  (headers as Headers).forEach((value: string, key: string) => res.headers.set(key, value));
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    maxAge: 60 * 10,
+    path: "/",
+  };
 
   if (host || embedded === "1") {
-    const html = buildTopLevelRedirectPage(url);
+    const html = buildTopLevelRedirectPage(authUrl);
     const iframeEscape = new NextResponse(html, {
       status: 200,
       headers: {
@@ -76,9 +79,11 @@ export async function GET(req: NextRequest) {
         "Cache-Control": "no-store",
       },
     });
-    (headers as Headers).forEach((value: string, key: string) => iframeEscape.headers.set(key, value));
+    iframeEscape.cookies.set("shopify_oauth_state", state, cookieOptions);
     return iframeEscape;
   }
 
+  const res = NextResponse.redirect(authUrl);
+  res.cookies.set("shopify_oauth_state", state, cookieOptions);
   return res;
 }
