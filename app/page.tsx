@@ -16,7 +16,7 @@ function LoginForm() {
   useEffect(() => {
     if (embedded !== "1" || !shopParam) return;
 
-    const next = new URL("/auth", window.location.origin);
+    const next = new URL("/app/dashboard", window.location.origin);
     next.searchParams.set("shop", shopParam);
     if (host) next.searchParams.set("host", host);
     next.searchParams.set("embedded", "1");
@@ -64,7 +64,7 @@ function LoginForm() {
           </div>
           <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "#1a1a1a" }}>Upsale</h1>
           <p style={{ margin: "0.5rem 0 0", color: "#6d7175", fontSize: "0.9rem" }}>
-            {embedded === "1" ? "Redirecting to Shopify authentication..." : "Sign in to your store dashboard"}
+            {embedded === "1" ? "Opening the embedded dashboard..." : "Sign in to your store dashboard"}
           </p>
         </div>
 
@@ -84,7 +84,7 @@ function LoginForm() {
 
         {embedded === "1" && shopParam ? (
           <div style={{ textAlign: "center", color: "#6d7175", fontSize: "0.92rem" }}>
-            Connecting <strong>{shopParam}</strong> to the embedded app...
+            Opening <strong>{shopParam}</strong> in the embedded app...
           </div>
         ) : (
         <form onSubmit={handleSubmit}>
