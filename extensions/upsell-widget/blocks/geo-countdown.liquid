@@ -86,9 +86,10 @@
     }
 
     .upsale-geo-countdown {
-      position: sticky;
+      position: fixed;
       top: 0;
       left: 0;
+      right: 0;
       z-index: 30;
       width: 100%;
       padding: var(--upsale-countdown-padding-y) var(--upsale-countdown-padding-x);
@@ -97,6 +98,7 @@
       color: rgb(var(--color-foreground));
       border: 1px solid rgba(var(--color-foreground), 0.08);
       box-sizing: border-box;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
     }
 
     .upsale-geo-countdown__content {

@@ -17,6 +17,9 @@ query CartInput {
       merchandise {
         ... on ProductVariant {
           id
+          product {
+            id
+          }
         }
       }
     }
