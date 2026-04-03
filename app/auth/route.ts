@@ -4,12 +4,39 @@ import { getShopify } from "@/lib/shopify/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function buildTopLevelRedirectPage(url: string) {
+  const safeUrl = JSON.stringify(url);
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting…</title>
+  </head>
+  <body>
+    <script>
+      (function() {
+        var target = ${safeUrl};
+        if (window.top && window.top !== window.self) {
+          window.open(target, "_top");
+          return;
+        }
+        window.location.href = target;
+      })();
+    </script>
+    <p>Redirecting to Shopify…</p>
+  </body>
+</html>`;
+}
+
 /**
  * GET /auth?shop=example.mygetShopify().com
  * Starts the Shopify OAuth flow — redirects to the Shopify permissions screen.
  */
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get("shop") ?? "";
+  const host = req.nextUrl.searchParams.get("host") ?? "";
+  const embedded = req.nextUrl.searchParams.get("embedded") ?? "";
 
   if (!shop) {
     return NextResponse.json({ error: "Missing shop parameter" }, { status: 400 });
@@ -39,5 +66,19 @@ export async function GET(req: NextRequest) {
 
   const res = NextResponse.redirect(url);
   (headers as Headers).forEach((value: string, key: string) => res.headers.set(key, value));
+
+  if (host || embedded === "1") {
+    const html = buildTopLevelRedirectPage(url);
+    const iframeEscape = new NextResponse(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+    (headers as Headers).forEach((value: string, key: string) => iframeEscape.headers.set(key, value));
+    return iframeEscape;
+  }
+
   return res;
 }

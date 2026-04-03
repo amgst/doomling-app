@@ -39,7 +39,13 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[auth/callback] Error:", err);
     const shop = req.nextUrl.searchParams.get("shop") ?? "";
+    const host = req.nextUrl.searchParams.get("host") ?? "";
+    const embedded = req.nextUrl.searchParams.get("embedded") ?? "";
     // Re-start OAuth on error
-    return NextResponse.redirect(`${process.env.HOST}/auth?shop=${shop}`);
+    const retryUrl = new URL(`${process.env.HOST}/auth`);
+    retryUrl.searchParams.set("shop", shop);
+    if (host) retryUrl.searchParams.set("host", host);
+    if (embedded) retryUrl.searchParams.set("embedded", embedded);
+    return NextResponse.redirect(retryUrl);
   }
 }
