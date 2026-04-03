@@ -21,6 +21,49 @@ function cartLinesDiscountsGenerateRun(input) {
   } catch {
     config = null;
   }
+  const bundleOffers = Array.isArray(config?.bundleOffers) ? config.bundleOffers : null;
+  if (bundleOffers && bundleOffers.length > 0) {
+    const candidates = [];
+    for (const offer of bundleOffers) {
+      const productId = String(offer?.productId ?? "");
+      const discountedPrice = Number(offer?.discountedPrice);
+      const code = String(offer?.code ?? "");
+      const message = String(offer?.code || offer?.name || "Bundle offer");
+      if (!productId || !Number.isFinite(discountedPrice) || discountedPrice < 0) continue;
+      for (const line of input.cart.lines) {
+        const lineProductId = String(line.merchandise?.product?.id ?? "");
+        if (lineProductId !== productId) continue;
+        const quantity = Math.max(Number(line.quantity) || 0, 0);
+        if (quantity <= 0) continue;
+        const lineSubtotal = Number(line.cost?.subtotalAmount?.amount ?? 0);
+        const currentUnitPrice = quantity > 0 ? lineSubtotal / quantity : 0;
+        const amountOffPerItem = Math.max(currentUnitPrice - discountedPrice, 0);
+        if (amountOffPerItem <= 0) continue;
+        candidates.push({
+          message,
+          ...code ? { associatedDiscountCode: { code } } : {},
+          targets: [{ cartLine: { id: line.id } }],
+          value: {
+            fixedAmount: {
+              amount: amountOffPerItem.toFixed(2),
+              appliesToEachItem: true
+            }
+          }
+        });
+      }
+    }
+    if (candidates.length > 0) {
+      return {
+        operations: [{
+          productDiscountsAdd: {
+            candidates,
+            selectionStrategy: "ALL" /* All */
+          }
+        }]
+      };
+    }
+    return { operations: [] };
+  }
   const bxgyRules = Array.isArray(config?.bxgyRules) ? config.bxgyRules : null;
   if (bxgyRules && bxgyRules.length > 0) {
     const candidates = [];
