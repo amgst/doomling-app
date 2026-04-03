@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
@@ -8,6 +8,22 @@ function LoginForm() {
   const [shop, setShop] = useState("upsellertheme.myshopify.com");
   const params = useSearchParams();
   const error = params.get("error");
+  const embedded = params.get("embedded");
+  const host = params.get("host");
+  const locale = params.get("locale");
+  const shopParam = params.get("shop");
+
+  useEffect(() => {
+    if (embedded !== "1" || !shopParam) return;
+
+    const next = new URL("/auth", window.location.origin);
+    next.searchParams.set("shop", shopParam);
+    if (host) next.searchParams.set("host", host);
+    next.searchParams.set("embedded", "1");
+    if (locale) next.searchParams.set("locale", locale);
+
+    window.location.replace(next.toString());
+  }, [embedded, host, locale, shopParam]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +64,7 @@ function LoginForm() {
           </div>
           <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "#1a1a1a" }}>Upsale</h1>
           <p style={{ margin: "0.5rem 0 0", color: "#6d7175", fontSize: "0.9rem" }}>
-            Sign in to your store dashboard
+            {embedded === "1" ? "Redirecting to Shopify authentication..." : "Sign in to your store dashboard"}
           </p>
         </div>
 
@@ -66,6 +82,11 @@ function LoginForm() {
           </div>
         )}
 
+        {embedded === "1" && shopParam ? (
+          <div style={{ textAlign: "center", color: "#6d7175", fontSize: "0.92rem" }}>
+            Connecting <strong>{shopParam}</strong> to the embedded app...
+          </div>
+        ) : (
         <form onSubmit={handleSubmit}>
           <label style={{ display: "block", marginBottom: "0.4rem", fontSize: "0.875rem", fontWeight: 500, color: "#1a1a1a" }}>
             Store domain
@@ -104,6 +125,7 @@ function LoginForm() {
             Login with Shopify
           </button>
         </form>
+        )}
       </div>
     </main>
   );
