@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import EmbeddedStandaloneRedirect from "@/components/EmbeddedStandaloneRedirect";
+import EmbeddedStandaloneLink from "@/components/EmbeddedStandaloneLink";
 
 function LoginForm() {
   const [shop, setShop] = useState("upsellertheme.myshopify.com");
@@ -22,9 +22,10 @@ function LoginForm() {
 
   if (embedded === "1" && shopParam) {
     return (
-      <EmbeddedStandaloneRedirect
+      <EmbeddedStandaloneLink
         appBaseUrl={process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || undefined}
-        message={`Opening the full dashboard for ${shopParam}...`}
+        message={`Open the full dashboard for ${shopParam} using the button below.`}
+        title="Open dashboard"
       />
     );
   }

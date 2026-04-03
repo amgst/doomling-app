@@ -1,6 +1,6 @@
 "use client";
 
-import EmbeddedStandaloneRedirect from "@/components/EmbeddedStandaloneRedirect";
+import EmbeddedStandaloneLink from "@/components/EmbeddedStandaloneLink";
 import EmbeddedAppNav from "@/components/EmbeddedAppNav";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -12,9 +12,10 @@ function EmbeddedLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (embedded === "1" || shop) {
     return (
-      <EmbeddedStandaloneRedirect
+      <EmbeddedStandaloneLink
         appBaseUrl={process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || undefined}
-        message="Opening the full dashboard outside Shopify admin..."
+        message="This Shopify admin view links out to the full dashboard on your Vercel app."
+        title="Open full dashboard"
       />
     );
   }
