@@ -13,10 +13,7 @@ import {
   Tiles,
 } from "@shopify/post-purchase-ui-extensions";
 
-const APP_URL =
-  process.env.SHOPIFY_EXTENSION_APP_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "https://doomling-app-navy.vercel.app";
+const APP_URL = "https://doomling-app-navy.vercel.app";
 
 extend("Checkout::PostPurchase::ShouldRender", async ({ inputData, storage }) => {
   const response = await fetch(`${APP_URL}/api/post-purchase/offer`, {
