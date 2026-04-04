@@ -8,6 +8,7 @@ export interface UpsellProduct {
   price: string;
   handle: string;
   discountPercent: number;
+  badgeText?: string;
 }
 
 export interface UpsellRule {
@@ -16,6 +17,7 @@ export interface UpsellRule {
   triggerProductTitle: string;
   upsellProducts: UpsellProduct[];
   message: string;
+  enabled?: boolean;
 }
 
 const TYPE = "$app:upsell_rule";
@@ -138,7 +140,7 @@ async function hydrateUpsellRule(shop: string, accessToken: string, rule: Upsell
   };
 }
 
-export async function listUpsellRules(shop: string, accessToken: string): Promise<UpsellRule[]> {
+export async function listUpsellRules(shop: string, accessToken: string, options?: { includeDisabled?: boolean }): Promise<UpsellRule[]> {
   const type = await getUpsellType(shop, accessToken);
   const data = await shopifyAdminGraphql(
     shop,
@@ -161,7 +163,7 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
   const rules: UpsellRule[] = [];
   for (const n of nodes) {
     const enabled = String(getFieldValue(n.fields, "enabled") ?? "true") === "true";
-    if (!enabled) continue;
+    if (!enabled && !options?.includeDisabled) continue;
 
     const triggerProductId = productIdFromGid(getFieldValue(n.fields, "trigger_product"));
     if (!triggerProductId) continue;
@@ -171,13 +173,14 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
       triggerProductId,
       triggerProductTitle: String(getFieldValue(n.fields, "trigger_product_title") ?? ""),
       message: String(getFieldValue(n.fields, "message") ?? ""),
+      enabled,
       upsellProducts: parseUpsellProducts(getFieldValue(n.fields, "upsell_products")),
     });
   }
   return Promise.all(rules.map((rule) => hydrateUpsellRule(shop, accessToken, rule)));
 }
 
-export async function getUpsellRule(shop: string, accessToken: string, handle: string): Promise<UpsellRule | null> {
+export async function getUpsellRule(shop: string, accessToken: string, handle: string, options?: { includeDisabled?: boolean }): Promise<UpsellRule | null> {
   const h = String(handle || "").trim();
   if (!h) return null;
   const type = await getUpsellType(shop, accessToken);
@@ -201,7 +204,7 @@ export async function getUpsellRule(shop: string, accessToken: string, handle: s
   if (!mo?.handle) return null;
 
   const enabled = String(getFieldValue(mo.fields, "enabled") ?? "true") === "true";
-  if (!enabled) return null;
+  if (!enabled && !options?.includeDisabled) return null;
 
   const triggerProductId = productIdFromGid(getFieldValue(mo.fields, "trigger_product"));
   if (!triggerProductId) return null;
@@ -211,6 +214,7 @@ export async function getUpsellRule(shop: string, accessToken: string, handle: s
     triggerProductId,
     triggerProductTitle: String(getFieldValue(mo.fields, "trigger_product_title") ?? ""),
     message: String(getFieldValue(mo.fields, "message") ?? ""),
+    enabled,
     upsellProducts: parseUpsellProducts(getFieldValue(mo.fields, "upsell_products")),
   });
 }
@@ -226,7 +230,7 @@ export async function upsertUpsellRule(
   if (!triggerGid) throw new Error("Missing trigger product id");
 
   const fields = [
-    { key: "enabled", value: "true" },
+    { key: "enabled", value: String(rule.enabled ?? true) },
     { key: "trigger_product", value: triggerGid },
     { key: "trigger_product_title", value: rule.triggerProductTitle || "" },
     { key: "message", value: rule.message || "" },

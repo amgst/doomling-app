@@ -92,7 +92,7 @@ const TABS = [
   },
   {
     key: "geocountdown",
-    label: "Geo Countdown",
+    label: "Countdown",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="9" />
@@ -126,9 +126,9 @@ const TABS = [
 ] as const;
 
 const NAV_GROUPS: { label: string; keys: Array<typeof TABS[number]["key"]> }[] = [
-  { label: "Analytics", keys: ["overview", "stats"] },
-  { label: "Features", keys: ["products", "upsells", "buyxgety", "bundles", "cartlimits", "postpurchase", "geocountdown", "customcursor"] },
-  { label: "Tools", keys: ["themeswitcher"] },
+  { label: "", keys: ["overview", "stats", "products"] },
+  { label: "Features", keys: ["upsells", "buyxgety", "postpurchase", "bundles"] },
+  { label: "Tools", keys: ["cartlimits", "geocountdown", "customcursor", "themeswitcher"] },
 ];
 
 type TabKey = typeof TABS[number]["key"];
@@ -229,14 +229,16 @@ export default function DashboardShell({
             const groupTabs = TABS.filter(t => (group.keys as readonly string[]).includes(t.key));
             return (
               <div key={group.label} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? "1rem" : 0 }}>
-                <p style={{
-                  margin: "0 0 0.3rem 0.5rem",
-                  fontSize: "0.67rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.09em",
-                  color: "#9ca3af",
-                }}>{group.label}</p>
+                {group.label ? (
+                  <p style={{
+                    margin: "0 0 0.3rem 0.5rem",
+                    fontSize: "0.67rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.09em",
+                    color: "#9ca3af",
+                  }}>{group.label}</p>
+                ) : null}
                 {groupTabs.map(t => {
                   const active = tab === t.key;
                   return (

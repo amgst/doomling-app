@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const accessToken = await getAccessToken(shop);
   if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
-  const rules = await listUpsellRules(shop, accessToken);
+  const rules = await listUpsellRules(shop, accessToken, { includeDisabled: true });
   return NextResponse.json({ rules });
 }
 
@@ -33,16 +33,18 @@ export async function POST(req: NextRequest) {
   if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
   const body = await req.json();
-  const { triggerProductId, triggerProductTitle, upsellProducts, message } = body;
+  const { id, triggerProductId, triggerProductTitle, upsellProducts, message, enabled } = body;
   if (!triggerProductId || !Array.isArray(upsellProducts) || upsellProducts.length === 0) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   const result = await upsertUpsellRule(shop, accessToken, {
+    id,
     triggerProductId,
     triggerProductTitle: triggerProductTitle || "",
     upsellProducts,
     message: message || "",
+    enabled: enabled !== false,
   });
 
   // Compile to shop metafield for storefront reads

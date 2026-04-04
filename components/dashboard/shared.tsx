@@ -48,6 +48,7 @@ export interface UpsellProduct {
   price: string;
   handle: string;
   discountPercent: number;
+  badgeText?: string;
 }
 
 export interface UpsellRule {
@@ -56,6 +57,7 @@ export interface UpsellRule {
   triggerProductTitle: string;
   upsellProducts: UpsellProduct[];
   message: string;
+  enabled?: boolean;
 }
 
 export interface BxgyProduct {

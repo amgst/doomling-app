@@ -60,6 +60,7 @@ import {
 interface SuggestionDraft {
   productId: string;
   discountPercent: string;
+  badgeText: string;
 }
 
 export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
@@ -70,9 +71,10 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [triggerProductId, setTriggerProductId] = useState("");
   const [campaignName, setCampaignName] = useState("");
-  const [suggestions, setSuggestions] = useState<SuggestionDraft[]>([{ productId: "", discountPercent: "0" }]);
+  const [suggestions, setSuggestions] = useState<SuggestionDraft[]>([{ productId: "", discountPercent: "0", badgeText: "" }]);
 
   useEffect(() => {
     Promise.all([
@@ -89,7 +91,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
 
   const addSuggestion = () => {
     if (suggestions.length >= 5) return;
-    setSuggestions(s => [...s, { productId: "", discountPercent: "0" }]);
+    setSuggestions(s => [...s, { productId: "", discountPercent: "0", badgeText: "" }]);
   };
 
   const removeSuggestion = (i: number) => setSuggestions(s => s.filter((_, idx) => idx !== i));
@@ -115,17 +117,22 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
         price: p?.variants?.[0]?.price ?? "",
         handle: p?.handle ?? "",
         discountPercent: Number(s.discountPercent) || 0,
+        badgeText: s.badgeText || "",
       };
     });
 
-    const res = await fetch("/api/standalone/upsells", {
-      method: "POST",
+    const endpoint = editingRuleId ? `/api/standalone/upsells/${editingRuleId}` : "/api/standalone/upsells";
+    const method = editingRuleId ? "PATCH" : "POST";
+    const res = await fetch(endpoint, {
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        id: editingRuleId ?? undefined,
         triggerProductId,
         triggerProductTitle: trigger?.title ?? "",
         upsellProducts,
         message: campaignName.trim(),
+        enabled: true,
       }),
     });
     const data = await res.json();
@@ -136,9 +143,10 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
     ]);
     setRules(updated.rules ?? []);
     setStats(refreshedStats.rules ?? []);
+    setEditingRuleId(null);
     setTriggerProductId("");
     setCampaignName("");
-    setSuggestions([{ productId: "", discountPercent: "0" }]);
+    setSuggestions([{ productId: "", discountPercent: "0", badgeText: "" }]);
     setSaving(false);
   };
 
@@ -146,6 +154,50 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
     await fetch(`/api/standalone/upsells/${id}`, { method: "DELETE" });
     setRules(r => r.filter(x => x.id !== id));
     setStats(s => s.filter(x => x.ruleId !== id));
+  };
+
+  const handleEdit = (rule: UpsellRule) => {
+    setEditingRuleId(rule.id);
+    setTriggerProductId(rule.triggerProductId);
+    setCampaignName(rule.message || "");
+    setSuggestions(
+      rule.upsellProducts.map((product) => ({
+        productId: product.productId,
+        discountPercent: String(product.discountPercent ?? 0),
+        badgeText: product.badgeText || "",
+      })),
+    );
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDuplicate = (rule: UpsellRule) => {
+    setEditingRuleId(null);
+    setTriggerProductId(rule.triggerProductId);
+    setCampaignName(rule.message ? `${rule.message} copy` : "");
+    setSuggestions(
+      rule.upsellProducts.map((product) => ({
+        productId: product.productId,
+        discountPercent: String(product.discountPercent ?? 0),
+        badgeText: product.badgeText || "",
+      })),
+    );
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleToggleEnabled = async (rule: UpsellRule) => {
+    const nextEnabled = rule.enabled === false ? true : false;
+    const res = await fetch(`/api/standalone/upsells/${rule.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: nextEnabled }),
+    });
+    if (!res.ok) {
+      setError("Failed to update campaign status.");
+      return;
+    }
+    setRules((current) => current.map((entry) => (entry.id === rule.id ? { ...entry, enabled: nextEnabled } : entry)));
   };
 
   const sel: React.CSSProperties = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
@@ -186,7 +238,23 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
 
       {/* Add rule form */}
       <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.5rem" }}>
-        <p style={{ margin: "0 0 1.25rem", fontWeight: 700, color: "#1a1a1a", fontSize: "0.95rem" }}>New Upsell Rule</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1.25rem" }}>
+          <p style={{ margin: 0, fontWeight: 700, color: "#1a1a1a", fontSize: "0.95rem" }}>{editingRuleId ? "Edit Upsell Campaign" : "New Upsell Rule"}</p>
+          {editingRuleId && (
+            <button
+              onClick={() => {
+                setEditingRuleId(null);
+                setTriggerProductId("");
+                setCampaignName("");
+                setSuggestions([{ productId: "", discountPercent: "0", badgeText: "" }]);
+                setError(null);
+              }}
+              style={{ padding: "0.32rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "6px", background: "#fff", color: "#374151", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}
+            >
+              Cancel edit
+            </button>
+          )}
+        </div>
 
         {/* Trigger + campaign name */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
@@ -219,7 +287,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
           {suggestions.map((s, i) => {
             const picked = products.find(p => String(p.id) === s.productId);
             return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.6rem", padding: "0.75rem", background: "#f9fafb", borderRadius: "8px" }}>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.6rem", padding: "0.75rem", background: "#f9fafb", borderRadius: "8px", flexWrap: "wrap" }}>
                 {picked?.image?.src && <img src={picked.image.src} alt={picked.title} style={{ width: 36, height: 36, borderRadius: "6px", objectFit: "cover", flexShrink: 0 }} />}
                 <SearchableProductSelect
                   products={products.filter(p => String(p.id) !== triggerProductId)}
@@ -234,6 +302,19 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
                       placeholder="Discount %"
                       title="Discount %" />
                 </div>
+                <div style={{ flex: "0 0 180px" }}>
+                  <select
+                    style={{ ...inp, width: "100%" }}
+                    value={s.badgeText}
+                    onChange={e => updateSuggestion(i, "badgeText", e.target.value)}
+                    title="Badge"
+                  >
+                    <option value="">No badge</option>
+                    <option value="Best seller">Best seller</option>
+                    <option value="Pairs well with">Pairs well with</option>
+                    <option value="Staff pick">Staff pick</option>
+                  </select>
+                </div>
                 <span style={{ fontSize: "0.75rem", color: "#6d7175", flexShrink: 0 }}>% off</span>
                 {suggestions.length > 1 && (
                   <button onClick={() => removeSuggestion(i)} style={{ border: "none", background: "none", color: "#c0392b", fontSize: "1rem", cursor: "pointer", flexShrink: 0, padding: "0.1rem 0.3rem" }}>✕</button>
@@ -247,7 +328,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
           padding: "0.6rem 1.5rem", background: "#008060", color: "#fff", border: "none",
           borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
           opacity: saving ? 0.7 : 1,
-        }}>{saving ? "Saving…" : "Add Rule"}</button>
+        }}>{saving ? "Saving�" : editingRuleId ? "Update Campaign" : "Add Rule"}</button>
       </div>
 
       {/* Rules list */}
@@ -260,7 +341,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
-                {["Campaign", "When viewing", "Suggestions", "", ""].map((h, i) => (
+                {["Campaign", "When viewing", "Suggestions", "Status", "Actions", ""].map((h, i) => (
                   <th key={i} style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
@@ -311,6 +392,35 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
                       <span style={{ fontSize: "0.78rem", color: "#6d7175" }}>
                         {r.upsellProducts.length} product{r.upsellProducts.length !== 1 ? "s" : ""}
                       </span>
+                    </div>
+                  </td>
+                  <td style={{ padding: "0.85rem 1rem" }}>
+                    <button
+                      onClick={() => void handleToggleEnabled(r)}
+                      style={{
+                        padding: "0.28rem 0.72rem",
+                        background: r.enabled === false ? "#fff7ed" : "#ecfdf5",
+                        color: r.enabled === false ? "#c2410c" : "#047857",
+                        border: `1px solid ${r.enabled === false ? "#fed7aa" : "#a7f3d0"}`,
+                        borderRadius: "999px",
+                        fontSize: "0.76rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {r.enabled === false ? "Paused" : "Active"}
+                    </button>
+                  </td>
+                  <td style={{ padding: "0.85rem 1rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <button onClick={() => handleEdit(r)} style={{
+                        padding: "0.3rem 0.75rem", background: "#fff", color: "#374151",
+                        border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "0.8rem", cursor: "pointer",
+                      }}>Edit</button>
+                      <button onClick={() => handleDuplicate(r)} style={{
+                        padding: "0.3rem 0.75rem", background: "#fff", color: "#1d4ed8",
+                        border: "1px solid #bfdbfe", borderRadius: "6px", fontSize: "0.8rem", cursor: "pointer",
+                      }}>Duplicate</button>
                     </div>
                   </td>
                   <td style={{ padding: "0.85rem 1rem" }}>
@@ -414,3 +524,4 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
     </>
   );
 }
+
