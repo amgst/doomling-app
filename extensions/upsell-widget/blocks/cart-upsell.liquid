@@ -122,7 +122,7 @@ if (!root) return;
 var shop = root.dataset.shop;
 var currency = root.dataset.currency;
 var ids = (root.dataset.productIds || '').split(',').filter(Boolean);
-var apiBase = ({{ settings.api_base | json }} || 'https://upsale-cyan.vercel.app').replace(/\/$/, '');
+var apiBase = ({{ settings.api_base | json }} || 'https://doomling-app-navy.vercel.app').replace(/\/$/, '');
 
 if (!shop || ids.length === 0) return;
 
@@ -238,7 +238,7 @@ tryNext(0);
 "id": "api_base",
 "label": "App URL",
 "info": "Your Upsale app URL",
-"default": "https://upsale-cyan.vercel.app"
+"default": "https://doomling-app-navy.vercel.app"
 },
 {
 "type": "text",
