@@ -58,6 +58,7 @@ import {
 } from "../shared";
 
 export default function PostPurchaseTab() {
+  const [isMobile, setIsMobile] = useState(false);
   const [offers, setOffers] = useState<PostPurchaseOffer[]>([]);
   const [summary, setSummary] = useState<PostPurchaseSummary | null>(null);
   const [offerStats, setOfferStats] = useState<PostPurchaseOfferStat[]>([]);
@@ -92,6 +93,14 @@ export default function PostPurchaseTab() {
       })
       .catch(() => setError("Failed to load post-purchase offers."))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const updateViewport = () => setIsMobile(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
   }, []);
 
   const getSelectedVariantId = (productId: string, variantId?: string) => {
@@ -294,7 +303,7 @@ export default function PostPurchaseTab() {
         <div style={{ marginBottom: "1.5rem" }}>
           <Card>
             <BlockStack gap="500">
-              <InlineStack align="space-between" blockAlign="start">
+              <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "flex-start", justifyContent: "space-between", gap: "0.9rem", flexWrap: "wrap" }}>
                 <BlockStack gap="100">
                   <Text as="p" variant="bodySm" tone="subdued">
                     {editingOfferId ? "Editing post-purchase offer" : "New post-purchase offer"}
@@ -306,8 +315,10 @@ export default function PostPurchaseTab() {
                     Rebuy-style flow for the order-complete moment: choose the product, set the offer copy, and decide whether it appears for all orders, qualifying carts, or orders above a threshold.
                   </Text>
                 </BlockStack>
-                <Badge tone="info">Checkout upsell layer</Badge>
-              </InlineStack>
+                <div style={{ flexShrink: 0 }}>
+                  <Badge tone="info">Checkout upsell layer</Badge>
+                </div>
+              </div>
 
               <InlineGrid columns={{ xs: 1, md: 3 }} gap="300">
                 {[
@@ -388,8 +399,8 @@ export default function PostPurchaseTab() {
                             <Button onClick={addTriggerProduct}>Add product</Button>
                           </InlineStack>
                           {triggerProductIds.map((productId, index) => (
-                            <InlineStack key={index} gap="200" blockAlign="end">
-                              <div style={{ flex: 1 }}>
+                            <div key={index} style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem", flexWrap: "wrap" }}>
+                              <div style={{ flex: 1, minWidth: isMobile ? "100%" : 0 }}>
                                 <PolarisProductAutocomplete
                                   products={products}
                                   value={productId}
@@ -403,7 +414,7 @@ export default function PostPurchaseTab() {
                                   Remove
                                 </Button>
                               )}
-                            </InlineStack>
+                            </div>
                           ))}
                         </BlockStack>
                       )}
@@ -412,12 +423,12 @@ export default function PostPurchaseTab() {
                 </BlockStack>
               </InlineGrid>
 
-              <InlineStack align="end" gap="300">
+              <div style={{ display: "flex", justifyContent: isMobile ? "stretch" : "flex-end", gap: "0.75rem", flexWrap: "wrap" }}>
                 {editingOfferId && <Button onClick={resetForm}>Cancel</Button>}
                 <Button variant="primary" onClick={handleSave} loading={saving}>
                   {editingOfferId ? "Update post-purchase offer" : "Save post-purchase offer"}
                 </Button>
-              </InlineStack>
+              </div>
             </BlockStack>
           </Card>
         </div>
@@ -449,7 +460,8 @@ export default function PostPurchaseTab() {
               No post-purchase offers yet. Create your first offer above.
             </p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                   {["Offer", "Product", "Trigger", "Discount", "Priority", "", ""].map((heading) => (
@@ -490,6 +502,7 @@ export default function PostPurchaseTab() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 
@@ -502,7 +515,8 @@ export default function PostPurchaseTab() {
               Stats will appear once the checkout extension starts rendering offers and customers accept them.
             </p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", minWidth: 720, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                   {["Offer", "Product", "Views", "Accepted", "Conversion", "Revenue"].map((heading) => (
@@ -527,6 +541,7 @@ export default function PostPurchaseTab() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </>
