@@ -39,6 +39,27 @@
     will-change: transform;
   }
 
+  #{{ cursor_dom_id }} .upsale-custom-cursor__ring {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.35);
+    opacity: 0;
+    transform: translate3d(-50%, -50%, 0);
+    pointer-events: none;
+    transition: opacity 0.18s ease, width 0.18s ease, height 0.18s ease;
+    will-change: transform;
+  }
+
+  #{{ cursor_dom_id }}.type-image-glow .upsale-custom-cursor__ring {
+    opacity: 1;
+    box-shadow: 0 0 24px rgba(99, 102, 241, 0.3), 0 0 42px rgba(45, 212, 191, 0.18);
+    background: radial-gradient(circle, rgba(255,255,255,0.08), rgba(255,255,255,0));
+  }
+
   #{{ cursor_dom_id }} .upsale-custom-cursor__icon {
     display: block;
     width: 100%;
@@ -100,6 +121,49 @@
     filter: saturate(1.12);
   }
 
+  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    pointer-events: none;
+    transform: translate3d(-50%, -50%, 0) scale(0.35);
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+
+  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.is-visible {
+    animation: upsale-cursor-click-burst 520ms ease forwards;
+  }
+
+  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-ripple {
+    border: 2px solid rgba(255,255,255,0.68);
+    background: transparent;
+  }
+
+  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-burst {
+    background: radial-gradient(circle, rgba(255,255,255,0.96), rgba(129,140,248,0.3));
+    box-shadow: 0 0 18px rgba(129,140,248,0.42);
+  }
+
+  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-spark {
+    background: radial-gradient(circle, rgba(255,255,255,1), rgba(250,204,21,0.58));
+    box-shadow: 0 0 16px rgba(250,204,21,0.42);
+  }
+
+  @keyframes upsale-cursor-click-burst {
+    0% {
+      opacity: 0.96;
+      transform: translate3d(-50%, -50%, 0) scale(0.35);
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(-50%, -50%, 0) scale(3.6);
+    }
+  }
+
   html.upsale-custom-cursor-active,
   html.upsale-custom-cursor-active body,
   html.upsale-custom-cursor-active a,
@@ -151,7 +215,7 @@
       return 'theme-' + (theme || 'glow');
     }
 
-    function createCursor(size, iconUrl) {
+    function createCursor(size, iconUrl, cursorType) {
       root.innerHTML = '';
       var dot = document.createElement('div');
       dot.className = 'upsale-custom-cursor__dot';
@@ -169,7 +233,18 @@
         dot.appendChild(image);
       }
       root.appendChild(dot);
-      return dot;
+      var ring = document.createElement('div');
+      ring.className = 'upsale-custom-cursor__ring';
+      ring.style.width = Math.round(size * 1.55) + 'px';
+      ring.style.height = Math.round(size * 1.55) + 'px';
+      if (cursorType !== 'image-glow') {
+        ring.style.display = 'none';
+      }
+      root.appendChild(ring);
+      var clickFx = document.createElement('div');
+      clickFx.className = 'upsale-custom-cursor__click-effect';
+      root.appendChild(clickFx);
+      return { dot: dot, ring: ring, clickFx: clickFx };
     }
 
     function activate(campaign) {
@@ -177,8 +252,16 @@
 
       var size = Math.max(16, Math.min(96, Number(campaign.size) || 28));
       var iconUrl = typeof campaign.iconUrl === 'string' ? campaign.iconUrl : '';
-      var dot = createCursor(size, iconUrl);
-      root.className = iconUrl ? '' : themeClass(campaign.theme);
+      var cursorType = typeof campaign.cursorType === 'string' ? campaign.cursorType : 'theme';
+      var hoverEffect = typeof campaign.hoverEffect === 'string' ? campaign.hoverEffect : 'grow';
+      var hoverIconUrl = typeof campaign.hoverIconUrl === 'string' ? campaign.hoverIconUrl : '';
+      var hoverScale = Math.max(1, Math.min(2.5, Number(campaign.hoverScale) || 1.45));
+      var clickEffect = typeof campaign.clickEffect === 'string' ? campaign.clickEffect : 'burst';
+      var parts = createCursor(size, iconUrl, cursorType);
+      var dot = parts.dot;
+      var ring = parts.ring;
+      var clickFx = parts.clickFx;
+      root.className = (cursorType === 'theme' ? themeClass(campaign.theme) : '') + ' type-' + cursorType;
       root.hidden = false;
       document.documentElement.classList.add('upsale-custom-cursor-active');
       setDebug('matched ' + (campaign.name || campaign.theme || 'campaign'));
@@ -192,6 +275,9 @@
         currentX += (targetX - currentX) * 0.22;
         currentY += (targetY - currentY) * 0.22;
         dot.style.transform = 'translate3d(' + currentX + 'px,' + currentY + 'px,0) translate3d(-50%,-50%,0)';
+        if (ring instanceof HTMLElement && ring.style.display !== 'none') {
+          ring.style.transform = 'translate3d(' + currentX + 'px,' + currentY + 'px,0) translate3d(-50%,-50%,0)';
+        }
         window.requestAnimationFrame(render);
       }
 
@@ -205,8 +291,26 @@
         if (!(target instanceof Element)) return;
         var interactive = target.closest('a, button, [role="button"], input, select, textarea, summary');
         root.classList.toggle('is-hovering', Boolean(interactive));
-        dot.style.width = (interactive ? size * 1.45 : size) + 'px';
-        dot.style.height = (interactive ? size * 1.45 : size) + 'px';
+        var nextScale = interactive && hoverEffect === 'grow' ? hoverScale : 1;
+        dot.style.width = (size * nextScale) + 'px';
+        dot.style.height = (size * nextScale) + 'px';
+        if (ring instanceof HTMLElement && ring.style.display !== 'none') {
+          ring.style.width = Math.round(size * nextScale * 1.55) + 'px';
+          ring.style.height = Math.round(size * nextScale * 1.55) + 'px';
+        }
+        if (hoverEffect === 'swap' && dot.firstElementChild && dot.firstElementChild.tagName === 'IMG') {
+          dot.firstElementChild.src = interactive && hoverIconUrl ? hoverIconUrl : iconUrl;
+        }
+      }, { passive: true });
+
+      document.addEventListener('mousedown', function (event) {
+        if (clickEffect === 'none') return;
+        clickFx.className = 'upsale-custom-cursor__click-effect effect-' + clickEffect;
+        clickFx.style.left = event.clientX + 'px';
+        clickFx.style.top = event.clientY + 'px';
+        clickFx.classList.remove('is-visible');
+        void clickFx.offsetWidth;
+        clickFx.classList.add('is-visible');
       }, { passive: true });
 
       window.addEventListener('blur', function () {

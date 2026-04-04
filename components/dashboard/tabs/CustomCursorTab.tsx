@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { BlockStack, Button, Card, Checkbox, InlineGrid, InlineStack, Select, Text, TextField } from "@shopify/polaris";
 import { safeJson } from "../shared";
-import type { CustomCursorCampaign, CustomCursorPageTarget, CustomCursorTheme } from "@/lib/customCursor";
+import type {
+  CustomCursorCampaign,
+  CustomCursorClickEffect,
+  CustomCursorHoverEffect,
+  CustomCursorPageTarget,
+  CustomCursorTheme,
+  CustomCursorType,
+} from "@/lib/customCursor";
 
 const PAGE_TARGET_OPTIONS = [
   { label: "All pages", value: "all" },
@@ -19,6 +26,25 @@ const THEME_OPTIONS = [
   { label: "Retro pixel", value: "retro" },
 ];
 
+const CURSOR_TYPE_OPTIONS = [
+  { label: "Theme effect", value: "theme" },
+  { label: "Image cursor", value: "image" },
+  { label: "Image + glow", value: "image-glow" },
+];
+
+const HOVER_EFFECT_OPTIONS = [
+  { label: "None", value: "none" },
+  { label: "Grow", value: "grow" },
+  { label: "Swap image", value: "swap" },
+];
+
+const CLICK_EFFECT_OPTIONS = [
+  { label: "None", value: "none" },
+  { label: "Burst", value: "burst" },
+  { label: "Ripple", value: "ripple" },
+  { label: "Spark", value: "spark" },
+];
+
 export default function CustomCursorTab() {
   const [campaigns, setCampaigns] = useState<CustomCursorCampaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,8 +52,13 @@ export default function CustomCursorTab() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("Spring cursor");
   const [pageTarget, setPageTarget] = useState<CustomCursorPageTarget>("all");
+  const [cursorType, setCursorType] = useState<CustomCursorType>("theme");
   const [theme, setTheme] = useState<CustomCursorTheme>("doomlings");
   const [iconUrl, setIconUrl] = useState("");
+  const [hoverEffect, setHoverEffect] = useState<CustomCursorHoverEffect>("grow");
+  const [hoverIconUrl, setHoverIconUrl] = useState("");
+  const [hoverScale, setHoverScale] = useState("1.45");
+  const [clickEffect, setClickEffect] = useState<CustomCursorClickEffect>("burst");
   const [size, setSize] = useState("28");
   const [priority, setPriority] = useState("1");
   const [startAt, setStartAt] = useState("");
@@ -69,8 +100,13 @@ export default function CustomCursorTab() {
   const resetForm = () => {
     setName("Spring cursor");
     setPageTarget("all");
+    setCursorType("theme");
     setTheme("doomlings");
     setIconUrl("");
+    setHoverEffect("grow");
+    setHoverIconUrl("");
+    setHoverScale("1.45");
+    setClickEffect("burst");
     setSize("28");
     setPriority("1");
     setStartAt("");
@@ -98,14 +134,29 @@ export default function CustomCursorTab() {
       return;
     }
 
+    if (cursorType !== "theme" && !iconUrl.trim()) {
+      setError("Add a cursor image URL for image-based cursor types.");
+      return;
+    }
+
+    if (hoverEffect === "swap" && !hoverIconUrl.trim()) {
+      setError("Add a hover image URL when hover effect is set to Swap image.");
+      return;
+    }
+
     const nextCampaigns: CustomCursorCampaign[] = [
       ...campaigns,
       {
         id: `custom-cursor-${Date.now()}`,
         name: name.trim(),
         pageTarget,
+        cursorType,
         theme,
         iconUrl: iconUrl.trim(),
+        hoverEffect,
+        hoverIconUrl: hoverIconUrl.trim(),
+        hoverScale: Math.max(1, Math.min(2.5, Number(hoverScale) || 1.45)),
+        clickEffect,
         size: Math.max(16, Math.min(96, Number(size) || 28)),
         priority: Math.max(1, Math.min(100, Number(priority) || 1)),
         enabled: true,
@@ -165,24 +216,38 @@ export default function CustomCursorTab() {
           <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
             <TextField label="Campaign name" value={name} onChange={setName} autoComplete="off" />
             <Select label="Page target" options={PAGE_TARGET_OPTIONS} value={pageTarget} onChange={(value) => setPageTarget(value as CustomCursorPageTarget)} />
+            <Select label="Cursor type" options={CURSOR_TYPE_OPTIONS} value={cursorType} onChange={(value) => setCursorType(value as CustomCursorType)} />
             <Select label="Cursor theme" options={THEME_OPTIONS} value={theme} onChange={(value) => setTheme(value as CustomCursorTheme)} />
             <TextField label="Cursor image URL" value={iconUrl} onChange={setIconUrl} autoComplete="off" helpText="Optional PNG, SVG, or WebP URL. If set, this image will be used as the cursor instead of the preset theme style." />
+            <Select label="Hover effect" options={HOVER_EFFECT_OPTIONS} value={hoverEffect} onChange={(value) => setHoverEffect(value as CustomCursorHoverEffect)} />
+            <TextField label="Hover image URL" value={hoverIconUrl} onChange={setHoverIconUrl} autoComplete="off" helpText="Optional image used only when hover effect is Swap image." />
+            <TextField label="Hover scale" type="number" min={1} max={2.5} step={0.05} value={hoverScale} onChange={setHoverScale} autoComplete="off" helpText="How much the cursor grows over links and buttons." />
+            <Select label="Click effect" options={CLICK_EFFECT_OPTIONS} value={clickEffect} onChange={(value) => setClickEffect(value as CustomCursorClickEffect)} />
             <TextField label="Cursor size" type="number" min={16} max={96} value={size} onChange={setSize} autoComplete="off" helpText="Desktop cursor size in pixels." />
             <TextField label="Start date and time" type="datetime-local" value={startAt} onChange={setStartAt} autoComplete="off" helpText="Leave blank to start immediately." />
             <TextField label="End date and time" type="datetime-local" value={endAt} onChange={setEndAt} autoComplete="off" helpText="Leave blank to keep it active until you pause it." />
             <TextField label="Priority" type="number" min={1} max={100} value={priority} onChange={setPriority} autoComplete="off" helpText="Lower numbers win when multiple cursor campaigns match the same page." />
           </InlineGrid>
-          {iconUrl.trim() && (
+          {(iconUrl.trim() || hoverIconUrl.trim()) && (
             <div style={{ display: "flex", alignItems: "center", gap: "0.9rem", padding: "0.9rem 1rem", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px" }}>
-              <img
-                src={iconUrl}
-                alt="Cursor preview"
-                style={{ width: 48, height: 48, objectFit: "contain", borderRadius: "10px", background: "#fff", border: "1px solid #e5e7eb", padding: "0.35rem" }}
-              />
-              <div>
+              {iconUrl.trim() && (
+                <img
+                  src={iconUrl}
+                  alt="Cursor preview"
+                  style={{ width: 48, height: 48, objectFit: "contain", borderRadius: "10px", background: "#fff", border: "1px solid #e5e7eb", padding: "0.35rem" }}
+                />
+              )}
+              {hoverIconUrl.trim() && (
+                <img
+                  src={hoverIconUrl}
+                  alt="Hover cursor preview"
+                  style={{ width: 48, height: 48, objectFit: "contain", borderRadius: "10px", background: "#fff", border: "1px solid #e5e7eb", padding: "0.35rem" }}
+                />
+              )}
+              <div style={{ minWidth: 0 }}>
                 <p style={{ margin: 0, fontSize: "0.83rem", fontWeight: 700, color: "#111827" }}>Cursor image preview</p>
                 <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", color: "#6b7280" }}>
-                  If this preview loads here, the storefront cursor can use it too after the campaign is saved and matched.
+                  Primary and hover cursor images are previewed here when provided, so you can confirm the URLs before saving.
                 </p>
               </div>
             </div>
@@ -223,7 +288,12 @@ export default function CustomCursorTab() {
                   <td style={{ padding: "0.85rem 0.9rem" }}>
                     <div style={{ fontSize: "0.86rem", fontWeight: 700, color: "#111827" }}>{campaign.name}</div>
                     <div style={{ fontSize: "0.77rem", color: "#6b7280", marginTop: "0.15rem" }}>
-                      {campaign.iconUrl ? "Custom icon" : (THEME_OPTIONS.find((option) => option.value === campaign.theme)?.label ?? campaign.theme)} · {campaign.size}px
+                      {(CURSOR_TYPE_OPTIONS.find((option) => option.value === campaign.cursorType)?.label ?? campaign.cursorType)} · {campaign.size}px
+                    </div>
+                    <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem" }}>
+                      Hover: {HOVER_EFFECT_OPTIONS.find((option) => option.value === campaign.hoverEffect)?.label ?? campaign.hoverEffect}
+                      {" · "}
+                      Click: {CLICK_EFFECT_OPTIONS.find((option) => option.value === campaign.clickEffect)?.label ?? campaign.clickEffect}
                     </div>
                     {campaign.iconUrl && (
                       <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
