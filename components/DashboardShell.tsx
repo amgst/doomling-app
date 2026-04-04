@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 const TABS = [
@@ -138,7 +139,6 @@ const LOGO = "https://www.doomlings.com/cdn/shop/files/Doomlings_Logo_FullColor_
 export default function DashboardShell({
   children,
   activeTab,
-  shopDomain,
   storeUrl,
   adminUrl,
 }: {
@@ -150,129 +150,168 @@ export default function DashboardShell({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const tabFromPath = (pathname.split("/")[2] ?? "overview") as TabKey;
-  const tab = activeTab ?? (TABS.some(t => t.key === tabFromPath) ? tabFromPath : "overview");
+  const tab = activeTab ?? (TABS.some((t) => t.key === tabFromPath) ? tabFromPath : "overview");
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const updateViewport = () => {
+      const nextIsMobile = media.matches;
+      setIsMobile(nextIsMobile);
+      if (!nextIsMobile) {
+        setMobileNavOpen(false);
+      }
+    };
+
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
+
+  const handleNavigate = (nextTab: TabKey) => {
+    router.push(`/dashboard/${nextTab}`);
+    if (isMobile) setMobileNavOpen(false);
+  };
 
   return (
-    <div style={{
-      display: "flex",
-      minHeight: "100vh",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      background: "#f3f4f6",
-    }}>
-      {/* ── Sidebar ── */}
-      <aside style={{
-        width: 230,
-        minWidth: 230,
-        background: "#fff",
-        borderRight: "1px solid #e5e7eb",
+    <div
+      style={{
         display: "flex",
-        flexDirection: "column",
-        position: "sticky" as const,
-        top: 0,
-        height: "100vh",
-        overflowY: "auto",
-      }}>
-        {/* Logo */}
-        <div style={{
-          padding: "1.5rem 1.25rem 1rem",
-          borderBottom: "1px solid #f3f4f6",
-        }}>
-          <img
-            src={LOGO}
-            alt="Doomlings"
-            style={{ width: "100%", maxWidth: 150, display: "block" }}
-          />
+        flexDirection: isMobile ? "column" : "row",
+        minHeight: "100vh",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        background: "#f3f4f6",
+      }}
+    >
+      {isMobile && mobileNavOpen ? (
+        <button
+          type="button"
+          aria-label="Close menu overlay"
+          onClick={() => setMobileNavOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            border: "none",
+            background: "rgba(15, 23, 42, 0.35)",
+            zIndex: 39,
+            cursor: "pointer",
+          }}
+        />
+      ) : null}
+
+      <aside
+        style={{
+          width: isMobile ? "min(86vw, 320px)" : 230,
+          minWidth: isMobile ? 0 : 230,
+          background: "#fff",
+          borderRight: isMobile ? "none" : "1px solid #e5e7eb",
+          display: "flex",
+          flexDirection: "column",
+          position: isMobile ? "fixed" : "sticky",
+          top: 0,
+          left: isMobile ? 0 : undefined,
+          height: "100vh",
+          overflowY: "auto",
+          zIndex: isMobile ? 40 : 1,
+          transform: isMobile ? (mobileNavOpen ? "translateX(0)" : "translateX(-100%)") : "none",
+          transition: isMobile ? "transform 0.22s ease" : undefined,
+          boxShadow: isMobile ? "0 1.5rem 3rem rgba(15, 23, 42, 0.18)" : "none",
+        }}
+      >
+        <div
+          style={{
+            padding: "1.5rem 1.25rem 1rem",
+            borderBottom: "1px solid #f3f4f6",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+          }}
+        >
+          <img src={LOGO} alt="Doomlings" style={{ width: "100%", maxWidth: 150, display: "block" }} />
+          {isMobile ? (
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close menu"
+              style={{
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: "#4b5563",
+                width: 36,
+                height: 36,
+                borderRadius: "10px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18" />
+                <path d="M6 6l12 12" />
+              </svg>
+            </button>
+          ) : null}
         </div>
 
-        {/* Store badge */}
-        {shopDomain && (
-          <a
-            href={storeUrl ?? `https://${shopDomain}`}
-            target="_blank"
-            rel="noreferrer"
-            title="Open online store"
-            style={{
-              margin: "0.75rem 1rem 0",
-              padding: "0.45rem 0.75rem",
-              background: "#f9fafb",
-              borderRadius: "8px",
-              border: "1px solid #e5e7eb",
-              fontSize: "0.78rem",
-              color: "#374151",
-              fontWeight: 500,
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              overflow: "hidden",
-              textDecoration: "none",
-              cursor: "pointer",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
-            onMouseLeave={e => (e.currentTarget.style.background = "#f9fafb")}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", flexShrink: 0 }} />
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {shopDomain.replace(".myshopify.com", "")}
-            </span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.5 }}>
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-          </a>
-        )}
-
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: "0.75rem 0.75rem" }}>
+        <nav style={{ flex: 1, padding: "1rem 0.75rem 0.75rem" }}>
           {NAV_GROUPS.map((group, gi) => {
-            const groupTabs = TABS.filter(t => (group.keys as readonly string[]).includes(t.key));
+            const groupTabs = TABS.filter((t) => (group.keys as readonly string[]).includes(t.key));
             return (
-              <div key={group.label} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? "1rem" : 0 }}>
+              <div key={group.label || `group-${gi}`} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? "1rem" : 0 }}>
                 {group.label ? (
-                  <p style={{
-                    margin: "0 0 0.3rem 0.5rem",
-                    fontSize: "0.67rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.09em",
-                    color: "#9ca3af",
-                  }}>{group.label}</p>
+                  <p
+                    style={{
+                      margin: "0 0 0.3rem 0.5rem",
+                      fontSize: "0.67rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.09em",
+                      color: "#9ca3af",
+                    }}
+                  >
+                    {group.label}
+                  </p>
                 ) : null}
-                {groupTabs.map(t => {
+                {groupTabs.map((t) => {
                   const active = tab === t.key;
                   return (
                     <button
                       key={t.key}
-                      onClick={() => router.push(`/dashboard/${t.key}`)}
+                      onClick={() => handleNavigate(t.key)}
                       style={{
                         width: "100%",
                         display: "flex",
                         alignItems: "center",
                         gap: "0.65rem",
-                        padding: "0.55rem 0.75rem",
+                        padding: "0.7rem 0.75rem",
                         paddingLeft: active ? "calc(0.75rem - 3px)" : "0.75rem",
                         marginBottom: "0.1rem",
-                        borderRadius: "8px",
+                        borderRadius: "10px",
                         border: "none",
                         borderLeft: active ? "3px solid #008060" : "3px solid transparent",
                         background: active ? "#ecfdf5" : "transparent",
                         color: active ? "#065f46" : "#4b5563",
                         fontWeight: active ? 600 : 400,
-                        fontSize: "0.875rem",
+                        fontSize: "0.92rem",
                         cursor: "pointer",
-                        textAlign: "left" as const,
+                        textAlign: "left",
                         transition: "background 0.15s, color 0.15s",
                       }}
-                      onMouseEnter={e => {
-                        if (!active) (e.currentTarget as HTMLButtonElement).style.background = "#f9fafb";
+                      onMouseEnter={(e) => {
+                        if (!active) e.currentTarget.style.background = "#f9fafb";
                       }}
-                      onMouseLeave={e => {
-                        if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                      onMouseLeave={(e) => {
+                        if (!active) e.currentTarget.style.background = "transparent";
                       }}
                     >
                       <span style={{ flexShrink: 0, color: active ? "#008060" : "currentColor", opacity: active ? 1 : 0.55 }}>{t.icon}</span>
-                      {t.label}
+                      <span style={{ minWidth: 0 }}>{t.label}</span>
                     </button>
                   );
                 })}
@@ -281,7 +320,6 @@ export default function DashboardShell({
           })}
         </nav>
 
-        {/* Sign out */}
         <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid #f3f4f6" }}>
           <a
             href="/standalone/logout"
@@ -296,8 +334,8 @@ export default function DashboardShell({
               borderRadius: "6px",
               transition: "color 0.15s",
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#374151")}
-            onMouseLeave={e => (e.currentTarget.style.color = "#9ca3af")}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#374151")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#9ca3af")}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -309,60 +347,108 @@ export default function DashboardShell({
         </div>
       </aside>
 
-      {/* ── Main content ── */}
       <main style={{ flex: 1, minWidth: 0, overflowX: "hidden" }}>
-        {/* Top bar */}
-        <div style={{
-          background: "#fff",
-          borderBottom: "1px solid #e5e7eb",
-          padding: "0 2rem",
-          height: 56,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          position: "sticky" as const,
-          top: 0,
-          zIndex: 10,
-        }}>
-          <p style={{ margin: 0, fontWeight: 600, fontSize: "0.95rem", color: "#111827" }}>
-            {TABS.find(t => t.key === tab)?.label ?? "Dashboard"}
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div
+          style={{
+            background: "#fff",
+            borderBottom: "1px solid #e5e7eb",
+            padding: isMobile ? "0.8rem 1rem" : "0 2rem",
+            minHeight: 56,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            flexWrap: isMobile ? "wrap" : "nowrap",
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open menu"
+                style={{
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  color: "#374151",
+                  width: 40,
+                  height: 40,
+                  borderRadius: "10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M3 6h18" />
+                  <path d="M3 12h18" />
+                  <path d="M3 18h18" />
+                </svg>
+              </button>
+            ) : null}
+            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.95rem", color: "#111827", minWidth: 0 }}>
+              {TABS.find((t) => t.key === tab)?.label ?? "Dashboard"}
+            </p>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "0.8rem" : "1rem", flexWrap: "wrap", marginLeft: isMobile ? "3rem" : 0 }}>
             {adminUrl && (
-              <a href={adminUrl} target="_blank" rel="noreferrer" style={{
-                fontSize: "0.78rem", color: "#6b7280", textDecoration: "none",
-                display: "flex", alignItems: "center", gap: "0.3rem",
-              }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#111827")}
-                onMouseLeave={e => (e.currentTarget.style.color = "#6b7280")}
+              <a
+                href={adminUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  fontSize: "0.78rem",
+                  color: "#6b7280",
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#111827")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7280")}
               >
                 Shopify Admin
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
                 </svg>
               </a>
             )}
             {storeUrl && (
-              <a href={storeUrl} target="_blank" rel="noreferrer" style={{
-                fontSize: "0.78rem", color: "#6b7280", textDecoration: "none",
-                display: "flex", alignItems: "center", gap: "0.3rem",
-              }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#111827")}
-                onMouseLeave={e => (e.currentTarget.style.color = "#6b7280")}
+              <a
+                href={storeUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  fontSize: "0.78rem",
+                  color: "#6b7280",
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#111827")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7280")}
               >
                 Online Store
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
                 </svg>
               </a>
             )}
           </div>
         </div>
 
-        {/* Page content */}
-        <div style={{ maxWidth: 1160, margin: "0 auto", padding: "2rem 2rem" }}>
-          {children}
-        </div>
+        <div style={{ maxWidth: 1160, margin: "0 auto", padding: isMobile ? "1rem" : "2rem" }}>{children}</div>
       </main>
     </div>
   );
