@@ -6,6 +6,7 @@ export interface CustomCursorCampaign {
   name: string;
   pageTarget: CustomCursorPageTarget;
   theme: CustomCursorTheme;
+  iconUrl: string;
   size: number;
   priority: number;
   enabled: boolean;
@@ -45,6 +46,7 @@ export function normalizeCustomCursorCampaign(input: unknown, index: number): Cu
     name,
     pageTarget,
     theme,
+    iconUrl: String(value.iconUrl ?? "").trim(),
     size: Math.max(16, Math.min(96, Number(value.size) || 28)),
     priority: Math.max(1, Math.min(100, Number(value.priority) || 1)),
     enabled: value.enabled !== false,

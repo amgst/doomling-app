@@ -27,6 +27,7 @@ export default function CustomCursorTab() {
   const [name, setName] = useState("Spring cursor");
   const [pageTarget, setPageTarget] = useState<CustomCursorPageTarget>("all");
   const [theme, setTheme] = useState<CustomCursorTheme>("doomlings");
+  const [iconUrl, setIconUrl] = useState("");
   const [size, setSize] = useState("28");
   const [priority, setPriority] = useState("1");
   const [startAt, setStartAt] = useState("");
@@ -69,6 +70,7 @@ export default function CustomCursorTab() {
     setName("Spring cursor");
     setPageTarget("all");
     setTheme("doomlings");
+    setIconUrl("");
     setSize("28");
     setPriority("1");
     setStartAt("");
@@ -103,6 +105,7 @@ export default function CustomCursorTab() {
         name: name.trim(),
         pageTarget,
         theme,
+        iconUrl: iconUrl.trim(),
         size: Math.max(16, Math.min(96, Number(size) || 28)),
         priority: Math.max(1, Math.min(100, Number(priority) || 1)),
         enabled: true,
@@ -163,6 +166,7 @@ export default function CustomCursorTab() {
             <TextField label="Campaign name" value={name} onChange={setName} autoComplete="off" />
             <Select label="Page target" options={PAGE_TARGET_OPTIONS} value={pageTarget} onChange={(value) => setPageTarget(value as CustomCursorPageTarget)} />
             <Select label="Cursor theme" options={THEME_OPTIONS} value={theme} onChange={(value) => setTheme(value as CustomCursorTheme)} />
+            <TextField label="Custom icon URL" value={iconUrl} onChange={setIconUrl} autoComplete="off" helpText="Optional PNG, SVG, or WebP URL. If set, this icon will be used instead of the preset theme cursor." />
             <TextField label="Cursor size" type="number" min={16} max={96} value={size} onChange={setSize} autoComplete="off" helpText="Desktop cursor size in pixels." />
             <TextField label="Start date and time" type="datetime-local" value={startAt} onChange={setStartAt} autoComplete="off" helpText="Leave blank to start immediately." />
             <TextField label="End date and time" type="datetime-local" value={endAt} onChange={setEndAt} autoComplete="off" helpText="Leave blank to keep it active until you pause it." />
@@ -204,8 +208,13 @@ export default function CustomCursorTab() {
                   <td style={{ padding: "0.85rem 0.9rem" }}>
                     <div style={{ fontSize: "0.86rem", fontWeight: 700, color: "#111827" }}>{campaign.name}</div>
                     <div style={{ fontSize: "0.77rem", color: "#6b7280", marginTop: "0.15rem" }}>
-                      {THEME_OPTIONS.find((option) => option.value === campaign.theme)?.label ?? campaign.theme} · {campaign.size}px
+                      {campaign.iconUrl ? "Custom icon" : (THEME_OPTIONS.find((option) => option.value === campaign.theme)?.label ?? campaign.theme)} · {campaign.size}px
                     </div>
+                    {campaign.iconUrl && (
+                      <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {campaign.iconUrl}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>
                     {PAGE_TARGET_OPTIONS.find((option) => option.value === campaign.pageTarget)?.label ?? campaign.pageTarget}

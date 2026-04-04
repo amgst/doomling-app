@@ -39,6 +39,17 @@
     will-change: transform;
   }
 
+  #{{ cursor_dom_id }} .upsale-custom-cursor__icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    filter: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.22));
+  }
+
   #{{ cursor_dom_id }} .upsale-custom-cursor__debug {
     position: fixed;
     top: 16px;
@@ -136,12 +147,23 @@
       return 'theme-' + (theme || 'glow');
     }
 
-    function createCursor(size) {
+    function createCursor(size, iconUrl) {
       root.innerHTML = '';
       var dot = document.createElement('div');
       dot.className = 'upsale-custom-cursor__dot';
       dot.style.width = size + 'px';
       dot.style.height = size + 'px';
+      if (iconUrl) {
+        dot.style.background = 'transparent';
+        dot.style.boxShadow = 'none';
+        dot.style.border = 'none';
+        var image = document.createElement('img');
+        image.className = 'upsale-custom-cursor__icon';
+        image.alt = '';
+        image.src = iconUrl;
+        image.draggable = false;
+        dot.appendChild(image);
+      }
       root.appendChild(dot);
       return dot;
     }
@@ -150,8 +172,9 @@
       if (!campaign || typeof campaign !== 'object') return;
 
       var size = Math.max(16, Math.min(96, Number(campaign.size) || 28));
-      var dot = createCursor(size);
-      root.className = themeClass(campaign.theme);
+      var iconUrl = typeof campaign.iconUrl === 'string' ? campaign.iconUrl : '';
+      var dot = createCursor(size, iconUrl);
+      root.className = iconUrl ? '' : themeClass(campaign.theme);
       root.hidden = false;
       document.documentElement.classList.add('upsale-custom-cursor-active');
       setDebug('matched ' + (campaign.name || campaign.theme || 'campaign'));
