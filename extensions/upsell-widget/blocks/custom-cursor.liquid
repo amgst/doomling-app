@@ -23,7 +23,8 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 2147483000;
+    isolation: isolate;
   }
 
   #{{ cursor_dom_id }} .upsale-custom-cursor__dot {
@@ -37,6 +38,7 @@
     transform: translate3d(-50%, -50%, 0);
     transition: width 0.18s ease, height 0.18s ease, opacity 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
     will-change: transform;
+    z-index: 2147483001;
   }
 
   #{{ cursor_dom_id }} .upsale-custom-cursor__ring {
@@ -52,6 +54,7 @@
     pointer-events: none;
     transition: opacity 0.18s ease, width 0.18s ease, height 0.18s ease;
     will-change: transform;
+    z-index: 2147483000;
   }
 
   #{{ cursor_dom_id }}.type-image-glow .upsale-custom-cursor__ring {
@@ -132,6 +135,7 @@
     transform: translate3d(-50%, -50%, 0) scale(0.35);
     opacity: 0;
     will-change: transform, opacity;
+    z-index: 2147483002;
   }
 
   #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.is-visible {

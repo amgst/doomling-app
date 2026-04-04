@@ -50,6 +50,7 @@ export default function CustomCursorTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("Spring cursor");
   const [pageTarget, setPageTarget] = useState<CustomCursorPageTarget>("all");
   const [cursorType, setCursorType] = useState<CustomCursorType>("theme");
@@ -98,6 +99,7 @@ export default function CustomCursorTab() {
   };
 
   const resetForm = () => {
+    setEditingId(null);
     setName("Spring cursor");
     setPageTarget("all");
     setCursorType("theme");
@@ -145,9 +147,9 @@ export default function CustomCursorTab() {
     }
 
     const nextCampaigns: CustomCursorCampaign[] = [
-      ...campaigns,
+      ...campaigns.filter((campaign) => campaign.id !== editingId),
       {
-        id: `custom-cursor-${Date.now()}`,
+        id: editingId ?? `custom-cursor-${Date.now()}`,
         name: name.trim(),
         pageTarget,
         cursorType,
@@ -167,6 +169,23 @@ export default function CustomCursorTab() {
 
     const saved = await saveCampaigns(nextCampaigns);
     if (saved) resetForm();
+  };
+
+  const handleEditCampaign = (campaign: CustomCursorCampaign) => {
+    setEditingId(campaign.id);
+    setName(campaign.name);
+    setPageTarget(campaign.pageTarget);
+    setCursorType(campaign.cursorType);
+    setTheme(campaign.theme);
+    setIconUrl(campaign.iconUrl);
+    setHoverEffect(campaign.hoverEffect);
+    setHoverIconUrl(campaign.hoverIconUrl);
+    setHoverScale(String(campaign.hoverScale));
+    setClickEffect(campaign.clickEffect);
+    setSize(String(campaign.size));
+    setPriority(String(campaign.priority));
+    setStartAt(campaign.startAt ? campaign.startAt.slice(0, 16) : "");
+    setEndAt(campaign.endAt ? campaign.endAt.slice(0, 16) : "");
   };
 
   const handleCampaignChange = async (campaignId: string, patch: Partial<CustomCursorCampaign>) => {
@@ -256,9 +275,16 @@ export default function CustomCursorTab() {
             <Text as="p" tone="subdued">
               Enable the `Custom cursor` app embed in your theme. The embed reads the active campaign from the app and only applies it on desktop pointer devices.
             </Text>
-            <Button variant="primary" onClick={handleAddCampaign} loading={saving}>
-              Add campaign
-            </Button>
+            <InlineStack gap="300">
+              {editingId && (
+                <Button onClick={resetForm} disabled={saving}>
+                  Cancel
+                </Button>
+              )}
+              <Button variant="primary" onClick={handleAddCampaign} loading={saving}>
+                {editingId ? "Update campaign" : "Add campaign"}
+              </Button>
+            </InlineStack>
           </InlineStack>
         </BlockStack>
       </Card>
@@ -319,22 +345,40 @@ export default function CustomCursorTab() {
                     />
                   </td>
                   <td style={{ padding: "0.85rem 0.9rem", textAlign: "right" }}>
-                    <button
-                      type="button"
-                      onClick={() => void handleDeleteCampaign(campaign.id)}
-                      disabled={saving}
-                      style={{
-                        padding: "0.45rem 0.8rem",
-                        background: "#fff",
-                        color: "#b91c1c",
-                        border: "1px solid #fecaca",
-                        borderRadius: "8px",
-                        fontSize: "0.8rem",
-                        cursor: saving ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      Delete
-                    </button>
+                    <div style={{ display: "inline-flex", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleEditCampaign(campaign)}
+                        disabled={saving}
+                        style={{
+                          padding: "0.45rem 0.8rem",
+                          background: "#fff",
+                          color: "#111827",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "0.8rem",
+                          cursor: saving ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteCampaign(campaign.id)}
+                        disabled={saving}
+                        style={{
+                          padding: "0.45rem 0.8rem",
+                          background: "#fff",
+                          color: "#b91c1c",
+                          border: "1px solid #fecaca",
+                          borderRadius: "8px",
+                          fontSize: "0.8rem",
+                          cursor: saving ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
