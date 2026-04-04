@@ -123,6 +123,7 @@
 
     function setDebug(message) {
       if (!showDebug) return;
+      root.hidden = false;
       if (!(debugNode instanceof HTMLElement)) {
         debugNode = document.createElement('div');
         debugNode.className = 'upsale-custom-cursor__debug';
