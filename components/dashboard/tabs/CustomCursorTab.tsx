@@ -166,12 +166,27 @@ export default function CustomCursorTab() {
             <TextField label="Campaign name" value={name} onChange={setName} autoComplete="off" />
             <Select label="Page target" options={PAGE_TARGET_OPTIONS} value={pageTarget} onChange={(value) => setPageTarget(value as CustomCursorPageTarget)} />
             <Select label="Cursor theme" options={THEME_OPTIONS} value={theme} onChange={(value) => setTheme(value as CustomCursorTheme)} />
-            <TextField label="Custom icon URL" value={iconUrl} onChange={setIconUrl} autoComplete="off" helpText="Optional PNG, SVG, or WebP URL. If set, this icon will be used instead of the preset theme cursor." />
+            <TextField label="Cursor image URL" value={iconUrl} onChange={setIconUrl} autoComplete="off" helpText="Optional PNG, SVG, or WebP URL. If set, this image will be used as the cursor instead of the preset theme style." />
             <TextField label="Cursor size" type="number" min={16} max={96} value={size} onChange={setSize} autoComplete="off" helpText="Desktop cursor size in pixels." />
             <TextField label="Start date and time" type="datetime-local" value={startAt} onChange={setStartAt} autoComplete="off" helpText="Leave blank to start immediately." />
             <TextField label="End date and time" type="datetime-local" value={endAt} onChange={setEndAt} autoComplete="off" helpText="Leave blank to keep it active until you pause it." />
             <TextField label="Priority" type="number" min={1} max={100} value={priority} onChange={setPriority} autoComplete="off" helpText="Lower numbers win when multiple cursor campaigns match the same page." />
           </InlineGrid>
+          {iconUrl.trim() && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.9rem", padding: "0.9rem 1rem", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px" }}>
+              <img
+                src={iconUrl}
+                alt="Cursor preview"
+                style={{ width: 48, height: 48, objectFit: "contain", borderRadius: "10px", background: "#fff", border: "1px solid #e5e7eb", padding: "0.35rem" }}
+              />
+              <div>
+                <p style={{ margin: 0, fontSize: "0.83rem", fontWeight: 700, color: "#111827" }}>Cursor image preview</p>
+                <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", color: "#6b7280" }}>
+                  If this preview loads here, the storefront cursor can use it too after the campaign is saved and matched.
+                </p>
+              </div>
+            </div>
+          )}
           <InlineStack align="space-between" blockAlign="center">
             <Text as="p" tone="subdued">
               Enable the `Custom cursor` app embed in your theme. The embed reads the active campaign from the app and only applies it on desktop pointer devices.
