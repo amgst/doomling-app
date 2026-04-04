@@ -9,6 +9,7 @@ const VALID_TABS = [
   "buyxgety",
   "bundles",
   "geocountdown",
+  "customcursor",
   "themeswitcher",
   "postpurchase",
   "stats",

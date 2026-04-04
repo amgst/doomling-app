@@ -25,6 +25,9 @@ const BundleOffersTab = dynamic(() => import("./tabs/BundleOffersTab"), {
 const GeoCountdownTab = dynamic(() => import("./tabs/GeoCountdownTab"), {
   loading: () => <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading geo countdown...</div>,
 });
+const CustomCursorTab = dynamic(() => import("./tabs/CustomCursorTab"), {
+  loading: () => <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading custom cursor...</div>,
+});
 const LaunchpadTab = dynamic(() => import("./tabs/LaunchpadTab"), {
   loading: () => <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading theme scheduler...</div>,
 });
@@ -43,6 +46,7 @@ const VALID_TABS = [
   "buyxgety",
   "bundles",
   "geocountdown",
+  "customcursor",
   "themeswitcher",
   "postpurchase",
   "stats",
@@ -80,6 +84,7 @@ export default function StandaloneDashboardApp({ activeTab }: { activeTab: Tab }
       {tab === "buyxgety" && <BuyXGetYTabPolaris />}
       {tab === "bundles" && <BundleOffersTab />}
       {tab === "geocountdown" && <GeoCountdownTab />}
+      {tab === "customcursor" && <CustomCursorTab />}
       {tab === "themeswitcher" && <LaunchpadTab />}
       {tab === "postpurchase" && <PostPurchaseTab />}
       {tab === "stats" && <StatsTab />}

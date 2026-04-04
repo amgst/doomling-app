@@ -101,6 +101,16 @@ const TABS = [
     ),
   },
   {
+    key: "customcursor",
+    label: "Custom Cursor",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 3l12 12" />
+        <path d="M5 3l4 15 3-7 7-3z" />
+      </svg>
+    ),
+  },
+  {
     key: "themeswitcher",
     label: "Theme Scheduler",
     icon: (
@@ -117,7 +127,7 @@ const TABS = [
 
 const NAV_GROUPS: { label: string; keys: Array<typeof TABS[number]["key"]> }[] = [
   { label: "Analytics", keys: ["overview", "stats"] },
-  { label: "Features", keys: ["products", "upsells", "buyxgety", "bundles", "cartlimits", "postpurchase", "geocountdown"] },
+  { label: "Features", keys: ["products", "upsells", "buyxgety", "bundles", "cartlimits", "postpurchase", "geocountdown", "customcursor"] },
   { label: "Tools", keys: ["themeswitcher"] },
 ];
 

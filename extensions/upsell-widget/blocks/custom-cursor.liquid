@@ -1,0 +1,175 @@
+{% liquid
+  assign cursor_dom_id = 'upsale-custom-cursor-' | append: block.id
+  assign current_page_target = request.page_type | default: template.name
+
+  if current_page_target == 'index'
+    assign current_page_target = 'home'
+  endif
+%}
+
+<div
+  id="{{ cursor_dom_id }}"
+  data-upsale-custom-cursor
+  data-shop="{{ shop.permanent_domain | escape }}"
+  data-api-base="{{ block.settings.api_base | default: 'https://doomling-app-navy.vercel.app' }}"
+  data-page-target="{{ current_page_target | escape }}"
+  hidden
+  {{ block.shopify_attributes }}
+></div>
+
+<style>
+  #{{ cursor_dom_id }} {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  #{{ cursor_dom_id }} .upsale-custom-cursor__dot {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    border-radius: 999px;
+    transform: translate3d(-50%, -50%, 0);
+    transition: width 0.18s ease, height 0.18s ease, opacity 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    will-change: transform;
+  }
+
+  #{{ cursor_dom_id }}.theme-glow .upsale-custom-cursor__dot {
+    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(52, 211, 153, 0.95) 35%, rgba(14, 165, 233, 0.8) 78%);
+    box-shadow: 0 0 18px rgba(45, 212, 191, 0.45), 0 0 32px rgba(14, 165, 233, 0.25);
+  }
+
+  #{{ cursor_dom_id }}.theme-stardust .upsale-custom-cursor__dot {
+    background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(251,191,36,0.95) 26%, rgba(249,115,22,0.85) 68%);
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.45), 0 0 28px rgba(249, 115, 22, 0.24);
+  }
+
+  #{{ cursor_dom_id }}.theme-doomlings .upsale-custom-cursor__dot {
+    background: radial-gradient(circle at 40% 40%, rgba(250,255,220,0.98), rgba(163,230,53,0.95) 30%, rgba(124,58,237,0.88) 72%);
+    box-shadow: 0 0 18px rgba(163, 230, 53, 0.38), 0 0 30px rgba(124, 58, 237, 0.22);
+  }
+
+  #{{ cursor_dom_id }}.theme-retro .upsale-custom-cursor__dot {
+    border-radius: 4px;
+    background: linear-gradient(135deg, rgba(255,242,153,0.96), rgba(251,146,60,0.96));
+    border: 2px solid rgba(17, 24, 39, 0.18);
+    box-shadow: 4px 4px 0 rgba(17, 24, 39, 0.18);
+  }
+
+  #{{ cursor_dom_id }}.is-hovering .upsale-custom-cursor__dot {
+    opacity: 0.92;
+    filter: saturate(1.12);
+  }
+
+  html.upsale-custom-cursor-active,
+  html.upsale-custom-cursor-active body,
+  html.upsale-custom-cursor-active a,
+  html.upsale-custom-cursor-active button,
+  html.upsale-custom-cursor-active [role="button"],
+  html.upsale-custom-cursor-active input,
+  html.upsale-custom-cursor-active select,
+  html.upsale-custom-cursor-active textarea,
+  html.upsale-custom-cursor-active summary {
+    cursor: none !important;
+  }
+  </style>
+
+<script>
+  (function () {
+    var root = document.currentScript && document.currentScript.previousElementSibling;
+    if (!(root instanceof HTMLElement) || !root.matches('[data-upsale-custom-cursor]')) return;
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+
+    var shop = root.dataset.shop || '';
+    var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
+    var pageTarget = (root.dataset.pageTarget || 'all').toLowerCase();
+    if (!shop || !apiBase) return;
+
+    function themeClass(theme) {
+      return 'theme-' + (theme || 'glow');
+    }
+
+    function createCursor(size) {
+      root.innerHTML = '';
+      var dot = document.createElement('div');
+      dot.className = 'upsale-custom-cursor__dot';
+      dot.style.width = size + 'px';
+      dot.style.height = size + 'px';
+      root.appendChild(dot);
+      return dot;
+    }
+
+    function activate(campaign) {
+      if (!campaign || typeof campaign !== 'object') return;
+
+      var size = Math.max(16, Math.min(96, Number(campaign.size) || 28));
+      var dot = createCursor(size);
+      root.className = themeClass(campaign.theme);
+      root.hidden = false;
+      document.documentElement.classList.add('upsale-custom-cursor-active');
+
+      var currentX = window.innerWidth / 2;
+      var currentY = window.innerHeight / 2;
+      var targetX = currentX;
+      var targetY = currentY;
+
+      function render() {
+        currentX += (targetX - currentX) * 0.22;
+        currentY += (targetY - currentY) * 0.22;
+        dot.style.transform = 'translate3d(' + currentX + 'px,' + currentY + 'px,0) translate3d(-50%,-50%,0)';
+        window.requestAnimationFrame(render);
+      }
+
+      document.addEventListener('mousemove', function (event) {
+        targetX = event.clientX;
+        targetY = event.clientY;
+      }, { passive: true });
+
+      document.addEventListener('mouseover', function (event) {
+        var target = event.target;
+        if (!(target instanceof Element)) return;
+        var interactive = target.closest('a, button, [role="button"], input, select, textarea, summary');
+        root.classList.toggle('is-hovering', Boolean(interactive));
+        dot.style.width = (interactive ? size * 1.45 : size) + 'px';
+        dot.style.height = (interactive ? size * 1.45 : size) + 'px';
+      }, { passive: true });
+
+      window.addEventListener('blur', function () {
+        root.hidden = true;
+      });
+
+      window.addEventListener('focus', function () {
+        root.hidden = false;
+      });
+
+      render();
+    }
+
+    fetch(apiBase + '/api/public/custom-cursor?shop=' + encodeURIComponent(shop) + '&pageTarget=' + encodeURIComponent(pageTarget))
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) {
+        if (!data || !data.campaign) return;
+        activate(data.campaign);
+      })
+      .catch(function () {});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Custom cursor",
+  "target": "body",
+  "settings": [
+    {
+      "type": "text",
+      "id": "api_base",
+      "label": "App base URL",
+      "default": "https://doomling-app-navy.vercel.app"
+    }
+  ]
+}
+{% endschema %}
