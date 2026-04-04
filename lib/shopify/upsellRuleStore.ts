@@ -55,6 +55,89 @@ function parseUpsellProducts(raw: string | null) {
   }
 }
 
+type ProductSnapshot = {
+  id: string;
+  title: string;
+  handle: string;
+  image: string;
+  price: string;
+};
+
+async function loadProductSnapshots(shop: string, accessToken: string, productIds: string[]) {
+  const uniqueIds = Array.from(new Set(productIds.map((id) => String(id || "").trim()).filter(Boolean)));
+  if (!uniqueIds.length) return new Map<string, ProductSnapshot>();
+
+  const gids = uniqueIds
+    .map((id) => productGidFromId(id))
+    .filter((gid): gid is string => Boolean(gid));
+
+  if (!gids.length) return new Map<string, ProductSnapshot>();
+
+  const data = await shopifyAdminGraphql(
+    shop,
+    accessToken,
+    `
+      query UpsellRuleProducts($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on Product {
+            id
+            title
+            handle
+            featuredImage {
+              url
+            }
+            variants(first: 1) {
+              nodes {
+                price
+              }
+            }
+          }
+        }
+      }
+    `,
+    { ids: gids },
+  );
+
+  const snapshots = new Map<string, ProductSnapshot>();
+  const nodes = data?.data?.nodes ?? [];
+  for (const node of nodes) {
+    const productId = productIdFromGid(node?.id);
+    if (!productId) continue;
+    snapshots.set(productId, {
+      id: productId,
+      title: String(node?.title ?? ""),
+      handle: String(node?.handle ?? ""),
+      image: String(node?.featuredImage?.url ?? ""),
+      price: String(node?.variants?.nodes?.[0]?.price ?? ""),
+    });
+  }
+
+  return snapshots;
+}
+
+async function hydrateUpsellRule(shop: string, accessToken: string, rule: UpsellRule) {
+  const ids = [rule.triggerProductId, ...rule.upsellProducts.map((product) => product.productId)];
+  const snapshots = await loadProductSnapshots(shop, accessToken, ids);
+
+  const triggerSnapshot = snapshots.get(rule.triggerProductId);
+  const upsellProducts = rule.upsellProducts.map((product) => {
+    const snapshot = snapshots.get(product.productId);
+    return {
+      ...product,
+      title: product.title || snapshot?.title || "",
+      image: product.image || snapshot?.image || "",
+      price: product.price || snapshot?.price || "",
+      handle: product.handle || snapshot?.handle || "",
+    };
+  });
+
+  return {
+    ...rule,
+    triggerProductTitle: rule.triggerProductTitle || triggerSnapshot?.title || "",
+    upsellProducts,
+  };
+}
+
 export async function listUpsellRules(shop: string, accessToken: string): Promise<UpsellRule[]> {
   const type = await getUpsellType(shop, accessToken);
   const data = await shopifyAdminGraphql(
@@ -91,7 +174,7 @@ export async function listUpsellRules(shop: string, accessToken: string): Promis
       upsellProducts: parseUpsellProducts(getFieldValue(n.fields, "upsell_products")),
     });
   }
-  return rules;
+  return Promise.all(rules.map((rule) => hydrateUpsellRule(shop, accessToken, rule)));
 }
 
 export async function getUpsellRule(shop: string, accessToken: string, handle: string): Promise<UpsellRule | null> {
@@ -123,13 +206,13 @@ export async function getUpsellRule(shop: string, accessToken: string, handle: s
   const triggerProductId = productIdFromGid(getFieldValue(mo.fields, "trigger_product"));
   if (!triggerProductId) return null;
 
-  return {
+  return hydrateUpsellRule(shop, accessToken, {
     id: String(mo.handle),
     triggerProductId,
     triggerProductTitle: String(getFieldValue(mo.fields, "trigger_product_title") ?? ""),
     message: String(getFieldValue(mo.fields, "message") ?? ""),
     upsellProducts: parseUpsellProducts(getFieldValue(mo.fields, "upsell_products")),
-  };
+  });
 }
 
 export async function upsertUpsellRule(

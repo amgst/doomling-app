@@ -62,34 +62,31 @@
 
     #{{ upsell_dom_id }} .upsale-upsell-list {
       display: grid;
-      gap: 0.9rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.5rem 1.25rem;
     }
 
     #{{ upsell_dom_id }} .upsale-upsell-item {
-      display: grid;
-      grid-template-columns: 4.75rem minmax(0, 1fr);
+      position: relative;
+      display: flex;
+      flex-direction: column;
       gap: 1rem;
-      align-items: center;
-      padding: 1rem;
-      border: 1px solid rgb(var(--color-foreground, 17 24 39) / 0.1);
-      border-radius: 1.25rem;
-      background: rgb(var(--color-background, 255 255 255));
-      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+      min-width: 0;
     }
 
-    #{{ upsell_dom_id }} .upsale-upsell-item:hover {
-      border-color: rgb(var(--color-foreground, 17 24 39) / 0.18);
-      box-shadow: 0 18px 40px rgb(var(--color-foreground, 17 24 39) / 0.08);
-      transform: translateY(-1px);
+    #{{ upsell_dom_id }} .upsale-upsell-item-link {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
     }
 
     #{{ upsell_dom_id }} .upsale-upsell-media {
       width: 100%;
       aspect-ratio: 1;
-      border-radius: 1rem;
+      border-radius: var(--product-card-media-radius, 1.6rem);
       overflow: hidden;
       background: rgb(var(--color-foreground, 17 24 39) / 0.06);
-      border: 1px solid rgb(var(--color-foreground, 17 24 39) / 0.08);
+      transition: transform 0.25s ease;
     }
 
     #{{ upsell_dom_id }} .upsale-upsell-media img {
@@ -110,23 +107,32 @@
         );
     }
 
+    #{{ upsell_dom_id }} .upsale-upsell-item:hover .upsale-upsell-media {
+      transform: translateY(-1px);
+    }
+
     #{{ upsell_dom_id }} .upsale-upsell-content {
       min-width: 0;
       display: grid;
-      gap: 0.8rem;
+      gap: 0.65rem;
+      align-items: var(--content-alignment, flex-start);
     }
 
     #{{ upsell_dom_id }} .upsale-upsell-topline {
       display: grid;
-      gap: 0.45rem;
+      gap: 0.4rem;
     }
 
     #{{ upsell_dom_id }} .upsale-upsell-product-title {
       margin: 0;
-      font-family: var(--font-heading--family, var(--font-body--family, inherit));
-      font-size: 1rem;
-      line-height: 1.28;
-      font-weight: 600;
+      position: relative;
+      z-index: 2;
+      color: rgb(var(--color-foreground, 17 24 39));
+      font-family: var(--font-pcard-title--family, var(--font-heading--family, var(--font-body--family, inherit)));
+      font-weight: var(--font-pcard-title--weight, 600);
+      font-style: var(--font-pcard-title--style, normal);
+      font-size: var(--font-pcard-title--size, 1rem);
+      line-height: 1.45;
       color: rgb(var(--color-foreground, 17 24 39));
     }
 
@@ -168,6 +174,13 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 0.7rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-actions > * {
+      position: relative;
+      z-index: 3;
     }
 
     #{{ upsell_dom_id }} .upsale-upsell-button,
@@ -235,12 +248,9 @@
         padding-top: 1.5rem;
       }
 
-      #{{ upsell_dom_id }} .upsale-upsell-item {
+      #{{ upsell_dom_id }} .upsale-upsell-list {
         grid-template-columns: 1fr;
-      }
-
-      #{{ upsell_dom_id }} .upsale-upsell-media {
-        max-width: 5rem;
+        gap: 1.25rem;
       }
 
       #{{ upsell_dom_id }} .upsale-upsell-actions > * {
@@ -305,6 +315,29 @@
       }).catch(function () {});
     };
 
+    var getCartSectionIds = function () {
+      var sections = [];
+      document.querySelectorAll('cart-items-component[data-section-id], cart-discount[data-section-id]').forEach(function (element) {
+        if (!(element instanceof HTMLElement)) return;
+        var sectionId = element.dataset.sectionId;
+        if (sectionId && sections.indexOf(sectionId) === -1) {
+          sections.push(sectionId);
+        }
+      });
+      return sections;
+    };
+
+    var dispatchCartUpdate = function (payload) {
+      document.dispatchEvent(new CustomEvent('cart:update', {
+        bubbles: true,
+        detail: {
+          resource: {},
+          sourceId: 'upsale-upsell-widget',
+          data: payload
+        }
+      }));
+    };
+
     var buildItem = function (upsell, variantId, ruleId) {
       var item = document.createElement('article');
       item.className = 'upsale-upsell-item';
@@ -322,6 +355,7 @@
         : '<a class="upsale-upsell-link" href="/products/' + escapeHtml(upsell.handle || '') + '">View product</a>';
 
       item.innerHTML =
+        '<a class="upsale-upsell-item-link" href="/products/' + escapeHtml(upsell.handle || '') + '" aria-label="' + escapeHtml(upsell.title) + '"></a>' +
         mediaHtml +
         '<div class="upsale-upsell-content">' +
           '<div class="upsale-upsell-topline">' +
@@ -348,17 +382,41 @@
           button.disabled = true;
           button.textContent = 'Adding...';
 
+          var sectionIds = getCartSectionIds();
+          var formData = new FormData();
+          formData.append('id', String(variantId));
+          formData.append('quantity', '1');
+          formData.append('properties[_upsale]', 'true');
+          if (sectionIds.length) {
+            formData.append('sections', sectionIds.join(','));
+          }
+
           fetch('/cart/add.js', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: variantId, quantity: 1, properties: { _upsale: 'true' } })
+            headers: {
+              Accept: 'text/html'
+            },
+            body: formData
           })
             .then(function (response) {
-              if (!response.ok) throw new Error('add_failed');
+              return response.json().then(function (data) {
+                if (!response.ok || data.status) throw new Error('add_failed');
+                return data;
+              });
+            })
+            .then(function (data) {
               track(ruleId, 'added');
               button.hidden = true;
               added.style.display = 'inline-flex';
+              dispatchCartUpdate({
+                source: 'upsale-upsell-widget',
+                itemCount: 1,
+                isIncremental: true,
+                variantId: String(variantId),
+                sections: data.sections || {}
+              });
               document.dispatchEvent(new CustomEvent('cart:refresh'));
+              document.dispatchEvent(new CustomEvent('cart:updated'));
             })
             .catch(function () {
               button.disabled = false;
