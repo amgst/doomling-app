@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 import { getShopBxgyRulesMetafield } from "@/lib/shopify/shopBxgyRulesMetafield";
+import { ensureInstalledPublicShop } from "@/lib/utils/publicShopAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,13 +16,13 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: NextRequest) {
-  const shop = req.nextUrl.searchParams.get("shop") ?? "";
-  if (!shop) {
-    return NextResponse.json({ rules: [] }, { headers: CORS });
+  const { shop, errorResponse } = await ensureInstalledPublicShop(req.nextUrl.searchParams.get("shop"));
+  if (errorResponse) {
+    return NextResponse.json({ rules: [] }, { status: errorResponse.status, headers: CORS });
   }
 
   try {
-    const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
+    const session = await firestoreSessionStorage.loadSession(`offline_${shop!}`);
     if (!session?.accessToken) return NextResponse.json({ rules: [] }, { headers: CORS });
 
     const rules = await getShopBxgyRulesMetafield(shop, session.accessToken);

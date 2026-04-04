@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 import { getShopUpsellRulesMetafield } from "@/lib/shopify/shopUpsellRulesMetafield";
+import { ensureInstalledPublicShop } from "@/lib/utils/publicShopAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,18 +17,18 @@ export async function OPTIONS() {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const shop = searchParams.get("shop") ?? "";
   const productId = searchParams.get("product_id") ?? "";
+  const { shop, errorResponse } = await ensureInstalledPublicShop(searchParams.get("shop"));
 
-  if (!shop || !productId) {
-    return NextResponse.json({ upsells: [] }, { headers: CORS });
+  if (errorResponse || !productId) {
+    return NextResponse.json({ upsells: [] }, { status: errorResponse?.status, headers: CORS });
   }
 
   try {
-    const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
+    const session = await firestoreSessionStorage.loadSession(`offline_${shop!}`);
     if (!session?.accessToken) return NextResponse.json({ upsells: [] }, { headers: CORS });
 
-    const rules = await getShopUpsellRulesMetafield(shop, session.accessToken);
+    const rules = await getShopUpsellRulesMetafield(shop!, session.accessToken);
     const rule = rules.find((r) => String(r.triggerProductId) === String(productId));
     if (!rule) return NextResponse.json({ upsells: [] }, { headers: CORS });
 

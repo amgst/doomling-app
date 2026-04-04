@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listBundleOffers } from "@/lib/shopify/bundleOfferStore";
+import { ensureInstalledPublicShop } from "@/lib/utils/publicShopAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const shop = req.nextUrl.searchParams.get("shop")?.trim();
-    if (!shop) return NextResponse.json({ error: "Missing shop" }, { status: 400 });
+    const { shop, errorResponse } = await ensureInstalledPublicShop(req.nextUrl.searchParams.get("shop"));
+    if (errorResponse) return errorResponse;
 
-    const offers = await listBundleOffers(shop);
+    const offers = await listBundleOffers(shop!);
     const activeOffers = offers
       .filter((offer) => offer.enabled)
       .map((offer) => ({
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ offers: activeOffers });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load bundle offers" },
+      { error: "Failed to load bundle offers" },
       { status: 500 },
     );
   }

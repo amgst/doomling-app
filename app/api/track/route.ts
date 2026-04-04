@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackEvent, type EventType } from "@/lib/firebase/statsStore";
+import { ensureInstalledPublicShop } from "@/lib/utils/publicShopAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,15 +15,20 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
 
+const ALLOWED_EVENTS: EventType[] = ["view", "click", "added"];
+
 export async function POST(req: NextRequest) {
   try {
-    const { shop, ruleId, event } = await req.json();
-    if (!shop || !ruleId || !event) {
-      return NextResponse.json({ ok: false }, { headers: CORS });
+    const { shop: rawShop, ruleId, event } = await req.json();
+    const { shop, errorResponse } = await ensureInstalledPublicShop(rawShop);
+
+    if (errorResponse || typeof ruleId !== "string" || !ruleId.trim() || !ALLOWED_EVENTS.includes(event)) {
+      return NextResponse.json({ ok: false }, { status: errorResponse?.status ?? 400, headers: CORS });
     }
-    await trackEvent(shop, ruleId, event as EventType);
+
+    await trackEvent(shop!, ruleId.trim(), event);
     return NextResponse.json({ ok: true }, { headers: CORS });
   } catch {
-    return NextResponse.json({ ok: false }, { headers: CORS });
+    return NextResponse.json({ ok: false }, { status: 400, headers: CORS });
   }
 }

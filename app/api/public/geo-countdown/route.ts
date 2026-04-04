@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getShop } from "@/lib/firebase/shopStore";
+import { ensureInstalledPublicShop } from "@/lib/utils/publicShopAccess";
 import { getSpecificGeoCountdownCampaign, matchGeoCountdownCampaign, normalizeGeoCountdownCampaign, type GeoCountdownCampaign } from "@/lib/geoCountdown";
 
 export const runtime = "nodejs";
@@ -24,13 +24,12 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: NextRequest) {
-  const shop = req.nextUrl.searchParams.get("shop") ?? "";
-  if (!shop) {
-    return NextResponse.json({ campaign: null }, { headers: CORS });
+  const { shop, stored, errorResponse } = await ensureInstalledPublicShop(req.nextUrl.searchParams.get("shop"));
+  if (errorResponse) {
+    return NextResponse.json({ campaign: null }, { status: errorResponse.status, headers: CORS });
   }
 
   try {
-    const stored = await getShop(shop);
     const campaigns = getStoredCampaigns(stored?.settings);
     const mode = req.nextUrl.searchParams.get("mode") ?? "auto";
     const campaign = mode === "specific"

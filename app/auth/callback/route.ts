@@ -48,8 +48,11 @@ export async function GET(req: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      const body = await tokenRes.text();
-      return NextResponse.json({ error: `Token exchange failed: ${body}` }, { status: 400 });
+      console.error("[auth/callback] Token exchange failed", {
+        status: tokenRes.status,
+        shop,
+      });
+      return NextResponse.json({ error: "Token exchange failed" }, { status: 400 });
     }
 
     const { access_token } = await tokenRes.json();

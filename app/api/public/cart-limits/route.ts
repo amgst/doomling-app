@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getShop } from "@/lib/firebase/shopStore";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 import { getShopCartQuantityRulesMetafield } from "@/lib/shopify/shopCartQuantityRulesMetafield";
+import { ensureInstalledPublicShop } from "@/lib/utils/publicShopAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,23 +16,22 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: NextRequest) {
-  const shop = req.nextUrl.searchParams.get("shop") ?? "";
-  if (!shop) {
-    return NextResponse.json({ rules: [] }, { headers: CORS });
+  const { shop, stored, errorResponse } = await ensureInstalledPublicShop(req.nextUrl.searchParams.get("shop"));
+  if (errorResponse) {
+    return NextResponse.json({ rules: [] }, { status: errorResponse.status, headers: CORS });
   }
 
   try {
-    const stored = await getShop(shop);
     const savedRules = stored?.settings?.cartQuantityRules;
     if (Array.isArray(savedRules)) {
       const rules = savedRules.filter((rule) => rule?.enabled !== false);
       return NextResponse.json({ rules }, { headers: CORS });
     }
 
-    const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
+    const session = await firestoreSessionStorage.loadSession(`offline_${shop!}`);
     if (!session?.accessToken) return NextResponse.json({ rules: [] }, { headers: CORS });
 
-    const rules = await getShopCartQuantityRulesMetafield(shop, session.accessToken);
+    const rules = await getShopCartQuantityRulesMetafield(shop!, session.accessToken);
     return NextResponse.json(
       { rules: rules.filter((rule) => rule?.enabled !== false) },
       { headers: CORS },

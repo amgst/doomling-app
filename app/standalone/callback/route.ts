@@ -8,6 +8,10 @@ import { Session } from "@shopify/shopify-api";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function oauthError(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status });
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
@@ -19,7 +23,7 @@ export async function GET(req: NextRequest) {
     // Verify state matches cookie
     const cookieState = req.cookies.get("shopify_oauth_state")?.value;
     if (!state || state !== cookieState) {
-      return NextResponse.json({ step: "state", state, cookieState }, { status: 400 });
+      return oauthError("Invalid OAuth state");
     }
 
     // Verify HMAC signature
@@ -36,7 +40,7 @@ export async function GET(req: NextRequest) {
       .update(message)
       .digest("hex");
     if (digest !== hmac) {
-      return NextResponse.json({ step: "hmac", digest, hmac }, { status: 400 });
+      return oauthError("Invalid OAuth signature");
     }
 
     // Exchange code for access token
@@ -50,8 +54,11 @@ export async function GET(req: NextRequest) {
       }),
     });
     if (!tokenRes.ok) {
-      const body = await tokenRes.text();
-      return NextResponse.json({ step: "token", status: tokenRes.status, body }, { status: 400 });
+      console.error("[standalone/callback] Token exchange failed", {
+        status: tokenRes.status,
+        shop,
+      });
+      return oauthError("Token exchange failed");
     }
     const { access_token } = await tokenRes.json();
 
@@ -82,8 +89,7 @@ export async function GET(req: NextRequest) {
     res.cookies.delete("shopify_oauth_state");
     return res;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
-    return NextResponse.json({ step: "catch", message, stack }, { status: 500 });
+    console.error("[standalone/callback] Unexpected error", err);
+    return oauthError("Authentication failed", 500);
   }
 }
