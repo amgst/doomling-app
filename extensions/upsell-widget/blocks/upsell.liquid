@@ -264,7 +264,6 @@
       <div class="upsale-upsell-heading-copy">
         <span class="upsale-upsell-kicker">{{ settings.eyebrow_text | default: 'You may also like' }}</span>
         <h3 class="upsale-upsell-title">{{ settings.header_text | default: 'Complete your setup' }}</h3>
-        <p class="upsale-upsell-message" data-upsale-message hidden></p>
       </div>
     </div>
     <div class="upsale-upsell-list" data-upsale-list></div>
@@ -281,7 +280,6 @@
     var currency = root.dataset.currency;
     var apiBase = ({{ settings.api_base | json }} || 'https://doomling-app-navy.vercel.app').replace(/\/$/, '');
     var list = root.querySelector('[data-upsale-list]');
-    var message = root.querySelector('[data-upsale-message]');
 
     if (!shop || !productId || !list) return;
 
@@ -447,11 +445,6 @@
         if (!upsells.length) return;
 
         var ruleId = upsells[0].ruleId;
-        if (upsells[0].message) {
-          message.textContent = upsells[0].message;
-          message.hidden = false;
-        }
-
         return Promise.all(upsells.map(function (upsell) {
           return resolveVariantId(upsell).then(function (variantId) {
             list.appendChild(buildItem(upsell, variantId, ruleId));

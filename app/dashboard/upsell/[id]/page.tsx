@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
 
 interface DailyStat { date: string; views: number; clicks: number; added: number; }
-interface UpsellProduct { title: string; image: string; price: string; discountPercent: number; }
+interface UpsellProduct { productId?: string; title: string; image: string; price: string; discountPercent: number; handle?: string; }
 interface Rule {
   id: string;
   triggerProductTitle: string;
@@ -93,14 +93,13 @@ export default function CampaignDetailPage() {
 
       <div style={{ marginBottom: "1.5rem" }}>
         <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>
-          {rule.triggerProductTitle} → {rule.upsellProducts.length} suggestion{rule.upsellProducts.length !== 1 ? "s" : ""}
+          {rule.message || "Untitled campaign"}
         </h1>
-        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>Campaign performance</p>
+        <p style={{ margin: "0.25rem 0 0", color: "#6d7175", fontSize: "0.875rem" }}>{rule.triggerProductTitle} to {rule.upsellProducts.length} suggestion{rule.upsellProducts.length !== 1 ? "s" : ""}</p>
       </div>
 
       {/* Campaign info card */}
       <div style={{ ...card, marginBottom: "1.25rem" }}>
-        <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", color: "#6d7175" }}>{rule.message}</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
           {rule.upsellProducts.map((p, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.6rem 0.85rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e4e5e7" }}>
@@ -168,3 +167,4 @@ export default function CampaignDetailPage() {
     </DashboardShell>
   );
 }
+

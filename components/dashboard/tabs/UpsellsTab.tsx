@@ -71,7 +71,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [triggerProductId, setTriggerProductId] = useState("");
-  const [message, setMessage] = useState("You might also like these!");
+  const [campaignName, setCampaignName] = useState("");
   const [suggestions, setSuggestions] = useState<SuggestionDraft[]>([{ productId: "", discountPercent: "0" }]);
 
   useEffect(() => {
@@ -101,6 +101,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
   const handleAdd = async () => {
     const validSuggestions = suggestions.filter(s => s.productId && s.productId !== triggerProductId);
     if (!triggerProductId) { setError("Select a trigger product."); return; }
+    if (!campaignName.trim()) { setError("Add a campaign name."); return; }
     if (validSuggestions.length === 0) { setError("Add at least one suggestion product (different from the trigger)."); return; }
     setSaving(true); setError(null);
 
@@ -124,7 +125,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
         triggerProductId,
         triggerProductTitle: trigger?.title ?? "",
         upsellProducts,
-        message,
+        message: campaignName.trim(),
       }),
     });
     const data = await res.json();
@@ -136,7 +137,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
     setRules(updated.rules ?? []);
     setStats(refreshedStats.rules ?? []);
     setTriggerProductId("");
-    setMessage("You might also like these!");
+    setCampaignName("");
     setSuggestions([{ productId: "", discountPercent: "0" }]);
     setSaving(false);
   };
@@ -150,6 +151,13 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
   const sel: React.CSSProperties = { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
   const inp: React.CSSProperties = { padding: "0.6rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "0.875rem", background: "#fff", color: "#1a1a1a" };
   const lbl: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" };
+  const storefrontUrlForProduct = (productId?: string, fallbackHandle?: string) => {
+    if (!storeUrl) return null;
+    const liveHandle = products.find((product) => String(product.id) === String(productId || ""))?.handle;
+    const handle = liveHandle || fallbackHandle || "";
+    if (!handle) return null;
+    return `${storeUrl.replace(/\/$/, "")}/products/${handle}`;
+  };
 
   const productStatRows = rules.flatMap((rule) => {
     const stat = stats.find((entry) => entry.ruleId === rule.id);
@@ -180,7 +188,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
       <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: "1.5rem" }}>
         <p style={{ margin: "0 0 1.25rem", fontWeight: 700, color: "#1a1a1a", fontSize: "0.95rem" }}>New Upsell Rule</p>
 
-        {/* Trigger + message */}
+        {/* Trigger + campaign name */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
           <div>
             <label style={lbl}>When customer views…</label>
@@ -192,8 +200,8 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
             />
           </div>
           <div>
-            <label style={lbl}>Widget message</label>
-              <input type="text" style={inp} value={message} onChange={e => setMessage(e.target.value)} />
+            <label style={lbl}>Campaign name</label>
+              <input type="text" style={inp} value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="Example: Playmat accessories" />
           </div>
         </div>
 
@@ -252,7 +260,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
-                {["When viewing", "Suggestions", "Message", "", ""].map((h, i) => (
+                {["Campaign", "When viewing", "Suggestions", "", ""].map((h, i) => (
                   <th key={i} style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
@@ -260,12 +268,13 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
             <tbody>
               {rules.map((r, i) => (
                 <tr key={r.id} style={{ borderBottom: i < rules.length - 1 ? "1px solid #f1f1f1" : "none" }}>
+                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#111827", fontWeight: 600 }}>
+                    {r.message || "Untitled campaign"}
+                  </td>
                   <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", fontWeight: 500, color: "#1a1a1a" }}>
                     {(() => {
                       const triggerProduct = products.find((product) => String(product.id) === r.triggerProductId);
-                      const triggerUrl = storeUrl && triggerProduct?.handle
-                        ? `${storeUrl.replace(/\/$/, "")}/products/${triggerProduct.handle}`
-                        : null;
+                      const triggerUrl = storefrontUrlForProduct(r.triggerProductId, triggerProduct?.handle);
 
                       if (!triggerUrl) return r.triggerProductTitle;
 
@@ -285,9 +294,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
                       {r.upsellProducts.slice(0, 4).map((p, pi) => (
                         (() => {
-                          const productUrl = storeUrl && p.handle
-                            ? `${storeUrl.replace(/\/$/, "")}/products/${p.handle}`
-                            : null;
+                          const productUrl = storefrontUrlForProduct(p.productId, p.handle);
                           const content = p.image
                             ? <img key={pi} src={p.image} alt={p.title} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", objectFit: "cover", border: "1px solid #e4e5e7" }} />
                             : <div key={pi} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", background: "#f1f1f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#6d7175" }}>{p.title.slice(0, 2)}</div>;
@@ -306,7 +313,6 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
                       </span>
                     </div>
                   </td>
-                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#6d7175", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.message}</td>
                   <td style={{ padding: "0.85rem 1rem" }}>
                     <button onClick={() => router.push(`/dashboard/upsell/${r.id}`)} style={{
                       padding: "0.3rem 0.75rem", background: "#f0faf7", color: "#008060",
@@ -351,9 +357,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
             </thead>
             <tbody>
               {productStatRows.map((row, index) => {
-                const productUrl = storeUrl && row.product.handle
-                  ? `${storeUrl.replace(/\/$/, "")}/products/${row.product.handle}`
-                  : null;
+                const productUrl = storefrontUrlForProduct(row.product.productId, row.product.handle);
 
                 return (
                   <tr key={row.key} style={{ borderBottom: index < productStatRows.length - 1 ? "1px solid #f1f1f1" : "none" }}>
