@@ -115,7 +115,7 @@
 
 <script>
   (function () {
-    var root = document.currentScript && document.currentScript.previousElementSibling;
+    var root = document.getElementById('{{ cursor_dom_id }}');
     if (!(root instanceof HTMLElement) || !root.matches('[data-upsale-custom-cursor]')) return;
 
     var showDebug = root.dataset.showDebug === 'true';
