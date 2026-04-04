@@ -42,7 +42,6 @@ import {
   type PostPurchaseOffer,
   type PostPurchaseSummary,
   type PostPurchaseOfferStat,
-  type RuleStat,
   RANGES,
   fmt,
   calcTrend,
