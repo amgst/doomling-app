@@ -1,236 +1,410 @@
-{% comment %} Upsale — Upsell Widget {% endcomment %}
+{% liquid
+  assign upsell_dom_id = 'upsale-root-' | append: block.id
+%}
 
-<div id="upsale-root" data-product-id="{{ product.id }}" data-shop="{{ shop.permanent_domain }}" data-currency="{{ shop.currency }}" style="display:none; margin: 1.25rem 0;">
-
+<div
+  id="{{ upsell_dom_id }}"
+  class="upsale-upsell-widget"
+  data-upsale-upsell-root
+  data-product-id="{{ product.id }}"
+  data-shop="{{ shop.permanent_domain }}"
+  data-currency="{{ shop.currency }}"
+  hidden
+>
   <style>
-    #upsale-root * { box-sizing: border-box; }
-    #upsale-card {
-      border: 2px solid #008060;
-      border-radius: 12px;
-      overflow: hidden;
-      background: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    #{{ upsell_dom_id }} {
+      margin: 2rem 0 0;
+      font-family: var(--font-body--family, inherit);
+      color: rgb(var(--color-foreground, 17 24 39));
     }
-    #upsale-header {
-      background: #008060;
-      padding: 0.5rem 1rem;
+
+    #{{ upsell_dom_id }} .upsale-upsell-panel {
+      border-top: 1px solid rgb(var(--color-foreground, 17 24 39) / 0.12);
+      padding-top: 2rem;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-heading {
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
     }
-    #upsale-header span {
-      color: #fff;
-      font-size: 0.8rem;
-      font-weight: 700;
+
+    #{{ upsell_dom_id }} .upsale-upsell-heading-copy {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-kicker {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      color: rgb(var(--color-foreground, 17 24 39) / 0.62);
     }
-    #upsale-message-bar {
-      padding: 0.5rem 1rem;
-      font-size: 0.82rem;
-      color: #374151;
-      border-bottom: 1px solid #f1f1f1;
-      display: none;
+
+    #{{ upsell_dom_id }} .upsale-upsell-title {
+      margin: 0;
+      font-family: var(--font-heading--family, var(--font-body--family, inherit));
+      font-size: clamp(1.15rem, 1.3vw, 1.45rem);
+      line-height: 1.1;
+      font-weight: 600;
+      color: rgb(var(--color-foreground, 17 24 39));
     }
-    #upsale-products {
+
+    #{{ upsell_dom_id }} .upsale-upsell-message {
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: rgb(var(--color-foreground, 17 24 39) / 0.72);
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-list {
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-item {
+      display: grid;
+      grid-template-columns: 4.75rem minmax(0, 1fr);
+      gap: 1rem;
+      align-items: center;
+      padding: 1rem;
+      border: 1px solid rgb(var(--color-foreground, 17 24 39) / 0.1);
+      border-radius: 1.25rem;
+      background: rgb(var(--color-background, 255 255 255));
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-item:hover {
+      border-color: rgb(var(--color-foreground, 17 24 39) / 0.18);
+      box-shadow: 0 18px 40px rgb(var(--color-foreground, 17 24 39) / 0.08);
+      transform: translateY(-1px);
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-media {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 1rem;
+      overflow: hidden;
+      background: rgb(var(--color-foreground, 17 24 39) / 0.06);
+      border: 1px solid rgb(var(--color-foreground, 17 24 39) / 0.08);
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-placeholder {
+      width: 100%;
+      height: 100%;
+      background:
+        linear-gradient(
+          135deg,
+          rgb(var(--color-foreground, 17 24 39) / 0.04),
+          rgb(var(--color-foreground, 17 24 39) / 0.09)
+        );
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-content {
+      min-width: 0;
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-topline {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-product-title {
+      margin: 0;
+      font-family: var(--font-heading--family, var(--font-body--family, inherit));
+      font-size: 1rem;
+      line-height: 1.28;
+      font-weight: 600;
+      color: rgb(var(--color-foreground, 17 24 39));
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-price-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 0;
-    }
-    .upsale-product-item {
-      flex: 1 1 200px;
-      min-width: 180px;
-      max-width: 100%;
-      padding: 1rem;
-      display: flex;
       align-items: center;
-      gap: 0.75rem;
-      border-right: 1px solid #f1f1f1;
-      border-bottom: 1px solid #f1f1f1;
+      gap: 0.55rem 0.75rem;
     }
-    .upsale-product-item:last-child { border-right: none; }
-    .upsale-product-img {
-      width: 64px; height: 64px;
-      object-fit: cover;
-      border-radius: 8px;
-      flex-shrink: 0;
-      border: 1px solid #e4e5e7;
+
+    #{{ upsell_dom_id }} .upsale-upsell-price {
+      font-size: 1rem;
+      font-weight: 700;
+      color: rgb(var(--color-foreground, 17 24 39));
     }
-    .upsale-product-img-placeholder {
-      width: 64px; height: 64px;
-      background: #f1f1f1;
-      border-radius: 8px;
-      flex-shrink: 0;
+
+    #{{ upsell_dom_id }} .upsale-upsell-compare {
+      font-size: 0.95rem;
+      color: rgb(var(--color-foreground, 17 24 39) / 0.48);
+      text-decoration: line-through;
     }
-    .upsale-product-info { flex: 1; min-width: 0; }
-    .upsale-product-title {
-      font-size: 0.85rem; font-weight: 600; color: #1a1a1a;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      margin: 0 0 0.25rem;
+
+    #{{ upsell_dom_id }} .upsale-upsell-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.85rem;
+      padding: 0.15rem 0.7rem;
+      border-radius: 999px;
+      background: rgb(var(--color-button, 17 24 39));
+      color: rgb(var(--color-button-text, 255 255 255));
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
-    .upsale-product-prices {
-      display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
-      margin: 0 0 0.5rem;
+
+    #{{ upsell_dom_id }} .upsale-upsell-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.7rem;
     }
-    .upsale-product-price { font-size: 0.9rem; font-weight: 700; color: #008060; }
-    .upsale-product-original { font-size: 0.8rem; color: #9ca3af; text-decoration: line-through; }
-    .upsale-product-badge {
-      font-size: 0.68rem; font-weight: 700;
-      background: #fef3c7; color: #92400e;
-      padding: 0.1rem 0.4rem; border-radius: 20px;
+
+    #{{ upsell_dom_id }} .upsale-upsell-button,
+    #{{ upsell_dom_id }} .upsale-upsell-link {
+      appearance: none;
+      border: none;
+      border-radius: 999px;
+      min-height: 2.7rem;
+      padding: 0 1.1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      text-decoration: none;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
     }
-    .upsale-add-btn {
-      width: 100%;
-      padding: 0.5rem 0.75rem;
-      background: #008060; color: #fff;
-      border: none; border-radius: 7px;
-      font-size: 0.8rem; font-weight: 600;
-      cursor: pointer; transition: background 0.15s;
-      white-space: nowrap;
+
+    #{{ upsell_dom_id }} .upsale-upsell-button {
+      background: rgb(var(--color-button, 17 24 39));
+      color: rgb(var(--color-button-text, 255 255 255));
     }
-    .upsale-add-btn:hover { background: #006e52; }
-    .upsale-add-btn:disabled { background: #9ca3af; cursor: not-allowed; }
-    .upsale-added-badge {
-      display: none; width: 100%;
-      padding: 0.5rem 0.75rem;
-      background: #e3f1df; color: #1a6b3c;
-      border-radius: 7px; font-size: 0.8rem; font-weight: 600;
-      text-align: center;
+
+    #{{ upsell_dom_id }} .upsale-upsell-link {
+      background: transparent;
+      color: rgb(var(--color-foreground, 17 24 39));
+      border: 1px solid rgb(var(--color-foreground, 17 24 39) / 0.14);
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-button:hover,
+    #{{ upsell_dom_id }} .upsale-upsell-link:hover {
+      transform: translateY(-1px);
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+      transform: none;
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-added {
+      display: none;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: rgb(var(--color-foreground, 17 24 39));
+    }
+
+    #{{ upsell_dom_id }} .upsale-upsell-added svg {
+      width: 1rem;
+      height: 1rem;
+      color: rgb(var(--color-button, 17 24 39));
+    }
+
+    @media (max-width: 767px) {
+      #{{ upsell_dom_id }} {
+        margin-top: 1.6rem;
+      }
+
+      #{{ upsell_dom_id }} .upsale-upsell-panel {
+        padding-top: 1.5rem;
+      }
+
+      #{{ upsell_dom_id }} .upsale-upsell-item {
+        grid-template-columns: 1fr;
+      }
+
+      #{{ upsell_dom_id }} .upsale-upsell-media {
+        max-width: 5rem;
+      }
+
+      #{{ upsell_dom_id }} .upsale-upsell-actions > * {
+        width: 100%;
+      }
     }
   </style>
 
-  <div id="upsale-card">
-    <div id="upsale-header">
-      <svg width="14" height="14" viewBox="0 0 20 20" fill="#fff"><path d="M10 1l2.39 4.84 5.34.78-3.87 3.77.91 5.32L10 13.27l-4.77 2.44.91-5.32L2.27 6.62l5.34-.78z"/></svg>
-      <span id="upsale-header-text">{{ settings.header_text | default: 'Frequently bought together' }}</span>
+  <div class="upsale-upsell-panel">
+    <div class="upsale-upsell-heading">
+      <div class="upsale-upsell-heading-copy">
+        <span class="upsale-upsell-kicker">{{ settings.eyebrow_text | default: 'You may also like' }}</span>
+        <h3 class="upsale-upsell-title">{{ settings.header_text | default: 'Complete your setup' }}</h3>
+        <p class="upsale-upsell-message" data-upsale-message hidden></p>
+      </div>
     </div>
-    <div id="upsale-message-bar"></div>
-    <div id="upsale-products"></div>
+    <div class="upsale-upsell-list" data-upsale-list></div>
   </div>
-
 </div>
 
 <script>
-(function () {
-  var root = document.getElementById('upsale-root');
-  if (!root) return;
+  (function () {
+    var root = document.getElementById('{{ upsell_dom_id }}');
+    if (!root) return;
 
-  var shop = root.dataset.shop;
-  var productId = root.dataset.productId;
-  var currency = root.dataset.currency;
-  var apiBase = ({{ settings.api_base | json }} || 'https://upsale-cyan.vercel.app').replace(/\/$/, '');
+    var shop = root.dataset.shop;
+    var productId = root.dataset.productId;
+    var currency = root.dataset.currency;
+    var apiBase = ({{ settings.api_base | json }} || 'https://doomling-app-navy.vercel.app').replace(/\/$/, '');
+    var list = root.querySelector('[data-upsale-list]');
+    var message = root.querySelector('[data-upsale-message]');
 
-  if (!shop || !productId) return;
+    if (!shop || !productId || !list) return;
 
-  var fmt = function (n) {
-    try {
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n);
-    } catch (e) { return (currency || 'USD') + ' ' + parseFloat(n).toFixed(2); }
-  };
-
-  var track = function (ruleId, event) {
-    fetch(apiBase + '/api/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop: shop, ruleId: ruleId, event: event })
-    }).catch(function () {});
-  };
-
-  fetch(apiBase + '/api/upsell?shop=' + encodeURIComponent(shop) + '&product_id=' + productId)
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      var upsells = data && data.upsells;
-      if (!upsells || !upsells.length) return;
-
-      // Show message bar if present
-      var msgBar = document.getElementById('upsale-message-bar');
-      if (upsells[0].message) {
-        msgBar.textContent = upsells[0].message;
-        msgBar.style.display = 'block';
+    var formatMoney = function (value) {
+      var amount = Number(value || 0);
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency: currency || 'USD',
+          maximumFractionDigits: 2
+        }).format(amount);
+      } catch (error) {
+        return amount.toFixed(2);
       }
+    };
 
-      var container = document.getElementById('upsale-products');
-      var ruleId = upsells[0].ruleId;
+    var escapeHtml = function (value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
 
-      upsells.forEach(function (u, idx) {
-        var item = document.createElement('div');
-        item.className = 'upsale-product-item';
+    var track = function (ruleId, event) {
+      fetch(apiBase + '/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop: shop, ruleId: ruleId, event: event })
+      }).catch(function () {});
+    };
 
-        var imgHtml = u.image
-          ? '<img class="upsale-product-img" src="' + u.image + '" alt="" />'
-          : '<div class="upsale-product-img-placeholder"></div>';
+    var buildItem = function (upsell, variantId, ruleId) {
+      var item = document.createElement('article');
+      item.className = 'upsale-upsell-item';
 
-        var discountHtml = '';
-        if (u.discountPercent > 0) {
-          discountHtml =
-            '<span class="upsale-product-original">' + fmt(u.originalPrice) + '</span>' +
-            '<span class="upsale-product-badge">' + u.discountPercent + '% OFF</span>';
-        }
+      var mediaHtml = upsell.image
+        ? '<div class="upsale-upsell-media"><img src="' + escapeHtml(upsell.image) + '" alt="' + escapeHtml(upsell.title) + '"></div>'
+        : '<div class="upsale-upsell-media"><div class="upsale-upsell-placeholder"></div></div>';
 
-        item.innerHTML =
-          imgHtml +
-          '<div class="upsale-product-info">' +
-            '<p class="upsale-product-title">' + (u.title || '') + '</p>' +
-            '<div class="upsale-product-prices">' +
-              '<span class="upsale-product-price">' + fmt(u.price) + '</span>' +
-              discountHtml +
+      var compareHtml = upsell.discountPercent > 0
+        ? '<span class="upsale-upsell-compare">' + formatMoney(upsell.originalPrice) + '</span><span class="upsale-upsell-badge">Save ' + escapeHtml(upsell.discountPercent) + '%</span>'
+        : '';
+
+      var actionHtml = variantId
+        ? '<button type="button" class="upsale-upsell-button" data-upsale-add>Add to cart</button>'
+        : '<a class="upsale-upsell-link" href="/products/' + escapeHtml(upsell.handle || '') + '">View product</a>';
+
+      item.innerHTML =
+        mediaHtml +
+        '<div class="upsale-upsell-content">' +
+          '<div class="upsale-upsell-topline">' +
+            '<p class="upsale-upsell-product-title">' + escapeHtml(upsell.title) + '</p>' +
+            '<div class="upsale-upsell-price-row">' +
+              '<span class="upsale-upsell-price">' + formatMoney(upsell.price) + '</span>' +
+              compareHtml +
             '</div>' +
-            '<button class="upsale-add-btn" data-idx="' + idx + '">Add to cart</button>' +
-            '<div class="upsale-added-badge">&#10003; Added!</div>' +
-          '</div>';
+          '</div>' +
+          '<div class="upsale-upsell-actions">' +
+            actionHtml +
+            '<span class="upsale-upsell-added" data-upsale-added>' +
+              '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5 6.5 11.5 2.5 7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+              'Added to cart' +
+            '</span>' +
+          '</div>' +
+        '</div>';
 
-        container.appendChild(item);
+      if (variantId) {
+        var button = item.querySelector('[data-upsale-add]');
+        var added = item.querySelector('[data-upsale-added]');
+        button.addEventListener('click', function () {
+          track(ruleId, 'click');
+          button.disabled = true;
+          button.textContent = 'Adding...';
 
-        // Fetch variant ID and wire up the button
-        var btn = item.querySelector('.upsale-add-btn');
-        var addedBadge = item.querySelector('.upsale-added-badge');
-
-        if (u.handle) {
-          fetch('/products/' + u.handle + '.js')
-            .then(function (r) { return r.json(); })
-            .then(function (product) {
-              var variantId = product.variants && product.variants[0] && product.variants[0].id;
-              if (!variantId) {
-                btn.textContent = 'View';
-                btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; });
-                return;
-              }
-              btn.addEventListener('click', function () {
-                track(ruleId, 'click');
-                btn.disabled = true;
-                btn.textContent = 'Adding…';
-                fetch('/cart/add.js', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ id: variantId, quantity: 1, properties: { _upsale: 'true' } })
-                })
-                .then(function (r) {
-                  if (!r.ok) throw new Error('failed');
-                  track(ruleId, 'added');
-                  btn.style.display = 'none';
-                  addedBadge.style.display = 'block';
-                  document.dispatchEvent(new CustomEvent('cart:refresh'));
-                })
-                .catch(function () {
-                  btn.disabled = false;
-                  btn.textContent = 'Add to cart';
-                });
-              });
+          fetch('/cart/add.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: variantId, quantity: 1, properties: { _upsale: 'true' } })
+          })
+            .then(function (response) {
+              if (!response.ok) throw new Error('add_failed');
+              track(ruleId, 'added');
+              button.hidden = true;
+              added.style.display = 'inline-flex';
+              document.dispatchEvent(new CustomEvent('cart:refresh'));
             })
             .catch(function () {
-              btn.textContent = 'View';
-              btn.addEventListener('click', function () { window.location.href = '/products/' + u.handle; });
+              button.disabled = false;
+              button.textContent = 'Add to cart';
             });
-        } else {
-          btn.style.display = 'none';
-        }
-      });
+        });
+      }
 
-      root.style.display = 'block';
-      track(ruleId, 'view');
-    })
-    .catch(function () {});
-})();
+      return item;
+    };
+
+    var resolveVariantId = function (upsell) {
+      if (!upsell.handle) return Promise.resolve(null);
+      return fetch('/products/' + upsell.handle + '.js')
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (product) {
+          return product && product.variants && product.variants[0] && product.variants[0].id
+            ? product.variants[0].id
+            : null;
+        })
+        .catch(function () { return null; });
+    };
+
+    fetch(apiBase + '/api/upsell?shop=' + encodeURIComponent(shop) + '&product_id=' + encodeURIComponent(productId))
+      .then(function (response) { return response.ok ? response.json() : { upsells: [] }; })
+      .then(function (data) {
+        var upsells = data && Array.isArray(data.upsells) ? data.upsells : [];
+        if (!upsells.length) return;
+
+        var ruleId = upsells[0].ruleId;
+        if (upsells[0].message) {
+          message.textContent = upsells[0].message;
+          message.hidden = false;
+        }
+
+        return Promise.all(upsells.map(function (upsell) {
+          return resolveVariantId(upsell).then(function (variantId) {
+            list.appendChild(buildItem(upsell, variantId, ruleId));
+          });
+        })).then(function () {
+          root.hidden = false;
+          track(ruleId, 'view');
+        });
+      })
+      .catch(function () {});
+  })();
 </script>
 
 {% schema %}
@@ -242,14 +416,20 @@
       "type": "text",
       "id": "api_base",
       "label": "App URL",
-      "info": "Your Upsale app URL",
-      "default": "https://upsale-cyan.vercel.app"
+      "info": "Your app URL",
+      "default": "https://doomling-app-navy.vercel.app"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow_text",
+      "label": "Eyebrow text",
+      "default": "You may also like"
     },
     {
       "type": "text",
       "id": "header_text",
-      "label": "Header label",
-      "default": "Frequently bought together"
+      "label": "Heading",
+      "default": "Recommended add-ons"
     }
   ]
 }
