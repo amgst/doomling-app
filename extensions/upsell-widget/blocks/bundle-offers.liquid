@@ -1,265 +1,265 @@
 <div
-  id="upsale-bundle-offers-root"
-  data-shop="{{ shop.permanent_domain }}"
-  data-currency="{{ shop.currency }}"
-  data-api-base="{{ settings.api_base | default: 'https://doomling-app-navy.vercel.app' }}"
-  data-code-note="{{ settings.code_note | default: 'Bundle discount applied: [code]' | escape }}"
+id="upsale-bundle-offers-root"
+data-shop="{{ shop.permanent_domain }}"
+data-currency="{{ shop.currency }}"
+data-api-base="{{ settings.api_base | default: 'https://doomling-app-navy.vercel.app' }}"
+data-code-note="{{ settings.code_note | default: 'Bundle discount applied: [code]' | escape }}"
 ></div>
 
 <style>
-  .upsale-bundle-code-note {
-    display: block;
-    margin-top: 0.35rem;
-    color: rgb(var(--color-sale-price, 196 48 28));
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
+.upsale-bundle-code-note {
+display: block;
+margin-top: 0.35rem;
+color: rgb(var(--color-sale-price, 196 48 28));
+font-size: 0.75rem;
+font-weight: 700;
+letter-spacing: 0.02em;
+text-transform: uppercase;
+}
 </style>
 
 <script>
-  (function () {
-    if (window.__upsaleBundleOffersLoaded) return;
-    window.__upsaleBundleOffersLoaded = true;
+(function () {
+if (window.__upsaleBundleOffersLoaded) return;
+window.__upsaleBundleOffersLoaded = true;
 
-    var root = document.getElementById('upsale-bundle-offers-root');
-    if (!root) return;
+var root = document.getElementById('upsale-bundle-offers-root');
+if (!root) return;
 
-    var shop = root.dataset.shop || '';
-    var currency = root.dataset.currency || 'USD';
-    var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
-    var codeNoteTemplate = root.dataset.codeNote || 'Bundle discount applied: [code]';
-    if (!shop || !apiBase) return;
+var shop = root.dataset.shop || '';
+var currency = root.dataset.currency || 'USD';
+var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
+var codeNoteTemplate = root.dataset.codeNote || 'Bundle discount applied: [code]';
+if (!shop || !apiBase) return;
 
-    var offers = [];
-    var offerByProductId = {};
-    var loadPromise = null;
-    var syncPromise = null;
-    var observer = null;
-    var observerTimeout = 0;
-    var lastDiscountKey = '';
+var offers = [];
+var offerByProductId = {};
+var loadPromise = null;
+var syncPromise = null;
+var observer = null;
+var observerTimeout = 0;
+var lastDiscountKey = '';
 
-    function fmt(amount) {
-      var value = Number(amount || 0);
-      try {
-        return new Intl.NumberFormat(document.documentElement.lang || undefined, {
-          style: 'currency',
-          currency: currency
-        }).format(value);
-      } catch (error) {
-        return value.toFixed(2);
-      }
-    }
+function fmt(amount) {
+var value = Number(amount || 0);
+try {
+return new Intl.NumberFormat(document.documentElement.lang || undefined, {
+style: 'currency',
+currency: currency
+}).format(value);
+} catch (error) {
+return value.toFixed(2);
+}
+}
 
-    function safeJson(response) {
-      return response.text().then(function (text) {
-        if (!text) return null;
-        try { return JSON.parse(text); } catch (error) { return null; }
-      });
-    }
+function safeJson(response) {
+return response.text().then(function (text) {
+if (!text) return null;
+try { return JSON.parse(text); } catch (error) { return null; }
+});
+}
 
-    function loadOffers() {
-      if (offers.length) return Promise.resolve(offers);
-      if (loadPromise) return loadPromise;
+function loadOffers() {
+if (offers.length) return Promise.resolve(offers);
+if (loadPromise) return loadPromise;
 
-      loadPromise = fetch(apiBase + '/api/public/bundle-offers?shop=' + encodeURIComponent(shop), {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-store'
-      }).then(function (response) {
-        return safeJson(response);
-      }).then(function (data) {
-        offers = Array.isArray(data && data.offers) ? data.offers : [];
-        offerByProductId = {};
-        offers.forEach(function (offer) {
-          offerByProductId[String(offer.productId)] = offer;
-        });
-        return offers;
-      }).catch(function () {
-        offers = [];
-        offerByProductId = {};
-        return offers;
-      }).finally(function () {
-        loadPromise = null;
-      });
+loadPromise = fetch(apiBase + '/api/public/bundle-offers?shop=' + encodeURIComponent(shop), {
+method: 'GET',
+mode: 'cors',
+credentials: 'omit',
+cache: 'no-store'
+}).then(function (response) {
+return safeJson(response);
+}).then(function (data) {
+offers = Array.isArray(data && data.offers) ? data.offers : [];
+offerByProductId = {};
+offers.forEach(function (offer) {
+offerByProductId[String(offer.productId)] = offer;
+});
+return offers;
+}).catch(function () {
+offers = [];
+offerByProductId = {};
+return offers;
+}).finally(function () {
+loadPromise = null;
+});
 
-      return loadPromise;
-    }
+return loadPromise;
+}
 
-    function upsertCodeNote(priceComponent, offer) {
-      if (!(priceComponent instanceof HTMLElement) || !offer || !offer.code) return;
-      var note = priceComponent.querySelector('.upsale-bundle-code-note');
-      if (!(note instanceof HTMLElement)) {
-        note = document.createElement('small');
-        note.className = 'upsale-bundle-code-note';
-        priceComponent.appendChild(note);
-      }
-      note.textContent = codeNoteTemplate.replace(/\[code\]/g, String(offer.code));
-    }
+function upsertCodeNote(priceComponent, offer) {
+if (!(priceComponent instanceof HTMLElement) || !offer || !offer.code) return;
+var note = priceComponent.querySelector('.upsale-bundle-code-note');
+if (!(note instanceof HTMLElement)) {
+note = document.createElement('small');
+note.className = 'upsale-bundle-code-note';
+priceComponent.appendChild(note);
+}
+note.textContent = codeNoteTemplate.replace(/\[code\]/g, String(offer.code));
+}
 
-    function applyPriceOverride(priceComponent, offer) {
-      if (!(priceComponent instanceof HTMLElement) || !offer) return;
+function applyPriceOverride(priceComponent, offer) {
+if (!(priceComponent instanceof HTMLElement) || !offer) return;
 
-      var priceContainer = priceComponent.querySelector('[ref="priceContainer"], .price-container');
-      if (!(priceContainer instanceof HTMLElement)) return;
+var priceContainer = priceComponent.querySelector('[ref="priceContainer"], .price-container');
+if (!(priceContainer instanceof HTMLElement)) return;
 
-      var salePrice = priceContainer.querySelector('.price__sale .price');
-      var comparePrice = priceContainer.querySelector('.price__sale .compare-at-price');
-      var regularPrice = priceContainer.querySelector('.price__regular .price');
+var salePrice = priceContainer.querySelector('.price__sale .price');
+var comparePrice = priceContainer.querySelector('.price__sale .compare-at-price');
+var regularPrice = priceContainer.querySelector('.price__regular .price');
 
-      priceContainer.classList.add('price--on-sale');
+priceContainer.classList.add('price--on-sale');
 
-      if (salePrice instanceof HTMLElement) {
-        salePrice.textContent = fmt(offer.discountedPrice);
-      }
-      if (comparePrice instanceof HTMLElement) {
-        comparePrice.textContent = fmt(offer.compareAtPrice);
-      }
-      if (regularPrice instanceof HTMLElement) {
-        regularPrice.textContent = fmt(offer.discountedPrice);
-      }
+if (salePrice instanceof HTMLElement) {
+salePrice.textContent = fmt(offer.discountedPrice);
+}
+if (comparePrice instanceof HTMLElement) {
+comparePrice.textContent = fmt(offer.compareAtPrice);
+}
+if (regularPrice instanceof HTMLElement) {
+regularPrice.textContent = fmt(offer.discountedPrice);
+}
 
-      upsertCodeNote(priceComponent, offer);
-    }
+upsertCodeNote(priceComponent, offer);
+}
 
-    function paintBundlePrices() {
-      document.querySelectorAll('product-price[data-product-id]').forEach(function (priceComponent) {
-        if (!(priceComponent instanceof HTMLElement)) return;
-        var productId = String(priceComponent.dataset.productId || '');
-        if (!productId) return;
-        var offer = offerByProductId[productId];
-        if (!offer) return;
-        applyPriceOverride(priceComponent, offer);
-      });
-    }
+function paintBundlePrices() {
+document.querySelectorAll('product-price[data-product-id]').forEach(function (priceComponent) {
+if (!(priceComponent instanceof HTMLElement)) return;
+var productId = String(priceComponent.dataset.productId || '');
+if (!productId) return;
+var offer = offerByProductId[productId];
+if (!offer) return;
+applyPriceOverride(priceComponent, offer);
+});
+}
 
-    function replaceSections(sections) {
-      if (!sections || typeof sections !== 'object') return;
+function replaceSections(sections) {
+if (!sections || typeof sections !== 'object') return;
 
-      Object.keys(sections).forEach(function (sectionId) {
-        var html = sections[sectionId];
-        if (typeof html !== 'string' || !html) return;
+Object.keys(sections).forEach(function (sectionId) {
+var html = sections[sectionId];
+if (typeof html !== 'string' || !html) return;
 
-        var parsed = new DOMParser().parseFromString(html, 'text/html');
-        var nextSection = parsed.getElementById('shopify-section-' + sectionId);
-        var currentSection = document.getElementById('shopify-section-' + sectionId);
-        if (nextSection && currentSection) {
-          currentSection.replaceWith(nextSection);
-        }
-      });
-    }
+var parsed = new DOMParser().parseFromString(html, 'text/html');
+var nextSection = parsed.getElementById('shopify-section-' + sectionId);
+var currentSection = document.getElementById('shopify-section-' + sectionId);
+if (nextSection && currentSection) {
+currentSection.replaceWith(nextSection);
+}
+});
+}
 
-    function wantedCodesFromCart(cart) {
-      if (!cart || !Array.isArray(cart.items)) return [];
-      var codes = [];
-      cart.items.forEach(function (item) {
-        var offer = offerByProductId[String(item.product_id || '')];
-        if (offer && offer.code && codes.indexOf(offer.code) === -1) {
-          codes.push(offer.code);
-        }
-      });
-      return codes;
-    }
+function wantedCodesFromCart(cart) {
+if (!cart || !Array.isArray(cart.items)) return [];
+var codes = [];
+cart.items.forEach(function (item) {
+var offer = offerByProductId[String(item.product_id || '')];
+if (offer && offer.code && codes.indexOf(offer.code) === -1) {
+codes.push(offer.code);
+}
+});
+return codes;
+}
 
-    function syncBundleCodes() {
-      if (syncPromise) return syncPromise;
+function syncBundleCodes() {
+if (syncPromise) return syncPromise;
 
-      syncPromise = loadOffers().then(function () {
-        return fetch(FoxTheme.routes.cart, { headers: { Accept: 'application/json' } });
-      }).then(function (response) {
-        return response.json();
-      }).then(function (cart) {
-        var wantedCodes = wantedCodesFromCart(cart);
-        if (wantedCodes.length === 0) return null;
+syncPromise = loadOffers().then(function () {
+return fetch(FoxTheme.routes.cart, { headers: { Accept: 'application/json' } });
+}).then(function (response) {
+return response.json();
+}).then(function (cart) {
+var wantedCodes = wantedCodesFromCart(cart);
+if (wantedCodes.length === 0) return null;
 
-        var key = wantedCodes.slice().sort().join(',');
-        if (key === lastDiscountKey) return null;
+var key = wantedCodes.slice().sort().join(',');
+if (key === lastDiscountKey) return null;
 
-        var sections = [];
-        document.querySelectorAll('cart-items-component[data-section-id], cart-discount[data-section-id]').forEach(function (element) {
-          if (!(element instanceof HTMLElement)) return;
-          var sectionId = element.dataset.sectionId;
-          if (sectionId && sections.indexOf(sectionId) === -1) sections.push(sectionId);
-        });
+var sections = [];
+document.querySelectorAll('cart-items-component[data-section-id], cart-discount[data-section-id]').forEach(function (element) {
+if (!(element instanceof HTMLElement)) return;
+var sectionId = element.dataset.sectionId;
+if (sectionId && sections.indexOf(sectionId) === -1) sections.push(sectionId);
+});
 
-        return fetch(FoxTheme.routes.cart_update_url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json'
-          },
-          body: JSON.stringify({
-            discount: wantedCodes.join(','),
-            sections: sections
-          })
-        }).then(function (response) {
-          return response.json();
-        }).then(function (payload) {
-          lastDiscountKey = key;
-          replaceSections(payload && payload.sections);
-          return payload;
-        });
-      }).catch(function (error) {
-        console.error('Failed to sync bundle offer discount codes:', error);
-        return null;
-      }).finally(function () {
-        syncPromise = null;
-      });
+return fetch(FoxTheme.routes.cart_update_url, {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+Accept: 'application/json'
+},
+body: JSON.stringify({
+discount: wantedCodes.join(','),
+sections: sections
+})
+}).then(function (response) {
+return response.json();
+}).then(function (payload) {
+lastDiscountKey = key;
+replaceSections(payload && payload.sections);
+return payload;
+});
+}).catch(function (error) {
+console.error('Failed to sync bundle offer discount codes:', error);
+return null;
+}).finally(function () {
+syncPromise = null;
+});
 
-      return syncPromise;
-    }
+return syncPromise;
+}
 
-    function scheduleRefresh() {
-      if (observerTimeout) window.clearTimeout(observerTimeout);
-      observerTimeout = window.setTimeout(function () {
-        loadOffers().then(function () {
-          paintBundlePrices();
-          syncBundleCodes();
-        });
-      }, 80);
-    }
+function scheduleRefresh() {
+if (observerTimeout) window.clearTimeout(observerTimeout);
+observerTimeout = window.setTimeout(function () {
+loadOffers().then(function () {
+paintBundlePrices();
+syncBundleCodes();
+});
+}, 80);
+}
 
-    function boot() {
-      loadOffers().then(function () {
-        paintBundlePrices();
-        syncBundleCodes();
-      });
+function boot() {
+loadOffers().then(function () {
+paintBundlePrices();
+syncBundleCodes();
+});
 
-      document.addEventListener('cart:update', scheduleRefresh);
-      document.addEventListener('page:loaded', scheduleRefresh);
-      document.addEventListener('variant:update', scheduleRefresh);
+document.addEventListener('cart:update', scheduleRefresh);
+document.addEventListener('page:loaded', scheduleRefresh);
+document.addEventListener('variant:update', scheduleRefresh);
 
-      observer = new MutationObserver(scheduleRefresh);
-      observer.observe(document.body, { childList: true, subtree: true });
-    }
+observer = new MutationObserver(scheduleRefresh);
+observer.observe(document.body, { childList: true, subtree: true });
+}
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', boot, { once: true });
-    } else {
-      boot();
-    }
-  })();
+if (document.readyState === 'loading') {
+document.addEventListener('DOMContentLoaded', boot, { once: true });
+} else {
+boot();
+}
+})();
 </script>
 
 {% schema %}
 {
-  "name": "Bundle offers",
-  "target": "body",
-  "settings": [
-    {
-      "type": "text",
-      "id": "api_base",
-      "label": "App base URL",
-      "default": "https://doomling-app-navy.vercel.app"
-    },
-    {
-      "type": "text",
-      "id": "code_note",
-      "label": "Code note",
-      "default": "Bundle discount applied: [code]"
-    }
-  ]
+"name": "Bundle offers",
+"target": "body",
+"settings": [
+{
+"type": "text",
+"id": "api_base",
+"label": "App base URL",
+"default": "https://doomling-app-navy.vercel.app"
+},
+{
+"type": "text",
+"id": "code_note",
+"label": "Code note",
+"default": "Bundle discount applied: [code]"
+}
+]
 }
 {% endschema %}

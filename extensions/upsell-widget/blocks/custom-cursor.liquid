@@ -1,371 +1,371 @@
 {% liquid
-  assign cursor_dom_id = 'upsale-custom-cursor-' | append: block.id
-  assign current_page_target = request.page_type | default: template.name
+assign cursor_dom_id = 'upsale-custom-cursor-' | append: block.id
+assign current_page_target = request.page_type | default: template.name
 
-  if current_page_target == 'index'
-    assign current_page_target = 'home'
-  endif
+if current_page_target == 'index'
+assign current_page_target = 'home'
+endif
 %}
 
 <div
-  id="{{ cursor_dom_id }}"
-  data-upsale-custom-cursor
-  data-shop="{{ shop.permanent_domain | escape }}"
-  data-api-base="{{ block.settings.api_base | default: 'https://doomling-app-navy.vercel.app' }}"
-  data-page-target="{{ current_page_target | escape }}"
-  data-show-debug="{{ block.settings.show_debug }}"
-  hidden
-  {{ block.shopify_attributes }}
+id="{{ cursor_dom_id }}"
+data-upsale-custom-cursor
+data-shop="{{ shop.permanent_domain | escape }}"
+data-api-base="{{ block.settings.api_base | default: 'https://doomling-app-navy.vercel.app' }}"
+data-page-target="{{ current_page_target | escape }}"
+data-show-debug="{{ block.settings.show_debug }}"
+hidden
+{{ block.shopify_attributes }}
 ></div>
 
 <style>
-  #{{ cursor_dom_id }} {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 2147483000;
-    isolation: isolate;
-  }
+#{{ cursor_dom_id }} {
+position: fixed;
+inset: 0;
+pointer-events: none;
+z-index: 2147483000;
+isolation: isolate;
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__dot {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 28px;
-    height: 28px;
-    pointer-events: none;
-    border-radius: 999px;
-    transform: translate3d(-50%, -50%, 0);
-    transition: width 0.18s ease, height 0.18s ease, opacity 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-    will-change: transform;
-    z-index: 2147483001;
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__dot {
+position: fixed;
+top: 0;
+left: 0;
+width: 28px;
+height: 28px;
+pointer-events: none;
+border-radius: 999px;
+transform: translate3d(-50%, -50%, 0);
+transition: width 0.18s ease, height 0.18s ease, opacity 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+will-change: transform;
+z-index: 2147483001;
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__ring {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 42px;
-    height: 42px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.35);
-    opacity: 0;
-    transform: translate3d(-50%, -50%, 0);
-    pointer-events: none;
-    transition: opacity 0.18s ease, width 0.18s ease, height 0.18s ease;
-    will-change: transform;
-    z-index: 2147483000;
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__ring {
+position: fixed;
+top: 0;
+left: 0;
+width: 42px;
+height: 42px;
+border-radius: 999px;
+border: 1px solid rgba(255,255,255,0.35);
+opacity: 0;
+transform: translate3d(-50%, -50%, 0);
+pointer-events: none;
+transition: opacity 0.18s ease, width 0.18s ease, height 0.18s ease;
+will-change: transform;
+z-index: 2147483000;
+}
 
-  #{{ cursor_dom_id }}.type-image-glow .upsale-custom-cursor__ring {
-    opacity: 1;
-    box-shadow: 0 0 24px rgba(99, 102, 241, 0.3), 0 0 42px rgba(45, 212, 191, 0.18);
-    background: radial-gradient(circle, rgba(255,255,255,0.08), rgba(255,255,255,0));
-  }
+#{{ cursor_dom_id }}.type-image-glow .upsale-custom-cursor__ring {
+opacity: 1;
+box-shadow: 0 0 24px rgba(99, 102, 241, 0.3), 0 0 42px rgba(45, 212, 191, 0.18);
+background: radial-gradient(circle, rgba(255,255,255,0.08), rgba(255,255,255,0));
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__icon {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    pointer-events: none;
-    user-select: none;
-    -webkit-user-drag: none;
-    filter: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.22));
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__icon {
+display: block;
+width: 100%;
+height: 100%;
+object-fit: contain;
+pointer-events: none;
+user-select: none;
+-webkit-user-drag: none;
+filter: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.22));
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__debug {
-    position: fixed;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: min(680px, calc(100vw - 32px));
-    width: max-content;
-    padding: 12px 16px;
-    border-radius: 14px;
-    background: rgba(17, 24, 39, 0.94);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    line-height: 1.3;
-    pointer-events: none;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
-    white-space: normal;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    z-index: 10000;
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__debug {
+position: fixed;
+top: 16px;
+left: 50%;
+transform: translateX(-50%);
+max-width: min(680px, calc(100vw - 32px));
+width: max-content;
+padding: 12px 16px;
+border-radius: 14px;
+background: rgba(17, 24, 39, 0.94);
+color: #fff;
+font-size: 13px;
+font-weight: 700;
+letter-spacing: 0.02em;
+line-height: 1.3;
+pointer-events: none;
+box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+white-space: normal;
+text-align: center;
+border: 1px solid rgba(255, 255, 255, 0.12);
+z-index: 10000;
+}
 
-  #{{ cursor_dom_id }}.theme-glow .upsale-custom-cursor__dot {
-    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(52, 211, 153, 0.95) 35%, rgba(14, 165, 233, 0.8) 78%);
-    box-shadow: 0 0 18px rgba(45, 212, 191, 0.45), 0 0 32px rgba(14, 165, 233, 0.25);
-  }
+#{{ cursor_dom_id }}.theme-glow .upsale-custom-cursor__dot {
+background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(52, 211, 153, 0.95) 35%, rgba(14, 165, 233, 0.8) 78%);
+box-shadow: 0 0 18px rgba(45, 212, 191, 0.45), 0 0 32px rgba(14, 165, 233, 0.25);
+}
 
-  #{{ cursor_dom_id }}.theme-stardust .upsale-custom-cursor__dot {
-    background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(251,191,36,0.95) 26%, rgba(249,115,22,0.85) 68%);
-    box-shadow: 0 0 16px rgba(251, 191, 36, 0.45), 0 0 28px rgba(249, 115, 22, 0.24);
-  }
+#{{ cursor_dom_id }}.theme-stardust .upsale-custom-cursor__dot {
+background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(251,191,36,0.95) 26%, rgba(249,115,22,0.85) 68%);
+box-shadow: 0 0 16px rgba(251, 191, 36, 0.45), 0 0 28px rgba(249, 115, 22, 0.24);
+}
 
-  #{{ cursor_dom_id }}.theme-doomlings .upsale-custom-cursor__dot {
-    background: radial-gradient(circle at 40% 40%, rgba(250,255,220,0.98), rgba(163,230,53,0.95) 30%, rgba(124,58,237,0.88) 72%);
-    box-shadow: 0 0 18px rgba(163, 230, 53, 0.38), 0 0 30px rgba(124, 58, 237, 0.22);
-  }
+#{{ cursor_dom_id }}.theme-doomlings .upsale-custom-cursor__dot {
+background: radial-gradient(circle at 40% 40%, rgba(250,255,220,0.98), rgba(163,230,53,0.95) 30%, rgba(124,58,237,0.88) 72%);
+box-shadow: 0 0 18px rgba(163, 230, 53, 0.38), 0 0 30px rgba(124, 58, 237, 0.22);
+}
 
-  #{{ cursor_dom_id }}.theme-retro .upsale-custom-cursor__dot {
-    border-radius: 4px;
-    background: linear-gradient(135deg, rgba(255,242,153,0.96), rgba(251,146,60,0.96));
-    border: 2px solid rgba(17, 24, 39, 0.18);
-    box-shadow: 4px 4px 0 rgba(17, 24, 39, 0.18);
-  }
+#{{ cursor_dom_id }}.theme-retro .upsale-custom-cursor__dot {
+border-radius: 4px;
+background: linear-gradient(135deg, rgba(255,242,153,0.96), rgba(251,146,60,0.96));
+border: 2px solid rgba(17, 24, 39, 0.18);
+box-shadow: 4px 4px 0 rgba(17, 24, 39, 0.18);
+}
 
-  #{{ cursor_dom_id }}.is-hovering .upsale-custom-cursor__dot {
-    opacity: 0.92;
-    filter: saturate(1.12);
-  }
+#{{ cursor_dom_id }}.is-hovering .upsale-custom-cursor__dot {
+opacity: 0.92;
+filter: saturate(1.12);
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 18px;
-    height: 18px;
-    border-radius: 999px;
-    pointer-events: none;
-    transform: translate3d(-50%, -50%, 0) scale(0.35);
-    opacity: 0;
-    will-change: transform, opacity;
-    z-index: 2147483002;
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__click-effect {
+position: fixed;
+top: 0;
+left: 0;
+width: 18px;
+height: 18px;
+border-radius: 999px;
+pointer-events: none;
+transform: translate3d(-50%, -50%, 0) scale(0.35);
+opacity: 0;
+will-change: transform, opacity;
+z-index: 2147483002;
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.is-visible {
-    animation: upsale-cursor-click-burst 520ms ease forwards;
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.is-visible {
+animation: upsale-cursor-click-burst 520ms ease forwards;
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-ripple {
-    border: 2px solid rgba(255,255,255,0.68);
-    background: transparent;
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-ripple {
+border: 2px solid rgba(255,255,255,0.68);
+background: transparent;
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-burst {
-    background: radial-gradient(circle, rgba(255,255,255,0.96), rgba(129,140,248,0.3));
-    box-shadow: 0 0 18px rgba(129,140,248,0.42);
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-burst {
+background: radial-gradient(circle, rgba(255,255,255,0.96), rgba(129,140,248,0.3));
+box-shadow: 0 0 18px rgba(129,140,248,0.42);
+}
 
-  #{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-spark {
-    background: radial-gradient(circle, rgba(255,255,255,1), rgba(250,204,21,0.58));
-    box-shadow: 0 0 16px rgba(250,204,21,0.42);
-  }
+#{{ cursor_dom_id }} .upsale-custom-cursor__click-effect.effect-spark {
+background: radial-gradient(circle, rgba(255,255,255,1), rgba(250,204,21,0.58));
+box-shadow: 0 0 16px rgba(250,204,21,0.42);
+}
 
-  @keyframes upsale-cursor-click-burst {
-    0% {
-      opacity: 0.96;
-      transform: translate3d(-50%, -50%, 0) scale(0.35);
-    }
-    100% {
-      opacity: 0;
-      transform: translate3d(-50%, -50%, 0) scale(3.6);
-    }
-  }
+@keyframes upsale-cursor-click-burst {
+0% {
+opacity: 0.96;
+transform: translate3d(-50%, -50%, 0) scale(0.35);
+}
+100% {
+opacity: 0;
+transform: translate3d(-50%, -50%, 0) scale(3.6);
+}
+}
 
-  html.upsale-custom-cursor-active,
-  html.upsale-custom-cursor-active body,
-  html.upsale-custom-cursor-active a,
-  html.upsale-custom-cursor-active button,
-  html.upsale-custom-cursor-active [role="button"],
-  html.upsale-custom-cursor-active input,
-  html.upsale-custom-cursor-active select,
-  html.upsale-custom-cursor-active textarea,
-  html.upsale-custom-cursor-active summary {
-    cursor: none !important;
-  }
-  </style>
+html.upsale-custom-cursor-active,
+html.upsale-custom-cursor-active body,
+html.upsale-custom-cursor-active a,
+html.upsale-custom-cursor-active button,
+html.upsale-custom-cursor-active [role="button"],
+html.upsale-custom-cursor-active input,
+html.upsale-custom-cursor-active select,
+html.upsale-custom-cursor-active textarea,
+html.upsale-custom-cursor-active summary {
+cursor: none !important;
+}
+</style>
 
 <script>
-  (function () {
-    var root = document.getElementById('{{ cursor_dom_id }}');
-    if (!(root instanceof HTMLElement) || !root.matches('[data-upsale-custom-cursor]')) return;
+(function () {
+var root = document.getElementById('{{ cursor_dom_id }}');
+if (!(root instanceof HTMLElement) || !root.matches('[data-upsale-custom-cursor]')) return;
 
-    var showDebug = root.dataset.showDebug === 'true';
-    var debugNode = null;
+var showDebug = root.dataset.showDebug === 'true';
+var debugNode = null;
 
-    function setDebug(message) {
-      if (!showDebug) return;
-      root.hidden = false;
-      if (!(debugNode instanceof HTMLElement)) {
-        debugNode = document.createElement('div');
-        debugNode.className = 'upsale-custom-cursor__debug';
-        root.appendChild(debugNode);
-      }
-      debugNode.textContent = 'Cursor: ' + message;
-    }
+function setDebug(message) {
+if (!showDebug) return;
+root.hidden = false;
+if (!(debugNode instanceof HTMLElement)) {
+debugNode = document.createElement('div');
+debugNode.className = 'upsale-custom-cursor__debug';
+root.appendChild(debugNode);
+}
+debugNode.textContent = 'Cursor: ' + message;
+}
 
-    if (!window.matchMedia('(pointer: fine)').matches) {
-      setDebug('disabled on touch device');
-      return;
-    }
+if (!window.matchMedia('(pointer: fine)').matches) {
+setDebug('disabled on touch device');
+return;
+}
 
-    var shop = root.dataset.shop || '';
-    var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
-    var pageTarget = (root.dataset.pageTarget || 'all').toLowerCase();
-    if (!shop || !apiBase) {
-      setDebug('missing shop or app base URL');
-      return;
-    }
+var shop = root.dataset.shop || '';
+var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
+var pageTarget = (root.dataset.pageTarget || 'all').toLowerCase();
+if (!shop || !apiBase) {
+setDebug('missing shop or app base URL');
+return;
+}
 
-    setDebug('loading campaign for ' + pageTarget);
+setDebug('loading campaign for ' + pageTarget);
 
-    function themeClass(theme) {
-      return 'theme-' + (theme || 'glow');
-    }
+function themeClass(theme) {
+return 'theme-' + (theme || 'glow');
+}
 
-    function createCursor(size, iconUrl, cursorType) {
-      root.innerHTML = '';
-      var dot = document.createElement('div');
-      dot.className = 'upsale-custom-cursor__dot';
-      dot.style.width = size + 'px';
-      dot.style.height = size + 'px';
-      if (iconUrl) {
-        dot.style.background = 'transparent';
-        dot.style.boxShadow = 'none';
-        dot.style.border = 'none';
-        var image = document.createElement('img');
-        image.className = 'upsale-custom-cursor__icon';
-        image.alt = '';
-        image.src = iconUrl;
-        image.draggable = false;
-        dot.appendChild(image);
-      }
-      root.appendChild(dot);
-      var ring = document.createElement('div');
-      ring.className = 'upsale-custom-cursor__ring';
-      ring.style.width = Math.round(size * 1.55) + 'px';
-      ring.style.height = Math.round(size * 1.55) + 'px';
-      if (cursorType !== 'image-glow') {
-        ring.style.display = 'none';
-      }
-      root.appendChild(ring);
-      var clickFx = document.createElement('div');
-      clickFx.className = 'upsale-custom-cursor__click-effect';
-      root.appendChild(clickFx);
-      return { dot: dot, ring: ring, clickFx: clickFx };
-    }
+function createCursor(size, iconUrl, cursorType) {
+root.innerHTML = '';
+var dot = document.createElement('div');
+dot.className = 'upsale-custom-cursor__dot';
+dot.style.width = size + 'px';
+dot.style.height = size + 'px';
+if (iconUrl) {
+dot.style.background = 'transparent';
+dot.style.boxShadow = 'none';
+dot.style.border = 'none';
+var image = document.createElement('img');
+image.className = 'upsale-custom-cursor__icon';
+image.alt = '';
+image.src = iconUrl;
+image.draggable = false;
+dot.appendChild(image);
+}
+root.appendChild(dot);
+var ring = document.createElement('div');
+ring.className = 'upsale-custom-cursor__ring';
+ring.style.width = Math.round(size * 1.55) + 'px';
+ring.style.height = Math.round(size * 1.55) + 'px';
+if (cursorType !== 'image-glow') {
+ring.style.display = 'none';
+}
+root.appendChild(ring);
+var clickFx = document.createElement('div');
+clickFx.className = 'upsale-custom-cursor__click-effect';
+root.appendChild(clickFx);
+return { dot: dot, ring: ring, clickFx: clickFx };
+}
 
-    function activate(campaign) {
-      if (!campaign || typeof campaign !== 'object') return;
+function activate(campaign) {
+if (!campaign || typeof campaign !== 'object') return;
 
-      var size = Math.max(16, Math.min(96, Number(campaign.size) || 28));
-      var iconUrl = typeof campaign.iconUrl === 'string' ? campaign.iconUrl : '';
-      var cursorType = typeof campaign.cursorType === 'string' ? campaign.cursorType : 'theme';
-      var hoverEffect = typeof campaign.hoverEffect === 'string' ? campaign.hoverEffect : 'grow';
-      var hoverIconUrl = typeof campaign.hoverIconUrl === 'string' ? campaign.hoverIconUrl : '';
-      var hoverScale = Math.max(1, Math.min(2.5, Number(campaign.hoverScale) || 1.45));
-      var clickEffect = typeof campaign.clickEffect === 'string' ? campaign.clickEffect : 'burst';
-      var parts = createCursor(size, iconUrl, cursorType);
-      var dot = parts.dot;
-      var ring = parts.ring;
-      var clickFx = parts.clickFx;
-      root.className = (cursorType === 'theme' ? themeClass(campaign.theme) : '') + ' type-' + cursorType;
-      root.hidden = false;
-      document.documentElement.classList.add('upsale-custom-cursor-active');
-      setDebug('matched ' + (campaign.name || campaign.theme || 'campaign'));
+var size = Math.max(16, Math.min(96, Number(campaign.size) || 28));
+var iconUrl = typeof campaign.iconUrl === 'string' ? campaign.iconUrl : '';
+var cursorType = typeof campaign.cursorType === 'string' ? campaign.cursorType : 'theme';
+var hoverEffect = typeof campaign.hoverEffect === 'string' ? campaign.hoverEffect : 'grow';
+var hoverIconUrl = typeof campaign.hoverIconUrl === 'string' ? campaign.hoverIconUrl : '';
+var hoverScale = Math.max(1, Math.min(2.5, Number(campaign.hoverScale) || 1.45));
+var clickEffect = typeof campaign.clickEffect === 'string' ? campaign.clickEffect : 'burst';
+var parts = createCursor(size, iconUrl, cursorType);
+var dot = parts.dot;
+var ring = parts.ring;
+var clickFx = parts.clickFx;
+root.className = (cursorType === 'theme' ? themeClass(campaign.theme) : '') + ' type-' + cursorType;
+root.hidden = false;
+document.documentElement.classList.add('upsale-custom-cursor-active');
+setDebug('matched ' + (campaign.name || campaign.theme || 'campaign'));
 
-      var currentX = window.innerWidth / 2;
-      var currentY = window.innerHeight / 2;
-      var targetX = currentX;
-      var targetY = currentY;
+var currentX = window.innerWidth / 2;
+var currentY = window.innerHeight / 2;
+var targetX = currentX;
+var targetY = currentY;
 
-      function render() {
-        currentX += (targetX - currentX) * 0.22;
-        currentY += (targetY - currentY) * 0.22;
-        dot.style.transform = 'translate3d(' + currentX + 'px,' + currentY + 'px,0) translate3d(-50%,-50%,0)';
-        if (ring instanceof HTMLElement && ring.style.display !== 'none') {
-          ring.style.transform = 'translate3d(' + currentX + 'px,' + currentY + 'px,0) translate3d(-50%,-50%,0)';
-        }
-        window.requestAnimationFrame(render);
-      }
+function render() {
+currentX += (targetX - currentX) * 0.22;
+currentY += (targetY - currentY) * 0.22;
+dot.style.transform = 'translate3d(' + currentX + 'px,' + currentY + 'px,0) translate3d(-50%,-50%,0)';
+if (ring instanceof HTMLElement && ring.style.display !== 'none') {
+ring.style.transform = 'translate3d(' + currentX + 'px,' + currentY + 'px,0) translate3d(-50%,-50%,0)';
+}
+window.requestAnimationFrame(render);
+}
 
-      document.addEventListener('mousemove', function (event) {
-        targetX = event.clientX;
-        targetY = event.clientY;
-      }, { passive: true });
+document.addEventListener('mousemove', function (event) {
+targetX = event.clientX;
+targetY = event.clientY;
+}, { passive: true });
 
-      document.addEventListener('mouseover', function (event) {
-        var target = event.target;
-        if (!(target instanceof Element)) return;
-        var interactive = target.closest('a, button, [role="button"], input, select, textarea, summary');
-        root.classList.toggle('is-hovering', Boolean(interactive));
-        var nextScale = interactive && hoverEffect === 'grow' ? hoverScale : 1;
-        dot.style.width = (size * nextScale) + 'px';
-        dot.style.height = (size * nextScale) + 'px';
-        if (ring instanceof HTMLElement && ring.style.display !== 'none') {
-          ring.style.width = Math.round(size * nextScale * 1.55) + 'px';
-          ring.style.height = Math.round(size * nextScale * 1.55) + 'px';
-        }
-        if (hoverEffect === 'swap' && dot.firstElementChild && dot.firstElementChild.tagName === 'IMG') {
-          dot.firstElementChild.src = interactive && hoverIconUrl ? hoverIconUrl : iconUrl;
-        }
-      }, { passive: true });
+document.addEventListener('mouseover', function (event) {
+var target = event.target;
+if (!(target instanceof Element)) return;
+var interactive = target.closest('a, button, [role="button"], input, select, textarea, summary');
+root.classList.toggle('is-hovering', Boolean(interactive));
+var nextScale = interactive && hoverEffect === 'grow' ? hoverScale : 1;
+dot.style.width = (size * nextScale) + 'px';
+dot.style.height = (size * nextScale) + 'px';
+if (ring instanceof HTMLElement && ring.style.display !== 'none') {
+ring.style.width = Math.round(size * nextScale * 1.55) + 'px';
+ring.style.height = Math.round(size * nextScale * 1.55) + 'px';
+}
+if (hoverEffect === 'swap' && dot.firstElementChild && dot.firstElementChild.tagName === 'IMG') {
+dot.firstElementChild.src = interactive && hoverIconUrl ? hoverIconUrl : iconUrl;
+}
+}, { passive: true });
 
-      document.addEventListener('mousedown', function (event) {
-        if (clickEffect === 'none') return;
-        clickFx.className = 'upsale-custom-cursor__click-effect effect-' + clickEffect;
-        clickFx.style.left = event.clientX + 'px';
-        clickFx.style.top = event.clientY + 'px';
-        clickFx.classList.remove('is-visible');
-        void clickFx.offsetWidth;
-        clickFx.classList.add('is-visible');
-      }, { passive: true });
+document.addEventListener('mousedown', function (event) {
+if (clickEffect === 'none') return;
+clickFx.className = 'upsale-custom-cursor__click-effect effect-' + clickEffect;
+clickFx.style.left = event.clientX + 'px';
+clickFx.style.top = event.clientY + 'px';
+clickFx.classList.remove('is-visible');
+void clickFx.offsetWidth;
+clickFx.classList.add('is-visible');
+}, { passive: true });
 
-      window.addEventListener('blur', function () {
-        root.hidden = true;
-      });
+window.addEventListener('blur', function () {
+root.hidden = true;
+});
 
-      window.addEventListener('focus', function () {
-        root.hidden = false;
-      });
+window.addEventListener('focus', function () {
+root.hidden = false;
+});
 
-      render();
-    }
+render();
+}
 
-    fetch(apiBase + '/api/public/custom-cursor?shop=' + encodeURIComponent(shop) + '&pageTarget=' + encodeURIComponent(pageTarget))
-      .then(function (response) {
-        if (!response.ok) {
-          setDebug('request failed ' + response.status);
-          return null;
-        }
-        return response.json();
-      })
-      .then(function (data) {
-        if (!data || !data.campaign) {
-          setDebug('no matching campaign');
-          return;
-        }
-        activate(data.campaign);
-      })
-      .catch(function () {
-        setDebug('fetch failed');
-      });
-  })();
+fetch(apiBase + '/api/public/custom-cursor?shop=' + encodeURIComponent(shop) + '&pageTarget=' + encodeURIComponent(pageTarget))
+.then(function (response) {
+if (!response.ok) {
+setDebug('request failed ' + response.status);
+return null;
+}
+return response.json();
+})
+.then(function (data) {
+if (!data || !data.campaign) {
+setDebug('no matching campaign');
+return;
+}
+activate(data.campaign);
+})
+.catch(function () {
+setDebug('fetch failed');
+});
+})();
 </script>
 
 {% schema %}
 {
-  "name": "Custom cursor",
-  "target": "body",
-  "settings": [
-    {
-      "type": "text",
-      "id": "api_base",
-      "label": "App base URL",
-      "default": "https://doomling-app-navy.vercel.app"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_debug",
-      "label": "Show debug badge",
-      "default": true
-    }
-  ]
+"name": "Custom cursor",
+"target": "body",
+"settings": [
+{
+"type": "text",
+"id": "api_base",
+"label": "App base URL",
+"default": "https://doomling-app-navy.vercel.app"
+},
+{
+"type": "checkbox",
+"id": "show_debug",
+"label": "Show debug badge",
+"default": true
+}
+]
 }
 {% endschema %}

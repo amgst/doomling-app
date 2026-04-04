@@ -1,21 +1,22 @@
 {% assign avg_rating = block.settings.product.metafields.demo.avg_rating.value | round %}
 <span style="color:{{ block.settings.colour }}">
-  {% render 'stars', rating: avg_rating %}
+{% render 'stars', rating: avg_rating %}
 </span>
 {% if avg_rating >= 4 %}
-  <br>
-  <img src="{{ "thumbs-up.png" | asset_img_url: '15x' }}" height="15" width="15" loading="lazy">
-  {{ 'ratings.home.recommendationText' | t }}
+<br>
+<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align: text-bottom;">
+<path d="M2 21h4V9H2v12zm20-11a2 2 0 0 0-2-2h-6.31l.95-4.57.03-.32a1.5 1.5 0 0 0-.44-1.06L13.17 1 6.59 7.59A2 2 0 0 0 6 9v10a2 2 0 0 0 2 2h9a2 2 0 0 0 1.9-1.37l3.02-9.05c.05-.17.08-.37.08-.58v0z"/>
+</svg>
+{{ 'ratings.home.recommendationText' | t }}
 {% endif %}
 
 {% schema %}
 {
-  "name": "Star Rating",
-  "target": "section",
-  "settings": [
-    { "type": "product", "id": "product", "label": "product", "autofill": true },
-    { "type": "color", "id": "colour", "label": "Star Colour", "default": "#ff0000" }
-  ]
+"name": "Star Rating",
+"target": "section",
+"settings": [
+{ "type": "product", "id": "product", "label": "product", "autofill": true },
+{ "type": "color", "id": "colour", "label": "Star Colour", "default": "#ff0000" }
+]
 }
 {% endschema %}
-

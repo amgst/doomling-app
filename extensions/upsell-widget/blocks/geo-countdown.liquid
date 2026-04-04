@@ -1,510 +1,509 @@
 {% liquid
-  assign countdown_dom_id = 'upsale-geo-countdown-' | append: block.id
-  assign country_codes_raw = block.settings.country_codes | default: ''
-  assign normalized_country_codes = country_codes_raw | upcase | replace: ' ', ''
-  assign allowed_countries = normalized_country_codes | split: ','
-  assign visitor_country = localization.country.iso_code | upcase
-  assign default_should_render = true
+assign countdown_dom_id = 'upsale-geo-countdown-' | append: block.id
+assign country_codes_raw = block.settings.country_codes | default: ''
+assign normalized_country_codes = country_codes_raw | upcase | replace: ' ', ''
+assign allowed_countries = normalized_country_codes | split: ','
+assign visitor_country = localization.country.iso_code | upcase
+assign default_should_render = true
 
-  if normalized_country_codes != ''
-    assign default_should_render = false
-    for country_code in allowed_countries
-      if country_code == visitor_country
-        assign default_should_render = true
-        break
-      endif
-    endfor
-  endif
+if normalized_country_codes != ''
+assign default_should_render = false
+for country_code in allowed_countries
+if country_code == visitor_country
+assign default_should_render = true
+break
+endif
+endfor
+endif
 %}
 
-  <div
-    id="{{ countdown_dom_id }}"
-    class="upsale-geo-countdown color-{{ block.settings.color_scheme }}"
-    data-upsale-geo-countdown
-    data-shop="{{ shop.permanent_domain | escape }}"
-    data-api-base="{{ settings.api_base | default: 'https://doomling-app-navy.vercel.app' }}"
-    data-display-mode="{{ block.settings.display_mode | default: 'auto' }}"
-    data-campaign-id="{{ block.settings.campaign_id | escape }}"
-    data-country="{{ localization.country.iso_code | upcase | escape }}"
-    data-page-target="{{ request.page_type | default: template.name | escape }}"
-    data-end-at="{{ block.settings.end_at | escape }}"
-    data-default-should-render="{{ default_should_render }}"
-    data-fallback-eyebrow="{{ block.settings.eyebrow | escape }}"
-    data-fallback-heading="{{ block.settings.heading | escape }}"
-    data-fallback-message="{{ block.settings.message | escape }}"
-    data-expired-label="{{ block.settings.expired_label | escape }}"
-    data-hide-on-expire="{{ block.settings.hide_on_expire }}"
-    {% unless default_should_render %}
-      hidden
-    {% endunless %}
-    {{ block.shopify_attributes }}
-  >
-    <div class="page-width">
-      <div class="upsale-geo-countdown__content">
-        <div class="upsale-geo-countdown__copy">
-          {% if block.settings.eyebrow != blank %}
-            <p class="upsale-geo-countdown__eyebrow" data-role="eyebrow">{{ block.settings.eyebrow }}</p>
-          {% endif %}
+<div
+id="{{ countdown_dom_id }}"
+class="upsale-geo-countdown color-{{ block.settings.color_scheme }}"
+data-upsale-geo-countdown
+data-shop="{{ shop.permanent_domain | escape }}"
+data-api-base="{{ settings.api_base | default: 'https://doomling-app-navy.vercel.app' }}"
+data-display-mode="{{ block.settings.display_mode | default: 'auto' }}"
+data-campaign-id="{{ block.settings.campaign_id | escape }}"
+data-country="{{ localization.country.iso_code | upcase | escape }}"
+data-page-target="{{ request.page_type | default: template.name | escape }}"
+data-end-at="{{ block.settings.end_at | escape }}"
+data-default-should-render="{{ default_should_render }}"
+data-fallback-eyebrow="{{ block.settings.eyebrow | escape }}"
+data-fallback-heading="{{ block.settings.heading | escape }}"
+data-fallback-message="{{ block.settings.message | escape }}"
+data-expired-label="{{ block.settings.expired_label | escape }}"
+data-hide-on-expire="{{ block.settings.hide_on_expire }}"
+{% unless default_should_render %}
+hidden
+{% endunless %}
+{{ block.shopify_attributes }}
+>
+<div class="page-width">
+<div class="upsale-geo-countdown__content">
+<div class="upsale-geo-countdown__copy">
+{% if block.settings.eyebrow != blank %}
+<p class="upsale-geo-countdown__eyebrow" data-role="eyebrow">{{ block.settings.eyebrow }}</p>
+{% endif %}
 
-          {% if block.settings.heading != blank %}
-            <h3 class="upsale-geo-countdown__heading" data-role="heading">{{ block.settings.heading }}</h3>
-          {% endif %}
+{% if block.settings.heading != blank %}
+<h3 class="upsale-geo-countdown__heading" data-role="heading">{{ block.settings.heading }}</h3>
+{% endif %}
 
-          {% if block.settings.message != blank %}
-            <p class="upsale-geo-countdown__message" data-role="message">{{ block.settings.message }}</p>
-          {% endif %}
-        </div>
+{% if block.settings.message != blank %}
+<p class="upsale-geo-countdown__message" data-role="message">{{ block.settings.message }}</p>
+{% endif %}
+</div>
 
-        <div class="upsale-geo-countdown__timer" aria-live="polite" aria-atomic="true">
-          <div class="upsale-geo-countdown__unit">
-            <span class="upsale-geo-countdown__number" data-unit="days">00</span>
-            <span class="upsale-geo-countdown__label">Days</span>
-          </div>
-          <div class="upsale-geo-countdown__unit">
-            <span class="upsale-geo-countdown__number" data-unit="hours">00</span>
-            <span class="upsale-geo-countdown__label">Hours</span>
-          </div>
-          <div class="upsale-geo-countdown__unit">
-            <span class="upsale-geo-countdown__number" data-unit="minutes">00</span>
-            <span class="upsale-geo-countdown__label">Minutes</span>
-          </div>
-          <div class="upsale-geo-countdown__unit">
-            <span class="upsale-geo-countdown__number" data-unit="seconds">00</span>
-            <span class="upsale-geo-countdown__label">Seconds</span>
-          </div>
-        </div>
+<div class="upsale-geo-countdown__timer" aria-live="polite" aria-atomic="true">
+<div class="upsale-geo-countdown__unit">
+<span class="upsale-geo-countdown__number" data-unit="days">00</span>
+<span class="upsale-geo-countdown__label">Days</span>
+</div>
+<div class="upsale-geo-countdown__unit">
+<span class="upsale-geo-countdown__number" data-unit="hours">00</span>
+<span class="upsale-geo-countdown__label">Hours</span>
+</div>
+<div class="upsale-geo-countdown__unit">
+<span class="upsale-geo-countdown__number" data-unit="minutes">00</span>
+<span class="upsale-geo-countdown__label">Minutes</span>
+</div>
+<div class="upsale-geo-countdown__unit">
+<span class="upsale-geo-countdown__number" data-unit="seconds">00</span>
+<span class="upsale-geo-countdown__label">Seconds</span>
+</div>
+</div>
 
-        <p class="upsale-geo-countdown__expired" data-role="expired" hidden></p>
-      </div>
-    </div>
-  </div>
+<p class="upsale-geo-countdown__expired" data-role="expired" hidden></p>
+</div>
+</div>
+</div>
 
-  <style>
-    #{{ countdown_dom_id }} {
-      --upsale-countdown-radius: {{ block.settings.corner_radius }}px;
-      --upsale-countdown-padding-y: {{ block.settings.padding_y }}px;
-      --upsale-countdown-padding-x: {{ block.settings.padding_x }}px;
-      --upsale-countdown-gap: {{ block.settings.gap }}px;
-    }
+<style>
+#{{ countdown_dom_id }} {
+--upsale-countdown-radius: {{ block.settings.corner_radius }}px;
+--upsale-countdown-padding-y: {{ block.settings.padding_y }}px;
+--upsale-countdown-padding-x: {{ block.settings.padding_x }}px;
+--upsale-countdown-gap: {{ block.settings.gap }}px;
+}
 
-    .upsale-geo-countdown {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      width: 100%;
-      background: rgb(var(--color-background));
-      color: rgb(var(--color-foreground));
-      border-block-end: 1px solid rgba(var(--color-foreground), 0.08);
-      box-sizing: border-box;
-      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-      font-family: var(--font-body--family);
-      font-style: var(--font-body--style);
-      font-weight: var(--font-body--weight);
-      font-size: var(--font-size--paragraph);
-      line-height: var(--font-paragraph--line-height);
-    }
+.upsale-geo-countdown {
+position: sticky;
+top: 0;
+z-index: 30;
+width: 100%;
+background: rgb(var(--color-background));
+color: rgb(var(--color-foreground));
+border-block-end: 1px solid rgba(var(--color-foreground), 0.08);
+box-sizing: border-box;
+box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+font-family: var(--font-body--family);
+font-style: var(--font-body--style);
+font-weight: var(--font-body--weight);
+font-size: var(--font-size--paragraph);
+line-height: var(--font-paragraph--line-height);
+}
 
-    .upsale-geo-countdown__content {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 2rem;
-      flex-wrap: wrap;
-      width: 100%;
-      padding-block: var(--upsale-countdown-padding-y);
-    }
+.upsale-geo-countdown__content {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 2rem;
+flex-wrap: wrap;
+width: 100%;
+padding-block: var(--upsale-countdown-padding-y);
+}
 
-    .upsale-geo-countdown__copy {
-      display: grid;
-      gap: 0.4rem;
-      min-width: 0;
-      flex: 1 1 260px;
-    }
+.upsale-geo-countdown__copy {
+display: grid;
+gap: 0.4rem;
+min-width: 0;
+flex: 1 1 260px;
+}
 
-    .upsale-geo-countdown__eyebrow {
-      margin: 0;
-      font-family: var(--font-subheading--family);
-      font-weight: var(--font-subheading--weight);
-      font-style: var(--font-subheading--style);
-      font-size: var(--font-subheading--size);
-      letter-spacing: var(--font-subheading--letter-spacing, 0.08em);
-      text-transform: uppercase;
-      color: rgba(var(--color-foreground), 0.72);
-    }
+.upsale-geo-countdown__eyebrow {
+margin: 0;
+font-family: var(--font-subheading--family);
+font-weight: var(--font-subheading--weight);
+font-style: var(--font-subheading--style);
+font-size: var(--font-subheading--size);
+letter-spacing: var(--font-subheading--letter-spacing, 0.08em);
+text-transform: uppercase;
+color: rgba(var(--color-foreground), 0.72);
+}
 
-    .upsale-geo-countdown__heading {
-      margin: 0;
-      font-family: var(--font-heading--family);
-      font-style: var(--font-heading--style);
-      font-weight: var(--font-heading--weight);
-      font-size: var(--font-size--h5);
-      line-height: var(--font-h5--line-height);
-      color: inherit;
-    }
+.upsale-geo-countdown__heading {
+margin: 0;
+font-family: var(--font-heading--family);
+font-style: var(--font-heading--style);
+font-weight: var(--font-heading--weight);
+font-size: var(--font-size--h5);
+line-height: var(--font-h5--line-height);
+color: inherit;
+}
 
-    .upsale-geo-countdown__message {
-      margin: 0;
-      font-size: var(--font-size--paragraph-small, calc(var(--font-size--paragraph) * 0.867));
-      line-height: var(--font-paragraph--line-height);
-      color: rgba(var(--color-foreground), 0.78);
-    }
+.upsale-geo-countdown__message {
+margin: 0;
+font-size: var(--font-size--paragraph-small, calc(var(--font-size--paragraph) * 0.867));
+line-height: var(--font-paragraph--line-height);
+color: rgba(var(--color-foreground), 0.78);
+}
 
-    .upsale-geo-countdown__timer {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(72px, auto));
-      gap: var(--upsale-countdown-gap);
-      flex: 0 0 auto;
-    }
+.upsale-geo-countdown__timer {
+display: grid;
+grid-template-columns: repeat(4, minmax(72px, auto));
+gap: var(--upsale-countdown-gap);
+flex: 0 0 auto;
+}
 
-    .upsale-geo-countdown__unit {
-      display: grid;
-      gap: 0.25rem;
-      min-width: 72px;
-      padding: 0.7rem 0.55rem;
-      border-radius: var(--upsale-countdown-radius);
-      background: rgba(var(--color-foreground), 0.04);
-      border: 1px solid rgba(var(--color-foreground), 0.08);
-      text-align: center;
-    }
+.upsale-geo-countdown__unit {
+display: grid;
+gap: 0.25rem;
+min-width: 72px;
+padding: 0.7rem 0.55rem;
+border-radius: var(--upsale-countdown-radius);
+background: rgba(var(--color-foreground), 0.04);
+border: 1px solid rgba(var(--color-foreground), 0.08);
+text-align: center;
+}
 
-    .upsale-geo-countdown__number {
-      font-family: var(--font-heading--family);
-      font-style: var(--font-heading--style);
-      font-weight: var(--font-heading--weight);
-      font-size: var(--font-size--h4);
-      line-height: 1;
-      line-height: 1;
-      color: inherit;
-    }
+.upsale-geo-countdown__number {
+font-family: var(--font-heading--family);
+font-style: var(--font-heading--style);
+font-weight: var(--font-heading--weight);
+font-size: var(--font-size--h4);
+line-height: 1;
+line-height: 1;
+color: inherit;
+}
 
-    .upsale-geo-countdown__label {
-      font-family: var(--font-subheading--family);
-      font-weight: var(--font-subheading--weight);
-      font-style: var(--font-subheading--style);
-      font-size: calc(var(--font-subheading--size) * 0.82);
-      text-transform: uppercase;
-      letter-spacing: var(--font-subheading--letter-spacing, 0.06em);
-      color: rgba(var(--color-foreground), 0.62);
-    }
+.upsale-geo-countdown__label {
+font-family: var(--font-subheading--family);
+font-weight: var(--font-subheading--weight);
+font-style: var(--font-subheading--style);
+font-size: calc(var(--font-subheading--size) * 0.82);
+text-transform: uppercase;
+letter-spacing: var(--font-subheading--letter-spacing, 0.06em);
+color: rgba(var(--color-foreground), 0.62);
+}
 
-    .upsale-geo-countdown__expired {
-      margin: 0;
-      font-size: var(--font-size--paragraph);
-      font-weight: 600;
-      color: rgba(var(--color-foreground), 0.78);
-    }
+.upsale-geo-countdown__expired {
+margin: 0;
+font-size: var(--font-size--paragraph);
+font-weight: 600;
+color: rgba(var(--color-foreground), 0.78);
+}
 
-    @media (max-width: 749px) {
-      .upsale-geo-countdown {
-        top: 0;
-      }
+@media (max-width: 749px) {
+.upsale-geo-countdown {
+top: 0;
+}
 
-      .upsale-geo-countdown__content {
-        align-items: flex-start;
-        gap: 1rem;
-      }
+.upsale-geo-countdown__content {
+align-items: flex-start;
+gap: 1rem;
+}
 
-      .upsale-geo-countdown__timer {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        width: 100%;
-      }
-    }
-  </style>
+.upsale-geo-countdown__timer {
+grid-template-columns: repeat(2, minmax(0, 1fr));
+width: 100%;
+}
+}
+</style>
 
-  <script>
-    (function () {
-      var root = document.getElementById('{{ countdown_dom_id }}');
-      if (!(root instanceof HTMLElement) || !root.matches('[data-upsale-geo-countdown]')) return;
+<script>
+(function () {
+var root = document.getElementById('{{ countdown_dom_id }}');
+if (!(root instanceof HTMLElement) || !root.matches('[data-upsale-geo-countdown]')) return;
 
-      var endAt = root.dataset.endAt || '';
-      var expiredLabel = root.dataset.expiredLabel || 'Offer expired';
-      var hideOnExpire = root.dataset.hideOnExpire === 'true';
-      var defaultShouldRender = root.dataset.defaultShouldRender === 'true';
-      var shop = root.dataset.shop || '';
-      var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
-      var displayMode = root.dataset.displayMode || 'auto';
-      var campaignId = root.dataset.campaignId || '';
-      var country = root.dataset.country || '';
-      var pageTarget = (root.dataset.pageTarget || 'all').toLowerCase();
-      var expiredNode = root.querySelector('[data-role="expired"]');
-      var eyebrowNode = root.querySelector('[data-role="eyebrow"]');
-      var headingNode = root.querySelector('[data-role="heading"]');
-      var messageNode = root.querySelector('[data-role="message"]');
-      var dayNode = root.querySelector('[data-unit="days"]');
-      var hourNode = root.querySelector('[data-unit="hours"]');
-      var minuteNode = root.querySelector('[data-unit="minutes"]');
-      var secondNode = root.querySelector('[data-unit="seconds"]');
-      var timerNode = root.querySelector('.upsale-geo-countdown__timer');
+var endAt = root.dataset.endAt || '';
+var expiredLabel = root.dataset.expiredLabel || 'Offer expired';
+var hideOnExpire = root.dataset.hideOnExpire === 'true';
+var defaultShouldRender = root.dataset.defaultShouldRender === 'true';
+var shop = root.dataset.shop || '';
+var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
+var displayMode = root.dataset.displayMode || 'auto';
+var campaignId = root.dataset.campaignId || '';
+var country = root.dataset.country || '';
+var pageTarget = (root.dataset.pageTarget || 'all').toLowerCase();
+var expiredNode = root.querySelector('[data-role="expired"]');
+var eyebrowNode = root.querySelector('[data-role="eyebrow"]');
+var headingNode = root.querySelector('[data-role="heading"]');
+var messageNode = root.querySelector('[data-role="message"]');
+var dayNode = root.querySelector('[data-unit="days"]');
+var hourNode = root.querySelector('[data-unit="hours"]');
+var minuteNode = root.querySelector('[data-unit="minutes"]');
+var secondNode = root.querySelector('[data-unit="seconds"]');
+var timerNode = root.querySelector('.upsale-geo-countdown__timer');
 
-      if (!(expiredNode instanceof HTMLElement) || !(timerNode instanceof HTMLElement)) return;
+if (!(expiredNode instanceof HTMLElement) || !(timerNode instanceof HTMLElement)) return;
 
-      function pad(value) {
-        return String(value).padStart(2, '0');
-      }
+function pad(value) {
+return String(value).padStart(2, '0');
+}
 
-      function renderExpired() {
-        if (hideOnExpire) {
-          root.hidden = true;
-          return;
-        }
+function renderExpired() {
+if (hideOnExpire) {
+root.hidden = true;
+return;
+}
 
-        timerNode.hidden = true;
-        expiredNode.hidden = false;
-        expiredNode.textContent = expiredLabel;
-      }
+timerNode.hidden = true;
+expiredNode.hidden = false;
+expiredNode.textContent = expiredLabel;
+}
 
-      function ensureTextNode(currentNode, selector, tagName) {
-        if (currentNode instanceof HTMLElement) return currentNode;
+function ensureTextNode(currentNode, selector, tagName) {
+if (currentNode instanceof HTMLElement) return currentNode;
 
-        var copyNode = root.querySelector('.upsale-geo-countdown__copy');
-        if (!(copyNode instanceof HTMLElement)) return null;
+var copyNode = root.querySelector('.upsale-geo-countdown__copy');
+if (!(copyNode instanceof HTMLElement)) return null;
 
-        var node = document.createElement(tagName);
-        node.className = selector;
-        copyNode.appendChild(node);
-        return node;
-      }
+var node = document.createElement(tagName);
+node.className = selector;
+copyNode.appendChild(node);
+return node;
+}
 
-      function applyCampaign(campaign) {
-        if (campaign && typeof campaign === 'object') {
-          if (campaign.eyebrow) {
-            var eyebrow = ensureTextNode(eyebrowNode, 'upsale-geo-countdown__eyebrow', 'p');
-            if (eyebrow) {
-              eyebrow.setAttribute('data-role', 'eyebrow');
-              eyebrow.textContent = campaign.eyebrow;
-              eyebrow.hidden = false;
-            }
-          } else if (eyebrowNode instanceof HTMLElement) {
-            eyebrowNode.hidden = true;
-          }
+function applyCampaign(campaign) {
+if (campaign && typeof campaign === 'object') {
+if (campaign.eyebrow) {
+var eyebrow = ensureTextNode(eyebrowNode, 'upsale-geo-countdown__eyebrow', 'p');
+if (eyebrow) {
+eyebrow.setAttribute('data-role', 'eyebrow');
+eyebrow.textContent = campaign.eyebrow;
+eyebrow.hidden = false;
+}
+} else if (eyebrowNode instanceof HTMLElement) {
+eyebrowNode.hidden = true;
+}
 
-          if (campaign.heading) {
-            var heading = ensureTextNode(headingNode, 'upsale-geo-countdown__heading', 'h3');
-            if (heading) {
-              heading.setAttribute('data-role', 'heading');
-              heading.textContent = campaign.heading;
-              heading.hidden = false;
-            }
-          }
+if (campaign.heading) {
+var heading = ensureTextNode(headingNode, 'upsale-geo-countdown__heading', 'h3');
+if (heading) {
+heading.setAttribute('data-role', 'heading');
+heading.textContent = campaign.heading;
+heading.hidden = false;
+}
+}
 
-          if (campaign.message) {
-            var message = ensureTextNode(messageNode, 'upsale-geo-countdown__message', 'p');
-            if (message) {
-              message.setAttribute('data-role', 'message');
-              message.textContent = campaign.message;
-              message.hidden = false;
-            }
-          } else if (messageNode instanceof HTMLElement) {
-            messageNode.hidden = true;
-          }
+if (campaign.message) {
+var message = ensureTextNode(messageNode, 'upsale-geo-countdown__message', 'p');
+if (message) {
+message.setAttribute('data-role', 'message');
+message.textContent = campaign.message;
+message.hidden = false;
+}
+} else if (messageNode instanceof HTMLElement) {
+messageNode.hidden = true;
+}
 
-          endAt = campaign.endAt || endAt;
-          expiredLabel = campaign.expiredLabel || expiredLabel;
-          hideOnExpire = campaign.hideOnExpire !== false;
-          root.hidden = false;
-          return true;
-        }
+endAt = campaign.endAt || endAt;
+expiredLabel = campaign.expiredLabel || expiredLabel;
+hideOnExpire = campaign.hideOnExpire !== false;
+root.hidden = false;
+return true;
+}
 
-        if (!defaultShouldRender) {
-          root.hidden = true;
-          return false;
-        }
+if (!defaultShouldRender) {
+root.hidden = true;
+return false;
+}
 
-        return true;
-      }
+return true;
+}
 
-      function tick() {
-        var target = new Date(endAt).getTime();
-        if (!target || Number.isNaN(target)) {
-          root.hidden = true;
-          return;
-        }
+function tick() {
+var target = new Date(endAt).getTime();
+if (!target || Number.isNaN(target)) {
+root.hidden = true;
+return;
+}
 
-        var delta = target - Date.now();
-        if (delta <= 0) {
-          window.clearInterval(intervalId);
-          renderExpired();
-          return;
-        }
+var delta = target - Date.now();
+if (delta <= 0) {
+window.clearInterval(intervalId);
+renderExpired();
+return;
+}
 
-        var days = Math.floor(delta / 86400000);
-        var hours = Math.floor((delta % 86400000) / 3600000);
-        var minutes = Math.floor((delta % 3600000) / 60000);
-        var seconds = Math.floor((delta % 60000) / 1000);
+var days = Math.floor(delta / 86400000);
+var hours = Math.floor((delta % 86400000) / 3600000);
+var minutes = Math.floor((delta % 3600000) / 60000);
+var seconds = Math.floor((delta % 60000) / 1000);
 
-        if (dayNode) dayNode.textContent = pad(days);
-        if (hourNode) hourNode.textContent = pad(hours);
-        if (minuteNode) minuteNode.textContent = pad(minutes);
-        if (secondNode) secondNode.textContent = pad(seconds);
-      }
+if (dayNode) dayNode.textContent = pad(days);
+if (hourNode) hourNode.textContent = pad(hours);
+if (minuteNode) minuteNode.textContent = pad(minutes);
+if (secondNode) secondNode.textContent = pad(seconds);
+}
 
-      var intervalId = 0;
+var intervalId = 0;
 
-      function start() {
-        if (!applyCampaign(null) || !endAt) return;
-        tick();
-        intervalId = window.setInterval(tick, 1000);
-      }
+function start() {
+if (!applyCampaign(null) || !endAt) return;
+tick();
+intervalId = window.setInterval(tick, 1000);
+}
 
-      if (!shop || !apiBase) {
-        start();
-        return;
-      }
+if (!shop || !apiBase) {
+start();
+return;
+}
 
-      var params = new URLSearchParams({
-        shop: shop,
-        mode: displayMode,
-        campaignId: campaignId,
-        country: country,
-        pageTarget: pageTarget === 'index' ? 'home' : pageTarget,
-      });
+var params = new URLSearchParams({
+shop: shop,
+mode: displayMode,
+campaignId: campaignId,
+country: country,
+pageTarget: pageTarget === 'index' ? 'home' : pageTarget,
+});
 
-      fetch(apiBase + '/api/public/geo-countdown?' + params.toString(), {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-store'
-      })
-        .then(function (response) { return response.ok ? response.json() : null; })
-        .then(function (data) {
-          if (!applyCampaign(data && data.campaign ? data.campaign : null)) return;
-          tick();
-          intervalId = window.setInterval(tick, 1000);
-        })
-        .catch(function () {
-          start();
-        });
-    })();
-  </script>
+fetch(apiBase + '/api/public/geo-countdown?' + params.toString(), {
+method: 'GET',
+mode: 'cors',
+credentials: 'omit',
+cache: 'no-store'
+})
+.then(function (response) { return response.ok ? response.json() : null; })
+.then(function (data) {
+if (!applyCampaign(data && data.campaign ? data.campaign : null)) return;
+tick();
+intervalId = window.setInterval(tick, 1000);
+})
+.catch(function () {
+start();
+});
+})();
+</script>
 
 {% schema %}
 {
-  "name": "Geo countdown",
-  "target": "body",
-  "settings": [
-    {
-      "type": "select",
-      "id": "color_scheme",
-      "label": "Color scheme",
-      "options": [
-        { "value": "scheme-1", "label": "Scheme 1" },
-        { "value": "scheme-2", "label": "Scheme 2" },
-        { "value": "scheme-3", "label": "Scheme 3" },
-        { "value": "scheme-4", "label": "Scheme 4" },
-        { "value": "scheme-5", "label": "Scheme 5" }
-      ],
-      "default": "scheme-1"
-    },
-    {
-      "type": "text",
-      "id": "api_base",
-      "label": "App base URL",
-      "default": "https://doomling-app-navy.vercel.app",
-      "info": "Your app domain used to load countdown campaigns, for example https://doomling-app-navy.vercel.app"
-    },
-    {
-      "type": "select",
-      "id": "display_mode",
-      "label": "Display mode",
-      "options": [
-        { "value": "auto", "label": "Auto match" },
-        { "value": "specific", "label": "Specific campaign" }
-      ],
-      "default": "auto"
-    },
-    {
-      "type": "text",
-      "id": "campaign_id",
-      "label": "Campaign ID",
-      "info": "When Display mode is Specific campaign, paste the campaign ID from the app dashboard here."
-    },
-    {
-      "type": "text",
-      "id": "eyebrow",
-      "label": "Eyebrow",
-      "default": "Limited-time offer"
-    },
-    {
-      "type": "text",
-      "id": "heading",
-      "label": "Heading",
-      "default": "Offer ends soon"
-    },
-    {
-      "type": "textarea",
-      "id": "message",
-      "label": "Message",
-      "default": "Create urgency for shoppers in selected countries with a localized countdown campaign."
-    },
-    {
-      "type": "text",
-      "id": "end_at",
-      "label": "End date and time",
-      "info": "Use a browser-friendly date like 2026-12-31T23:59:59-05:00",
-      "default": "2026-12-31T23:59:59-05:00"
-    },
-    {
-      "type": "text",
-      "id": "country_codes",
-      "label": "Country codes",
-      "info": "Optional comma-separated ISO country codes like US,CA,GB. Leave blank to show everywhere."
-    },
-    {
-      "type": "checkbox",
-      "id": "hide_on_expire",
-      "label": "Hide when expired",
-      "default": true
-    },
-    {
-      "type": "text",
-      "id": "expired_label",
-      "label": "Expired label",
-      "default": "Offer expired"
-    },
-    {
-      "type": "range",
-      "id": "padding_x",
-      "label": "Horizontal padding",
-      "min": 8,
-      "max": 48,
-      "step": 2,
-      "unit": "px",
-      "default": 24
-    },
-    {
-      "type": "range",
-      "id": "padding_y",
-      "label": "Vertical padding",
-      "min": 8,
-      "max": 48,
-      "step": 2,
-      "unit": "px",
-      "default": 20
-    },
-    {
-      "type": "range",
-      "id": "gap",
-      "label": "Timer gap",
-      "min": 4,
-      "max": 24,
-      "step": 1,
-      "unit": "px",
-      "default": 10
-    },
-    {
-      "type": "range",
-      "id": "corner_radius",
-      "label": "Corner radius",
-      "min": 0,
-      "max": 32,
-      "step": 1,
-      "unit": "px",
-      "default": 18
-    }
-  ]
+"name": "Geo countdown",
+"target": "body",
+"settings": [
+{
+"type": "select",
+"id": "color_scheme",
+"label": "Color scheme",
+"options": [
+{ "value": "scheme-1", "label": "Scheme 1" },
+{ "value": "scheme-2", "label": "Scheme 2" },
+{ "value": "scheme-3", "label": "Scheme 3" },
+{ "value": "scheme-4", "label": "Scheme 4" },
+{ "value": "scheme-5", "label": "Scheme 5" }
+],
+"default": "scheme-1"
+},
+{
+"type": "text",
+"id": "api_base",
+"label": "App base URL",
+"default": "https://doomling-app-navy.vercel.app",
+"info": "Your app domain used to load countdown campaigns, for example https://doomling-app-navy.vercel.app"
+},
+{
+"type": "select",
+"id": "display_mode",
+"label": "Display mode",
+"options": [
+{ "value": "auto", "label": "Auto match" },
+{ "value": "specific", "label": "Specific campaign" }
+],
+"default": "auto"
+},
+{
+"type": "text",
+"id": "campaign_id",
+"label": "Campaign ID",
+"info": "When Display mode is Specific campaign, paste the campaign ID from the app dashboard here."
+},
+{
+"type": "text",
+"id": "eyebrow",
+"label": "Eyebrow",
+"default": "Limited-time offer"
+},
+{
+"type": "text",
+"id": "heading",
+"label": "Heading",
+"default": "Offer ends soon"
+},
+{
+"type": "textarea",
+"id": "message",
+"label": "Message",
+"default": "Create urgency for shoppers in selected countries with a localized countdown campaign."
+},
+{
+"type": "text",
+"id": "end_at",
+"label": "End date and time",
+"info": "Use a browser-friendly date like 2026-12-31T23:59:59-05:00",
+"default": "2026-12-31T23:59:59-05:00"
+},
+{
+"type": "text",
+"id": "country_codes",
+"label": "Country codes",
+"info": "Optional comma-separated ISO country codes like US,CA,GB. Leave blank to show everywhere."
+},
+{
+"type": "checkbox",
+"id": "hide_on_expire",
+"label": "Hide when expired",
+"default": true
+},
+{
+"type": "text",
+"id": "expired_label",
+"label": "Expired label",
+"default": "Offer expired"
+},
+{
+"type": "range",
+"id": "padding_x",
+"label": "Horizontal padding",
+"min": 8,
+"max": 48,
+"step": 2,
+"unit": "px",
+"default": 24
+},
+{
+"type": "range",
+"id": "padding_y",
+"label": "Vertical padding",
+"min": 8,
+"max": 48,
+"step": 2,
+"unit": "px",
+"default": 20
+},
+{
+"type": "range",
+"id": "gap",
+"label": "Timer gap",
+"min": 4,
+"max": 24,
+"step": 1,
+"unit": "px",
+"default": 10
+},
+{
+"type": "range",
+"id": "corner_radius",
+"label": "Corner radius",
+"min": 0,
+"max": 32,
+"step": 1,
+"unit": "px",
+"default": 18
+}
+]
 }
 {% endschema %}
-
 
 
 

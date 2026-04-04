@@ -1,598 +1,598 @@
 {% comment %} Upsale - Buy X Get Y Gift Automation {% endcomment %}
 
 <div
-  id="upsale-bxgy-root"
-  data-shop="{{ shop.permanent_domain }}"
-  data-api-base="{{ settings.api_base | default: 'https://upsale-cyan.vercel.app' }}"
-  data-toast-title="{{ settings.toast_title | default: 'Free gift added!' | escape }}"
-  data-banner-title="{{ settings.banner_title | default: 'Your free gift is in the cart' | escape }}"
+id="upsale-bxgy-root"
+data-shop="{{ shop.permanent_domain }}"
+data-api-base="{{ settings.api_base | default: 'https://upsale-cyan.vercel.app' }}"
+data-toast-title="{{ settings.toast_title | default: 'Free gift added!' | escape }}"
+data-banner-title="{{ settings.banner_title | default: 'Your free gift is in the cart' | escape }}"
 ></div>
 
 <style>
-  #upsale-bxgy-floating {
-    position: fixed;
-    right: 1.25rem;
-    bottom: 1.25rem;
-    z-index: 99998;
-    width: min(340px, calc(100vw - 1.5rem));
-    display: none;
-    border-radius: 18px;
-    overflow: hidden;
-    background: linear-gradient(135deg, #14532d 0%, #166534 48%, #22c55e 100%);
-    color: #fff;
-    box-shadow: 0 18px 48px rgba(21, 128, 61, 0.28);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-  #upsale-bxgy-floating * { box-sizing: border-box; }
-  #upsale-bxgy-floating-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.9rem 1rem 0.65rem;
-  }
-  #upsale-bxgy-floating-title {
-    font-size: 0.9rem;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-  }
-  #upsale-bxgy-floating-badge {
-    border-radius: 999px;
-    background: rgba(255,255,255,0.16);
-    padding: 0.25rem 0.55rem;
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-  }
-  #upsale-bxgy-floating-body {
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    padding: 0.9rem 1rem 1rem;
-  }
-  .upsale-bxgy-gift-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  .upsale-bxgy-gift-row + .upsale-bxgy-gift-row {
-    margin-top: 0.7rem;
-  }
-  .upsale-bxgy-gift-image,
-  .upsale-bxgy-gift-placeholder {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
-    flex-shrink: 0;
-    object-fit: cover;
-    border: 1px solid rgba(255,255,255,0.18);
-  }
-  .upsale-bxgy-gift-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255,255,255,0.16);
-    font-size: 1.1rem;
-  }
-  .upsale-bxgy-gift-text {
-    min-width: 0;
-    flex: 1;
-  }
-  .upsale-bxgy-gift-name {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .upsale-bxgy-gift-sub {
-    display: block;
-    margin-top: 0.15rem;
-    font-size: 0.76rem;
-    opacity: 0.9;
-  }
-  #upsale-bxgy-toast {
-    position: fixed;
-    left: 50%;
-    bottom: 1.25rem;
-    transform: translate(-50%, calc(100% + 2rem));
-    opacity: 0;
-    z-index: 99999;
-    width: min(360px, calc(100vw - 1.5rem));
-    border-radius: 18px;
-    padding: 0.95rem 1rem;
-    background: #ffffff;
-    border: 1px solid #bbf7d0;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.16);
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-  #upsale-bxgy-toast.upsale-bxgy-toast-visible {
-    transform: translate(-50%, 0);
-    opacity: 1;
-  }
-  #upsale-bxgy-toast-title {
-    margin: 0;
-    font-size: 0.9rem;
-    font-weight: 800;
-    color: #166534;
-  }
-  #upsale-bxgy-toast-text {
-    margin: 0.25rem 0 0;
-    font-size: 0.78rem;
-    color: #4b5563;
-  }
-  quantity-selector-component[data-upsale-bxgy-locked='true'] {
-    pointer-events: none;
-  }
-  quantity-selector-component[data-upsale-bxgy-locked='true'] .quantity-button {
-    display: none !important;
-  }
-  quantity-selector-component[data-upsale-bxgy-locked='true'] .quantity-input {
-    cursor: default;
-  }
-  .upsale-bxgy-lock-note {
-    display: block;
-    margin-top: 0.45rem;
-    color: #166534;
-    font-size: 0.8rem;
-    font-weight: 600;
-    line-height: 1.35;
-  }
-  @media (max-width: 640px) {
-    #upsale-bxgy-floating {
-      left: 0.75rem;
-      right: 0.75rem;
-      width: auto;
-      bottom: 0.75rem;
-    }
-    #upsale-bxgy-toast {
-      bottom: 0.75rem;
-    }
-  }
+#upsale-bxgy-floating {
+position: fixed;
+right: 1.25rem;
+bottom: 1.25rem;
+z-index: 99998;
+width: min(340px, calc(100vw - 1.5rem));
+display: none;
+border-radius: 18px;
+overflow: hidden;
+background: linear-gradient(135deg, #14532d 0%, #166534 48%, #22c55e 100%);
+color: #fff;
+box-shadow: 0 18px 48px rgba(21, 128, 61, 0.28);
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+#upsale-bxgy-floating * { box-sizing: border-box; }
+#upsale-bxgy-floating-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 0.75rem;
+padding: 0.9rem 1rem 0.65rem;
+}
+#upsale-bxgy-floating-title {
+font-size: 0.9rem;
+font-weight: 800;
+letter-spacing: 0.02em;
+}
+#upsale-bxgy-floating-badge {
+border-radius: 999px;
+background: rgba(255,255,255,0.16);
+padding: 0.25rem 0.55rem;
+font-size: 0.68rem;
+font-weight: 800;
+letter-spacing: 0.08em;
+}
+#upsale-bxgy-floating-body {
+background: rgba(255,255,255,0.1);
+backdrop-filter: blur(10px);
+padding: 0.9rem 1rem 1rem;
+}
+.upsale-bxgy-gift-row {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+}
+.upsale-bxgy-gift-row + .upsale-bxgy-gift-row {
+margin-top: 0.7rem;
+}
+.upsale-bxgy-gift-image,
+.upsale-bxgy-gift-placeholder {
+width: 52px;
+height: 52px;
+border-radius: 14px;
+flex-shrink: 0;
+object-fit: cover;
+border: 1px solid rgba(255,255,255,0.18);
+}
+.upsale-bxgy-gift-placeholder {
+display: flex;
+align-items: center;
+justify-content: center;
+background: rgba(255,255,255,0.16);
+font-size: 1.1rem;
+}
+.upsale-bxgy-gift-text {
+min-width: 0;
+flex: 1;
+}
+.upsale-bxgy-gift-name {
+display: block;
+font-size: 0.85rem;
+font-weight: 700;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+.upsale-bxgy-gift-sub {
+display: block;
+margin-top: 0.15rem;
+font-size: 0.76rem;
+opacity: 0.9;
+}
+#upsale-bxgy-toast {
+position: fixed;
+left: 50%;
+bottom: 1.25rem;
+transform: translate(-50%, calc(100% + 2rem));
+opacity: 0;
+z-index: 99999;
+width: min(360px, calc(100vw - 1.5rem));
+border-radius: 18px;
+padding: 0.95rem 1rem;
+background: #ffffff;
+border: 1px solid #bbf7d0;
+box-shadow: 0 12px 34px rgba(0,0,0,0.16);
+transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+#upsale-bxgy-toast.upsale-bxgy-toast-visible {
+transform: translate(-50%, 0);
+opacity: 1;
+}
+#upsale-bxgy-toast-title {
+margin: 0;
+font-size: 0.9rem;
+font-weight: 800;
+color: #166534;
+}
+#upsale-bxgy-toast-text {
+margin: 0.25rem 0 0;
+font-size: 0.78rem;
+color: #4b5563;
+}
+quantity-selector-component[data-upsale-bxgy-locked='true'] {
+pointer-events: none;
+}
+quantity-selector-component[data-upsale-bxgy-locked='true'] .quantity-button {
+display: none !important;
+}
+quantity-selector-component[data-upsale-bxgy-locked='true'] .quantity-input {
+cursor: default;
+}
+.upsale-bxgy-lock-note {
+display: block;
+margin-top: 0.45rem;
+color: #166534;
+font-size: 0.8rem;
+font-weight: 600;
+line-height: 1.35;
+}
+@media (max-width: 640px) {
+#upsale-bxgy-floating {
+left: 0.75rem;
+right: 0.75rem;
+width: auto;
+bottom: 0.75rem;
+}
+#upsale-bxgy-toast {
+bottom: 0.75rem;
+}
+}
 </style>
 
 <div id="upsale-bxgy-floating" aria-live="polite" aria-atomic="true">
-  <div id="upsale-bxgy-floating-header">
-    <span id="upsale-bxgy-floating-title">{{ settings.banner_title | default: 'Your free gift is in the cart' }}</span>
-    <span id="upsale-bxgy-floating-badge">FREE</span>
-  </div>
-  <div id="upsale-bxgy-floating-body"></div>
+<div id="upsale-bxgy-floating-header">
+<span id="upsale-bxgy-floating-title">{{ settings.banner_title | default: 'Your free gift is in the cart' }}</span>
+<span id="upsale-bxgy-floating-badge">FREE</span>
+</div>
+<div id="upsale-bxgy-floating-body"></div>
 </div>
 
 <div id="upsale-bxgy-toast" role="status" aria-live="polite" aria-atomic="true">
-  <p id="upsale-bxgy-toast-title">{{ settings.toast_title | default: 'Free gift added!' }}</p>
-  <p id="upsale-bxgy-toast-text"></p>
+<p id="upsale-bxgy-toast-title">{{ settings.toast_title | default: 'Free gift added!' }}</p>
+<p id="upsale-bxgy-toast-text"></p>
 </div>
 
 <script>
 (function () {
-  var root = document.getElementById('upsale-bxgy-root');
-  if (!root) return;
+var root = document.getElementById('upsale-bxgy-root');
+if (!root) return;
 
-  var shop = root.dataset.shop || '';
-  var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
-  var toastTitle = root.dataset.toastTitle || 'Free gift added!';
-  var floatingTitle = root.dataset.bannerTitle || 'Your free gift is in the cart';
-  var GIFT_FLAG = '_bxgy';
-  var RULE_FLAG = '_bxgy_rule_id';
+var shop = root.dataset.shop || '';
+var apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
+var toastTitle = root.dataset.toastTitle || 'Free gift added!';
+var floatingTitle = root.dataset.bannerTitle || 'Your free gift is in the cart';
+var GIFT_FLAG = '_bxgy';
+var RULE_FLAG = '_bxgy_rule_id';
 
-  if (!shop || !apiBase) return;
+if (!shop || !apiBase) return;
 
-  var rulesCache = null;
-  var rulesPromise = null;
-  var syncPending = false;
-  var syncRunning = false;
-  var latestCart = null;
-  var seenToasts;
-  try {
-    seenToasts = new Set(JSON.parse(sessionStorage.getItem('upsale_bxgy_seen') || '[]'));
-  } catch (e) {
-    seenToasts = new Set();
-  }
+var rulesCache = null;
+var rulesPromise = null;
+var syncPending = false;
+var syncRunning = false;
+var latestCart = null;
+var seenToasts;
+try {
+seenToasts = new Set(JSON.parse(sessionStorage.getItem('upsale_bxgy_seen') || '[]'));
+} catch (e) {
+seenToasts = new Set();
+}
 
-  function rememberToast(key) {
-    seenToasts.add(key);
-    try {
-      sessionStorage.setItem('upsale_bxgy_seen', JSON.stringify(Array.from(seenToasts)));
-    } catch (e) {}
-  }
+function rememberToast(key) {
+seenToasts.add(key);
+try {
+sessionStorage.setItem('upsale_bxgy_seen', JSON.stringify(Array.from(seenToasts)));
+} catch (e) {}
+}
 
-  function loadRules() {
-    if (rulesCache) return Promise.resolve(rulesCache);
-    if (rulesPromise) return rulesPromise;
-    rulesPromise = fetch(apiBase + '/api/public/gift-rules?shop=' + encodeURIComponent(shop), {
-      method: 'GET',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store'
-    }).then(function (r) {
-      return r.ok ? r.json() : { rules: [] };
-    }).then(function (data) {
-      rulesCache = (data && data.rules) || [];
-      return rulesCache;
-    }).catch(function () {
-      rulesCache = [];
-      return rulesCache;
-    });
-    return rulesPromise;
-  }
+function loadRules() {
+if (rulesCache) return Promise.resolve(rulesCache);
+if (rulesPromise) return rulesPromise;
+rulesPromise = fetch(apiBase + '/api/public/gift-rules?shop=' + encodeURIComponent(shop), {
+method: 'GET',
+mode: 'cors',
+credentials: 'omit',
+cache: 'no-store'
+}).then(function (r) {
+return r.ok ? r.json() : { rules: [] };
+}).then(function (data) {
+rulesCache = (data && data.rules) || [];
+return rulesCache;
+}).catch(function () {
+rulesCache = [];
+return rulesCache;
+});
+return rulesPromise;
+}
 
-  function fetchCart() {
-    return fetch('/cart.js', { cache: 'no-store' }).then(function (r) { return r.json(); });
-  }
+function fetchCart() {
+return fetch('/cart.js', { cache: 'no-store' }).then(function (r) { return r.json(); });
+}
 
-  function post(path, payload) {
-    return fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {})
-    }).then(function (r) { return r.ok ? r.json() : null; });
-  }
+function post(path, payload) {
+return fetch(path, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(payload || {})
+}).then(function (r) { return r.ok ? r.json() : null; });
+}
 
-  function track(ruleId, event) {
-    fetch(apiBase + '/api/bxgy-track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop: shop, ruleId: ruleId, event: event })
-    }).catch(function () {});
-  }
+function track(ruleId, event) {
+fetch(apiBase + '/api/bxgy-track', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ shop: shop, ruleId: ruleId, event: event })
+}).catch(function () {});
+}
 
-  function totalQtyByVariants(cart, variantIds) {
-    var ids = new Set((variantIds || []).map(String));
-    return ((cart && cart.items) || []).reduce(function (sum, item) {
-      return ids.has(String(item.variant_id)) ? sum + Number(item.quantity || 0) : sum;
-    }, 0);
-  }
+function totalQtyByVariants(cart, variantIds) {
+var ids = new Set((variantIds || []).map(String));
+return ((cart && cart.items) || []).reduce(function (sum, item) {
+return ids.has(String(item.variant_id)) ? sum + Number(item.quantity || 0) : sum;
+}, 0);
+}
 
-  function findAutoGiftLine(cart, variantId, ruleId) {
-    var items = (cart && cart.items) || [];
-    for (var i = 0; i < items.length; i++) {
-      var item = items[i];
-      if (String(item.variant_id) !== String(variantId)) continue;
-      var props = item.properties || {};
-      if (String(props[GIFT_FLAG] || '') !== 'true') continue;
-      if (String(props[RULE_FLAG] || '') !== String(ruleId)) continue;
-      return item;
-    }
-    return null;
-  }
+function findAutoGiftLine(cart, variantId, ruleId) {
+var items = (cart && cart.items) || [];
+for (var i = 0; i < items.length; i++) {
+var item = items[i];
+if (String(item.variant_id) !== String(variantId)) continue;
+var props = item.properties || {};
+if (String(props[GIFT_FLAG] || '') !== 'true') continue;
+if (String(props[RULE_FLAG] || '') !== String(ruleId)) continue;
+return item;
+}
+return null;
+}
 
-  function hasManualGift(cart, variantId) {
-    var items = (cart && cart.items) || [];
-    for (var i = 0; i < items.length; i++) {
-      var item = items[i];
-      if (String(item.variant_id) !== String(variantId)) continue;
-      var props = item.properties || {};
-      if (String(props[GIFT_FLAG] || '') === 'true') continue;
-      return true;
-    }
-    return false;
-  }
+function hasManualGift(cart, variantId) {
+var items = (cart && cart.items) || [];
+for (var i = 0; i < items.length; i++) {
+var item = items[i];
+if (String(item.variant_id) !== String(variantId)) continue;
+var props = item.properties || {};
+if (String(props[GIFT_FLAG] || '') === 'true') continue;
+return true;
+}
+return false;
+}
 
-  function showToast(title) {
-    var toast = document.getElementById('upsale-bxgy-toast');
-    var text = document.getElementById('upsale-bxgy-toast-text');
-    if (!toast || !text) return;
-    text.textContent = title + ' was added to the cart automatically.';
-    toast.classList.add('upsale-bxgy-toast-visible');
-    setTimeout(function () {
-      toast.classList.remove('upsale-bxgy-toast-visible');
-    }, 3200);
-  }
+function showToast(title) {
+var toast = document.getElementById('upsale-bxgy-toast');
+var text = document.getElementById('upsale-bxgy-toast-text');
+if (!toast || !text) return;
+text.textContent = title + ' was added to the cart automatically.';
+toast.classList.add('upsale-bxgy-toast-visible');
+setTimeout(function () {
+toast.classList.remove('upsale-bxgy-toast-visible');
+}, 3200);
+}
 
-  function renderFloating(gifts) {
-    var floating = document.getElementById('upsale-bxgy-floating');
-    var title = document.getElementById('upsale-bxgy-floating-title');
-    var body = document.getElementById('upsale-bxgy-floating-body');
-    if (!floating || !title || !body) return;
-    if (!gifts.length) {
-      floating.style.display = 'none';
-      return;
-    }
+function renderFloating(gifts) {
+var floating = document.getElementById('upsale-bxgy-floating');
+var title = document.getElementById('upsale-bxgy-floating-title');
+var body = document.getElementById('upsale-bxgy-floating-body');
+if (!floating || !title || !body) return;
+if (!gifts.length) {
+floating.style.display = 'none';
+return;
+}
 
-    title.textContent = floatingTitle;
-    body.innerHTML = gifts.map(function (gift) {
-      var image = gift.featured_image && gift.featured_image.url
-        ? '<img class="upsale-bxgy-gift-image" src="' + gift.featured_image.url.split('?')[0] + '?width=120" alt="" loading="lazy" width="52" height="52" />'
-        : '<div class="upsale-bxgy-gift-placeholder">&#127873;</div>';
-      return (
-        '<div class="upsale-bxgy-gift-row">' +
-          image +
-          '<div class="upsale-bxgy-gift-text">' +
-            '<span class="upsale-bxgy-gift-name">' + (gift.product_title || 'Free gift') + '</span>' +
-            '<span class="upsale-bxgy-gift-sub">Added automatically and discounted to free at checkout.</span>' +
-          '</div>' +
-        '</div>'
-      );
-    }).join('');
-    floating.style.display = 'block';
-  }
+title.textContent = floatingTitle;
+body.innerHTML = gifts.map(function (gift) {
+var image = gift.featured_image && gift.featured_image.url
+? '<img class="upsale-bxgy-gift-image" src="' + gift.featured_image.url.split('?')[0] + '?width=120" alt="" loading="lazy" width="52" height="52" />'
+: '<div class="upsale-bxgy-gift-placeholder">&#127873;</div>';
+return (
+'<div class="upsale-bxgy-gift-row">' +
+image +
+'<div class="upsale-bxgy-gift-text">' +
+'<span class="upsale-bxgy-gift-name">' + (gift.product_title || 'Free gift') + '</span>' +
+'<span class="upsale-bxgy-gift-sub">Added automatically and discounted to free at checkout.</span>' +
+'</div>' +
+'</div>'
+);
+}).join('');
+floating.style.display = 'block';
+}
 
-  function refreshTheme() {
-    document.dispatchEvent(new CustomEvent('cart:refresh'));
-    document.dispatchEvent(new CustomEvent('cart:updated'));
-  }
+function refreshTheme() {
+document.dispatchEvent(new CustomEvent('cart:refresh'));
+document.dispatchEvent(new CustomEvent('cart:updated'));
+}
 
-  function getGiftLockQuantityByLine(cart, line) {
-    if (!cart || !Array.isArray(cart.items) || !line) return 0;
-    var item = cart.items[line - 1];
-    if (!item || !item.properties || String(item.properties[GIFT_FLAG] || '') !== 'true') return 0;
+function getGiftLockQuantityByLine(cart, line) {
+if (!cart || !Array.isArray(cart.items) || !line) return 0;
+var item = cart.items[line - 1];
+if (!item || !item.properties || String(item.properties[GIFT_FLAG] || '') !== 'true') return 0;
 
-    return Math.max(Number(item.quantity || 0), 0);
-  }
+return Math.max(Number(item.quantity || 0), 0);
+}
 
-  function resetGiftSelector(selector) {
-    if (!(selector instanceof HTMLElement)) return;
+function resetGiftSelector(selector) {
+if (!(selector instanceof HTMLElement)) return;
 
-    var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
-    var buttons = selector.querySelectorAll('button[ref="quantityButtons[]"], .quantity-button');
-    var row = selector.closest('tr[data-key], tr[data-product-id]');
+var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
+var buttons = selector.querySelectorAll('button[ref="quantityButtons[]"], .quantity-button');
+var row = selector.closest('tr[data-key], tr[data-product-id]');
 
-    delete selector.dataset.upsaleBxgyLocked;
-    delete selector.dataset.lockedQuantity;
+delete selector.dataset.upsaleBxgyLocked;
+delete selector.dataset.lockedQuantity;
 
-    if (input instanceof HTMLInputElement) {
-      input.readOnly = false;
-      input.disabled = false;
-      input.removeAttribute('aria-disabled');
-    }
+if (input instanceof HTMLInputElement) {
+input.readOnly = false;
+input.disabled = false;
+input.removeAttribute('aria-disabled');
+}
 
-    buttons.forEach(function (button) {
-      if (button instanceof HTMLButtonElement) {
-        button.hidden = false;
-        button.disabled = false;
-      }
-    });
+buttons.forEach(function (button) {
+if (button instanceof HTMLButtonElement) {
+button.hidden = false;
+button.disabled = false;
+}
+});
 
-    if (row instanceof HTMLElement) {
-      var note = row.querySelector('.upsale-bxgy-lock-note');
-      if (note instanceof HTMLElement) {
-        note.remove();
-      }
-    }
-  }
+if (row instanceof HTMLElement) {
+var note = row.querySelector('.upsale-bxgy-lock-note');
+if (note instanceof HTMLElement) {
+note.remove();
+}
+}
+}
 
-  function lockGiftSelector(selector, quantity) {
-    if (!(selector instanceof HTMLElement) || !quantity) return;
+function lockGiftSelector(selector, quantity) {
+if (!(selector instanceof HTMLElement) || !quantity) return;
 
-    var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
-    var buttons = selector.querySelectorAll('button[ref="quantityButtons[]"], .quantity-button');
-    var row = selector.closest('tr[data-key], tr[data-product-id]');
+var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
+var buttons = selector.querySelectorAll('button[ref="quantityButtons[]"], .quantity-button');
+var row = selector.closest('tr[data-key], tr[data-product-id]');
 
-    selector.dataset.upsaleBxgyLocked = 'true';
-    selector.dataset.lockedQuantity = String(quantity);
+selector.dataset.upsaleBxgyLocked = 'true';
+selector.dataset.lockedQuantity = String(quantity);
 
-    if (input instanceof HTMLInputElement) {
-      input.value = String(quantity);
-      input.readOnly = true;
-      input.disabled = true;
-      input.setAttribute('aria-disabled', 'true');
-    }
+if (input instanceof HTMLInputElement) {
+input.value = String(quantity);
+input.readOnly = true;
+input.disabled = true;
+input.setAttribute('aria-disabled', 'true');
+}
 
-    buttons.forEach(function (button) {
-      if (button instanceof HTMLButtonElement) {
-        button.hidden = true;
-        button.disabled = true;
-      }
-    });
+buttons.forEach(function (button) {
+if (button instanceof HTMLButtonElement) {
+button.hidden = true;
+button.disabled = true;
+}
+});
 
-    if (row instanceof HTMLElement) {
-      var quantityCell = row.querySelector('.cart-items__quantity .flex');
-      if (quantityCell instanceof HTMLElement) {
-        var note = row.querySelector('.upsale-bxgy-lock-note');
-        if (!(note instanceof HTMLElement)) {
-          note = document.createElement('small');
-          note.className = 'upsale-bxgy-lock-note';
-          quantityCell.appendChild(note);
-        }
-        note.textContent = 'Free gift quantity is managed automatically.';
-      }
-    }
-  }
+if (row instanceof HTMLElement) {
+var quantityCell = row.querySelector('.cart-items__quantity .flex');
+if (quantityCell instanceof HTMLElement) {
+var note = row.querySelector('.upsale-bxgy-lock-note');
+if (!(note instanceof HTMLElement)) {
+note = document.createElement('small');
+note.className = 'upsale-bxgy-lock-note';
+quantityCell.appendChild(note);
+}
+note.textContent = 'Free gift quantity is managed automatically.';
+}
+}
+}
 
-  function applyGiftGuards(cart) {
-    var selectors = document.querySelectorAll('quantity-selector-component');
-    selectors.forEach(function (selector) {
-      resetGiftSelector(selector);
-    });
+function applyGiftGuards(cart) {
+var selectors = document.querySelectorAll('quantity-selector-component');
+selectors.forEach(function (selector) {
+resetGiftSelector(selector);
+});
 
-    selectors.forEach(function (selector) {
-      if (!(selector instanceof HTMLElement)) return;
-      var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
-      var line = input instanceof HTMLInputElement ? Number(input.dataset.cartLine || 0) : 0;
-      if (!line) return;
+selectors.forEach(function (selector) {
+if (!(selector instanceof HTMLElement)) return;
+var input = selector.querySelector('input[ref="quantityInput"], .quantity-input');
+var line = input instanceof HTMLInputElement ? Number(input.dataset.cartLine || 0) : 0;
+if (!line) return;
 
-      var quantity = getGiftLockQuantityByLine(cart, line);
-      if (!quantity) return;
+var quantity = getGiftLockQuantityByLine(cart, line);
+if (!quantity) return;
 
-      lockGiftSelector(selector, quantity);
-    });
-  }
+lockGiftSelector(selector, quantity);
+});
+}
 
-  function sync(cart, rules) {
-    if (!Array.isArray(rules) || !rules.length) return Promise.resolve(false);
+function sync(cart, rules) {
+if (!Array.isArray(rules) || !rules.length) return Promise.resolve(false);
 
-    var actions = [];
-    var trackedQualification = false;
+var actions = [];
+var trackedQualification = false;
 
-    rules.forEach(function (rule) {
-      if (!rule || !rule.giftVariantId || !rule.buyVariantIds || !rule.buyVariantIds.length) return;
+rules.forEach(function (rule) {
+if (!rule || !rule.giftVariantId || !rule.buyVariantIds || !rule.buyVariantIds.length) return;
 
-      var buyQty = totalQtyByVariants(cart, rule.buyVariantIds);
-      var giftLine = findAutoGiftLine(cart, rule.giftVariantId, rule.ruleId);
-      var manualGift = hasManualGift(cart, rule.giftVariantId);
-      var bundleCount = Math.floor(buyQty / Math.max(Number(rule.buyQuantity || 1), 1));
-      var desiredQty = manualGift ? 0 : bundleCount * Math.max(Number(rule.giftQuantity || 1), 1);
+var buyQty = totalQtyByVariants(cart, rule.buyVariantIds);
+var giftLine = findAutoGiftLine(cart, rule.giftVariantId, rule.ruleId);
+var manualGift = hasManualGift(cart, rule.giftVariantId);
+var bundleCount = Math.floor(buyQty / Math.max(Number(rule.buyQuantity || 1), 1));
+var desiredQty = manualGift ? 0 : bundleCount * Math.max(Number(rule.giftQuantity || 1), 1);
 
-      if (bundleCount > 0 && !trackedQualification) {
-        track(rule.ruleId, 'qualified');
-        trackedQualification = true;
-      }
+if (bundleCount > 0 && !trackedQualification) {
+track(rule.ruleId, 'qualified');
+trackedQualification = true;
+}
 
-      if (!giftLine && desiredQty > 0) {
-        actions.push(function () {
-          track(rule.ruleId, 'auto_added');
-          return post('/cart/add.js', {
-            id: rule.giftVariantId,
-            quantity: desiredQty,
-            properties: {
-              _bxgy: 'true',
-              _bxgy_rule_id: String(rule.ruleId)
-            }
-          }).then(function () {
-            var key = String(rule.ruleId) + ':' + String(rule.giftVariantId);
-            if (!seenToasts.has(key)) {
-              rememberToast(key);
-              showToast(rule.giftTitle || 'Free gift');
-            }
-          });
-        });
-        return;
-      }
+if (!giftLine && desiredQty > 0) {
+actions.push(function () {
+track(rule.ruleId, 'auto_added');
+return post('/cart/add.js', {
+id: rule.giftVariantId,
+quantity: desiredQty,
+properties: {
+_bxgy: 'true',
+_bxgy_rule_id: String(rule.ruleId)
+}
+}).then(function () {
+var key = String(rule.ruleId) + ':' + String(rule.giftVariantId);
+if (!seenToasts.has(key)) {
+rememberToast(key);
+showToast(rule.giftTitle || 'Free gift');
+}
+});
+});
+return;
+}
 
-      if (giftLine && desiredQty === 0) {
-        actions.push(function () {
-          return post('/cart/change.js', { id: giftLine.key, quantity: 0 });
-        });
-        return;
-      }
+if (giftLine && desiredQty === 0) {
+actions.push(function () {
+return post('/cart/change.js', { id: giftLine.key, quantity: 0 });
+});
+return;
+}
 
-      if (giftLine && desiredQty > 0 && Number(giftLine.quantity || 0) !== desiredQty) {
-        actions.push(function () {
-          return post('/cart/change.js', { id: giftLine.key, quantity: desiredQty });
-        });
-      }
-    });
+if (giftLine && desiredQty > 0 && Number(giftLine.quantity || 0) !== desiredQty) {
+actions.push(function () {
+return post('/cart/change.js', { id: giftLine.key, quantity: desiredQty });
+});
+}
+});
 
-    if (!actions.length) return Promise.resolve(false);
+if (!actions.length) return Promise.resolve(false);
 
-    var chain = Promise.resolve();
-    actions.forEach(function (action) {
-      chain = chain.then(function () { return action(); }).catch(function () { return null; });
-    });
-    return chain.then(function () { return true; });
-  }
+var chain = Promise.resolve();
+actions.forEach(function (action) {
+chain = chain.then(function () { return action(); }).catch(function () { return null; });
+});
+return chain.then(function () { return true; });
+}
 
-  function runSync() {
-    if (syncRunning) {
-      syncPending = true;
-      return;
-    }
-    syncRunning = true;
-    Promise.all([fetchCart(), loadRules()]).then(function (payload) {
-      var cart = payload[0];
-      latestCart = cart;
-      var rules = payload[1];
-      return sync(cart, rules).then(function (changed) {
-        return fetchCart().then(function (nextCart) {
-          latestCart = nextCart;
-          var gifts = (nextCart.items || []).filter(function (item) {
-            return item.properties && String(item.properties[GIFT_FLAG] || '') === 'true';
-          });
-          applyGiftGuards(nextCart);
-          renderFloating(gifts);
-          if (changed) refreshTheme();
-        });
-      });
-    }).catch(function () {})
-      .finally(function () {
-        syncRunning = false;
-        if (syncPending) {
-          syncPending = false;
-          runSync();
-        }
-      });
-  }
+function runSync() {
+if (syncRunning) {
+syncPending = true;
+return;
+}
+syncRunning = true;
+Promise.all([fetchCart(), loadRules()]).then(function (payload) {
+var cart = payload[0];
+latestCart = cart;
+var rules = payload[1];
+return sync(cart, rules).then(function (changed) {
+return fetchCart().then(function (nextCart) {
+latestCart = nextCart;
+var gifts = (nextCart.items || []).filter(function (item) {
+return item.properties && String(item.properties[GIFT_FLAG] || '') === 'true';
+});
+applyGiftGuards(nextCart);
+renderFloating(gifts);
+if (changed) refreshTheme();
+});
+});
+}).catch(function () {})
+.finally(function () {
+syncRunning = false;
+if (syncPending) {
+syncPending = false;
+runSync();
+}
+});
+}
 
-  ['cart:updated', 'cart:refresh', 'cart:change', 'cart-items-added', 'CartDrawer:AfterItemAdded', 'shopify:cart:updated', 'on:cart:add'].forEach(function (eventName) {
-    document.addEventListener(eventName, function () { setTimeout(runSync, 120); });
-  });
+['cart:updated', 'cart:refresh', 'cart:change', 'cart-items-added', 'CartDrawer:AfterItemAdded', 'shopify:cart:updated', 'on:cart:add'].forEach(function (eventName) {
+document.addEventListener(eventName, function () { setTimeout(runSync, 120); });
+});
 
-  document.addEventListener('click', function (event) {
-    var target = event.target;
-    if (!(target instanceof Element)) return;
+document.addEventListener('click', function (event) {
+var target = event.target;
+if (!(target instanceof Element)) return;
 
-    var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
-    if (!selector) return;
+var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
+if (!selector) return;
 
-    if (target.closest('.quantity-button')) {
-      event.preventDefault();
-      event.stopPropagation();
-      showToast('Free gift');
-    }
-  }, true);
+if (target.closest('.quantity-button')) {
+event.preventDefault();
+event.stopPropagation();
+showToast('Free gift');
+}
+}, true);
 
-  document.addEventListener('input', function (event) {
-    var target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
+document.addEventListener('input', function (event) {
+var target = event.target;
+if (!(target instanceof HTMLInputElement)) return;
 
-    var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
-    if (!selector) return;
+var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
+if (!selector) return;
 
-    event.preventDefault();
-    target.value = selector.dataset.lockedQuantity || target.value;
-  }, true);
+event.preventDefault();
+target.value = selector.dataset.lockedQuantity || target.value;
+}, true);
 
-  document.addEventListener('keydown', function (event) {
-    var target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
+document.addEventListener('keydown', function (event) {
+var target = event.target;
+if (!(target instanceof HTMLInputElement)) return;
 
-    var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
-    if (!selector) return;
+var selector = target.closest("quantity-selector-component[data-upsale-bxgy-locked='true']");
+if (!selector) return;
 
-    event.preventDefault();
-  }, true);
+event.preventDefault();
+}, true);
 
-  var originalFetch = window.fetch;
-  window.fetch = function (input) {
-    var request = originalFetch.apply(this, arguments);
-    var url = typeof input === 'string' ? input : (input && input.url) || '';
-    if (/\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
-      request.then(function () { setTimeout(runSync, 100); }).catch(function () {});
-    }
-    return request;
-  };
+var originalFetch = window.fetch;
+window.fetch = function (input) {
+var request = originalFetch.apply(this, arguments);
+var url = typeof input === 'string' ? input : (input && input.url) || '';
+if (/\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
+request.then(function () { setTimeout(runSync, 100); }).catch(function () {});
+}
+return request;
+};
 
-  var xhrOpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (method, url) {
-    if (typeof url === 'string' && /\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
-      this.addEventListener('load', function () { setTimeout(runSync, 100); });
-    }
-    return xhrOpen.apply(this, arguments);
-  };
+var xhrOpen = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function (method, url) {
+if (typeof url === 'string' && /\/cart\/(add|change|update|clear)(\.js)?/.test(url)) {
+this.addEventListener('load', function () { setTimeout(runSync, 100); });
+}
+return xhrOpen.apply(this, arguments);
+};
 
-  setTimeout(function () {
-    applyGiftGuards(latestCart);
-  }, 120);
+setTimeout(function () {
+applyGiftGuards(latestCart);
+}, 120);
 
-  runSync();
+runSync();
 })();
 </script>
 
 {% schema %}
 {
-  "name": "Gift Notification",
-  "target": "body",
-  "settings": [
-    {
-      "type": "text",
-      "id": "api_base",
-      "label": "App URL",
-      "default": "https://upsale-cyan.vercel.app"
-    },
-    {
-      "type": "text",
-      "id": "toast_title",
-      "label": "Toast title",
-      "default": "Free gift added!"
-    },
-    {
-      "type": "text",
-      "id": "banner_title",
-      "label": "Floating banner title",
-      "default": "Your free gift is in the cart"
-    }
-  ]
+"name": "Gift Notification",
+"target": "body",
+"settings": [
+{
+"type": "text",
+"id": "api_base",
+"label": "App URL",
+"default": "https://upsale-cyan.vercel.app"
+},
+{
+"type": "text",
+"id": "toast_title",
+"label": "Toast title",
+"default": "Free gift added!"
+},
+{
+"type": "text",
+"id": "banner_title",
+"label": "Floating banner title",
+"default": "Your free gift is in the cart"
+}
+]
 }
 {% endschema %}
