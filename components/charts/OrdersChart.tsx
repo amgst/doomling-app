@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -27,27 +27,34 @@ export default function OrdersChart({ data }: OrdersChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+      <AreaChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+        <defs>
+          <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#008060" stopOpacity={0.15} />
+            <stop offset="95%" stopColor="#008060" stopOpacity={0} />
+          </linearGradient>
+        </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#e4e5e7" />
         <XAxis
           dataKey="date"
           tick={{ fontSize: 12, fill: "#8c9196" }}
-          tickFormatter={(v: string) => v.slice(5)} // show "MM-DD"
+          tickFormatter={(v: string) => v.slice(5)}
         />
         <YAxis tick={{ fontSize: 12, fill: "#8c9196" }} allowDecimals={false} />
         <Tooltip
           formatter={(value: number) => [value, "Orders"]}
           labelStyle={{ fontWeight: 600 }}
         />
-        <Line
+        <Area
           type="monotone"
           dataKey="count"
           stroke="#008060"
           strokeWidth={2}
+          fill="url(#ordersGradient)"
           dot={false}
           activeDot={{ r: 4 }}
         />
-      </LineChart>
+      </AreaChart>
     </ResponsiveContainer>
   );
 }

@@ -14,23 +14,22 @@ const TABS = [
     ),
   },
   {
+    key: "stats",
+    label: "Statistics",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10" />
+        <line x1="12" y1="20" x2="12" y2="4" />
+        <line x1="6" y1="20" x2="6" y2="14" />
+      </svg>
+    ),
+  },
+  {
     key: "products",
     label: "Products",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-      </svg>
-    ),
-  },
-  {
-    key: "cartlimits",
-    label: "Cart Limits",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 5h6" />
-        <path d="M7 3h10v4H7z" />
-        <path d="M6 9h12l-1 11H7L6 9z" />
-        <path d="M10 13h4" />
       </svg>
     ),
   },
@@ -70,6 +69,28 @@ const TABS = [
     ),
   },
   {
+    key: "cartlimits",
+    label: "Cart Limits",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 5h6" />
+        <path d="M7 3h10v4H7z" />
+        <path d="M6 9h12l-1 11H7L6 9z" />
+        <path d="M10 13h4" />
+      </svg>
+    ),
+  },
+  {
+    key: "postpurchase",
+    label: "Post-Purchase",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    ),
+  },
+  {
     key: "geocountdown",
     label: "Geo Countdown",
     icon: (
@@ -92,28 +113,13 @@ const TABS = [
       </svg>
     ),
   },
-  {
-    key: "postpurchase",
-    label: "Post-Purchase",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 11l3 3L22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
-  {
-    key: "stats",
-    label: "Statistics",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
-      </svg>
-    ),
-  },
 ] as const;
+
+const NAV_GROUPS: { label: string; keys: Array<typeof TABS[number]["key"]> }[] = [
+  { label: "Analytics", keys: ["overview", "stats"] },
+  { label: "Features", keys: ["products", "upsells", "buyxgety", "bundles", "cartlimits", "postpurchase", "geocountdown"] },
+  { label: "Tools", keys: ["themeswitcher"] },
+];
 
 type TabKey = typeof TABS[number]["key"];
 
@@ -208,48 +214,57 @@ export default function DashboardShell({
         )}
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: "1rem 0.75rem" }}>
-          <p style={{
-            margin: "0 0 0.5rem 0.5rem",
-            fontSize: "0.68rem",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            color: "#9ca3af",
-          }}>Main Menu</p>
-          {TABS.map(t => {
-            const active = tab === t.key;
+        <nav style={{ flex: 1, padding: "0.75rem 0.75rem" }}>
+          {NAV_GROUPS.map((group, gi) => {
+            const groupTabs = TABS.filter(t => (group.keys as readonly string[]).includes(t.key));
             return (
-              <button
-                key={t.key}
-                onClick={() => router.push(`/dashboard/${t.key}`)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.65rem",
-                  padding: "0.6rem 0.75rem",
-                  marginBottom: "0.15rem",
-                  borderRadius: "8px",
-                  border: "none",
-                  background: active ? "#fef3c7" : "transparent",
-                  color: active ? "#92400e" : "#4b5563",
-                  fontWeight: active ? 600 : 400,
-                  fontSize: "0.875rem",
-                  cursor: "pointer",
-                  textAlign: "left" as const,
-                  transition: "background 0.15s, color 0.15s",
-                }}
-                onMouseEnter={e => {
-                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "#f9fafb";
-                }}
-                onMouseLeave={e => {
-                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                }}
-              >
-                <span style={{ flexShrink: 0, opacity: active ? 1 : 0.6 }}>{t.icon}</span>
-                {t.label}
-              </button>
+              <div key={group.label} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? "1rem" : 0 }}>
+                <p style={{
+                  margin: "0 0 0.3rem 0.5rem",
+                  fontSize: "0.67rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.09em",
+                  color: "#9ca3af",
+                }}>{group.label}</p>
+                {groupTabs.map(t => {
+                  const active = tab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => router.push(`/dashboard/${t.key}`)}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.65rem",
+                        padding: "0.55rem 0.75rem",
+                        paddingLeft: active ? "calc(0.75rem - 3px)" : "0.75rem",
+                        marginBottom: "0.1rem",
+                        borderRadius: "8px",
+                        border: "none",
+                        borderLeft: active ? "3px solid #008060" : "3px solid transparent",
+                        background: active ? "#ecfdf5" : "transparent",
+                        color: active ? "#065f46" : "#4b5563",
+                        fontWeight: active ? 600 : 400,
+                        fontSize: "0.875rem",
+                        cursor: "pointer",
+                        textAlign: "left" as const,
+                        transition: "background 0.15s, color 0.15s",
+                      }}
+                      onMouseEnter={e => {
+                        if (!active) (e.currentTarget as HTMLButtonElement).style.background = "#f9fafb";
+                      }}
+                      onMouseLeave={e => {
+                        if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                      }}
+                    >
+                      <span style={{ flexShrink: 0, color: active ? "#008060" : "currentColor", opacity: active ? 1 : 0.55 }}>{t.icon}</span>
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
