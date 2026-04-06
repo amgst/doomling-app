@@ -37,6 +37,9 @@ const PostPurchaseTab = dynamic(() => import("./tabs/PostPurchaseTab"), {
 const StatsTab = dynamic(() => import("./tabs/StatsTab"), {
   loading: () => <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading stats...</div>,
 });
+const QaLabTab = dynamic(() => import("./tabs/QaLabTab"), {
+  loading: () => <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading QA lab...</div>,
+});
 
 const VALID_TABS = [
   "overview",
@@ -50,6 +53,7 @@ const VALID_TABS = [
   "themeswitcher",
   "postpurchase",
   "stats",
+  "qalab",
 ] as const;
 
 type Tab = (typeof VALID_TABS)[number];
@@ -88,6 +92,7 @@ export default function StandaloneDashboardApp({ activeTab }: { activeTab: Tab }
       {tab === "themeswitcher" && <LaunchpadTab />}
       {tab === "postpurchase" && <PostPurchaseTab />}
       {tab === "stats" && <StatsTab />}
+      {tab === "qalab" && <QaLabTab shopDomain={shopInfo?.shop} storeUrl={shopInfo?.storeUrl} />}
     </DashboardShell>
   );
 }

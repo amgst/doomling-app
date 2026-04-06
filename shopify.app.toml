@@ -23,8 +23,10 @@ embedded = false
 
 [metaobjects.app.upsell_rule]
 name = "Upsell rule"
-access.admin = "merchant_read_write"
-access.storefront = "public_read"
+
+  [metaobjects.app.upsell_rule.access]
+  admin = "merchant_read_write"
+  storefront = "public_read"
 
 [metaobjects.app.upsell_rule.fields.enabled]
 name = "Enabled"

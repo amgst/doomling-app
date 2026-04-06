@@ -13,6 +13,7 @@ const VALID_TABS = [
   "themeswitcher",
   "postpurchase",
   "stats",
+  "qalab",
 ] as const;
 
 type Tab = (typeof VALID_TABS)[number];
