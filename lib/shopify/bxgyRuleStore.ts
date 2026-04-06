@@ -17,6 +17,7 @@ export interface BxgyRule {
   giftProduct: BxgyProduct | null;
   buyQuantity: number;
   giftQuantity: number;
+  limitOneGiftPerOrder: boolean;
   message: string;
   autoAdd: boolean;
   priority: number;
@@ -84,6 +85,7 @@ async function ensureBxgyDefinition(shop: string, accessToken: string) {
           { name: "Gift product", key: "gift_product", type: "multi_line_text_field" },
           { name: "Buy quantity", key: "buy_quantity", type: "number_integer" },
           { name: "Gift quantity", key: "gift_quantity", type: "number_integer" },
+          { name: "Limit to one gift per order", key: "limit_one_gift_per_order", type: "boolean" },
           { name: "Message", key: "message", type: "multi_line_text_field" },
           { name: "Auto add", key: "auto_add", type: "boolean" },
           { name: "Priority", key: "priority", type: "number_integer" },
@@ -117,6 +119,7 @@ function mapRule(handle: string, fields: Array<{ key: string; value: string }>):
     giftProduct: giftProduct?.productId && giftProduct?.variantId ? giftProduct : null,
     buyQuantity: normalizePositiveInt(getFieldValue(fields, "buy_quantity"), 1),
     giftQuantity: normalizePositiveInt(getFieldValue(fields, "gift_quantity"), 1),
+    limitOneGiftPerOrder: String(getFieldValue(fields, "limit_one_gift_per_order") ?? "false") === "true",
     message: String(getFieldValue(fields, "message") ?? "").trim(),
     autoAdd: String(getFieldValue(fields, "auto_add") ?? "true") !== "false",
     priority: normalizePositiveInt(getFieldValue(fields, "priority"), 1),
@@ -171,6 +174,7 @@ export async function upsertBxgyRule(
     { key: "gift_product", value: JSON.stringify(rule.giftProduct) },
     { key: "buy_quantity", value: String(normalizePositiveInt(rule.buyQuantity, 1)) },
     { key: "gift_quantity", value: String(normalizePositiveInt(rule.giftQuantity, 1)) },
+    { key: "limit_one_gift_per_order", value: rule.limitOneGiftPerOrder === true ? "true" : "false" },
     { key: "message", value: rule.message?.trim() || "" },
     { key: "auto_add", value: rule.autoAdd === false ? "false" : "true" },
     { key: "priority", value: String(normalizePositiveInt(rule.priority, 1)) },

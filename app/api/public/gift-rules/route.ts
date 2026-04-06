@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
         message: rule.message,
         buyQuantity: rule.buyQuantity,
         giftQuantity: rule.giftQuantity,
+        limitOneGiftPerOrder: rule.limitOneGiftPerOrder === true,
         priority: rule.priority,
         buyVariantIds: rule.buyProducts.map((product) => String(product.variantId)),
         giftVariantId: String(rule.giftProduct?.variantId ?? ""),

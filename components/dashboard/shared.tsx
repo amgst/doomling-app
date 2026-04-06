@@ -332,6 +332,7 @@ export interface BxgyRule {
   giftProduct: BxgyProduct | null;
   buyQuantity: number;
   giftQuantity: number;
+  limitOneGiftPerOrder: boolean;
   message: string;
   autoAdd: boolean;
   priority: number;

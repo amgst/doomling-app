@@ -68,6 +68,7 @@ export default function BuyXGetYTabPolaris() {
   const [name, setName] = useState("Cart gift");
   const [buyQuantity, setBuyQuantity] = useState("1");
   const [giftQuantity, setGiftQuantity] = useState("1");
+  const [limitOneGiftPerOrder, setLimitOneGiftPerOrder] = useState(false);
   const [message, setMessage] = useState("Free gift added automatically when the rule qualifies.");
   const [priority, setPriority] = useState("1");
   const [autoAdd, setAutoAdd] = useState(true);
@@ -151,6 +152,7 @@ export default function BuyXGetYTabPolaris() {
     setBuyQuantity("1");
     setGiftQuantity("1");
     setMessage("Free gift added automatically when the rule qualifies.");
+    setLimitOneGiftPerOrder(false);
     setPriority("1");
     setAutoAdd(true);
     setBuyProductIds([""]);
@@ -200,6 +202,7 @@ export default function BuyXGetYTabPolaris() {
         giftProduct,
         buyQuantity,
         giftQuantity,
+        limitOneGiftPerOrder,
         message,
         priority,
         autoAdd,
@@ -304,7 +307,7 @@ export default function BuyXGetYTabPolaris() {
             {[
               { label: "Buy triggers", value: `${selectedTriggerCount || 0} selected` },
               { label: "Gift product", value: selectedGiftLabel },
-              { label: "Rule outcome", value: `Buy ${buyQuantity || "1"}, get ${giftQuantity || "1"}` },
+              { label: "Rule outcome", value: limitOneGiftPerOrder ? "One free gift max" : `Buy ${buyQuantity || "1"}, get ${giftQuantity || "1"}` },
             ].map((item) => (
               <Card key={item.label}>
                 <BlockStack gap="100">
@@ -333,6 +336,7 @@ export default function BuyXGetYTabPolaris() {
                   <TextField label="Gift quantity" type="number" min={1} value={giftQuantity} onChange={setGiftQuantity} autoComplete="off" />
                 </InlineGrid>
                 <TextField label="Gift message" value={message} onChange={setMessage} autoComplete="off" />
+                <Checkbox label="Limit to one gift per cart even if more items qualify" checked={limitOneGiftPerOrder} onChange={setLimitOneGiftPerOrder} />
                 <Checkbox label="Auto-add gift when the rule qualifies" checked={autoAdd} onChange={setAutoAdd} />
               </BlockStack>
             </Card>
@@ -475,7 +479,7 @@ export default function BuyXGetYTabPolaris() {
                   </InlineStack>
                 </IndexTable.Cell>
                 <IndexTable.Cell>
-                  <Text as="p" variant="bodySm">Buy {rule.buyQuantity}, get {rule.giftQuantity}</Text>
+                  <Text as="p" variant="bodySm">{rule.limitOneGiftPerOrder ? `Buy ${rule.buyQuantity}, get ${rule.giftQuantity} once per cart` : `Buy ${rule.buyQuantity}, get ${rule.giftQuantity}`}</Text>
                 </IndexTable.Cell>
                 <IndexTable.Cell>
                   <Badge>{String(rule.priority)}</Badge>

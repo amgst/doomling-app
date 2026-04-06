@@ -37,6 +37,7 @@ function buildConfig(rules: BxgyRule[]) {
         giftVariantId: variantGidFromId(rule.giftProduct?.variantId ?? ""),
         buyQuantity: rule.buyQuantity,
         giftQuantity: rule.giftQuantity,
+        limitOneGiftPerOrder: rule.limitOneGiftPerOrder === true,
       }))
       .filter((rule) => rule.buyVariantIds.length > 0 && rule.giftVariantId),
   };

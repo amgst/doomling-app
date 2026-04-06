@@ -300,12 +300,53 @@ function fetchCart() {
 return nativeFetch('/cart.js', { cache: 'no-store' }).then(function (r) { return r.json(); });
 }
 
+function getCartSectionIds() {
+var sections = [];
+document.querySelectorAll('cart-items-component[data-section-id], cart-discount[data-section-id]').forEach(function (element) {
+if (!(element instanceof HTMLElement)) return;
+var sectionId = element.dataset.sectionId;
+if (sectionId && sections.indexOf(sectionId) === -1) {
+sections.push(sectionId);
+}
+});
+return sections;
+}
+
+function dispatchCartUpdate(payload) {
+document.dispatchEvent(new CustomEvent('cart:update', {
+bubbles: true,
+detail: {
+resource: {},
+sourceId: 'upsale-bxgy-widget',
+data: payload || {}
+}
+}));
+}
+
 function post(path, payload) {
+var body = Object.assign({}, payload || {});
+var sections = getCartSectionIds();
+if (sections.length) {
+body.sections = sections;
+body.sections_url = window.location.pathname;
+}
+
 return nativeFetch(path, {
 method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(payload || {})
-}).then(function (r) { return r.ok ? r.json() : null; });
+headers: {
+'Content-Type': 'application/json',
+Accept: 'application/json'
+},
+body: JSON.stringify(body)
+}).then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+if (data && data.sections) {
+dispatchCartUpdate({
+source: 'upsale-bxgy-widget',
+sections: data.sections
+});
+}
+return data;
+});
 }
 
 function track(ruleId, event) {
@@ -529,9 +570,11 @@ var bundleCount = Math.floor(buyQty / Math.max(Number(rule.buyQuantity || 1), 1)
 if (bundleCount <= 0) {
 clearDismissedGift(rule.ruleId, rule.giftVariantId);
 }
+var scaledGiftQty = bundleCount * Math.max(Number(rule.giftQuantity || 1), 1);
+var cappedGiftQty = buyQty >= Math.max(Number(rule.buyQuantity || 1), 1) ? Math.max(Number(rule.giftQuantity || 1), 1) : 0;
 var desiredQty = (manualGift || isGiftDismissed(rule.ruleId, rule.giftVariantId, buyQty))
 ? 0
-: bundleCount * Math.max(Number(rule.giftQuantity || 1), 1);
+: (rule.limitOneGiftPerOrder ? cappedGiftQty : scaledGiftQty);
 
 if (bundleCount > 0 && !trackedQualification) {
 track(rule.ruleId, 'qualified');

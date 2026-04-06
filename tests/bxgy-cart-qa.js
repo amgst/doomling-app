@@ -12,6 +12,7 @@ const RULE = {
   giftVariantId: "gift-1",
   buyQuantity: 1,
   giftQuantity: 1,
+  limitOneGiftPerOrder: false,
 };
 
 function line(variantId, quantity, properties = {}) {
@@ -135,6 +136,22 @@ const cases = [
       const dismissed = updateDismissedState(prevCart, nextCart, RULE, {}, now);
       const result = evaluateRule(nextCart, RULE, dismissed, now + (31 * 60 * 1000));
       assert.equal(result.desiredQty, 1);
+      assert.equal(result.shouldAdd, true);
+    },
+  },
+  {
+    name: "single-gift mode caps reward even when multiple qualifying items are present",
+    run() {
+      const result = evaluateRule(cart([line("buy-1", 3)]), { ...RULE, limitOneGiftPerOrder: true });
+      assert.equal(result.desiredQty, 1);
+      assert.equal(result.shouldAdd, true);
+    },
+  },
+  {
+    name: "default mode still scales gift quantity with qualifying items",
+    run() {
+      const result = evaluateRule(cart([line("buy-1", 3)]), RULE);
+      assert.equal(result.desiredQty, 3);
       assert.equal(result.shouldAdd, true);
     },
   },

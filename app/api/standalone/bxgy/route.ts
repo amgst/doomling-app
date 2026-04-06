@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
       giftProduct: body.giftProduct ?? null,
       buyQuantity: Number(body.buyQuantity) || 1,
       giftQuantity: Number(body.giftQuantity) || 1,
+      limitOneGiftPerOrder: body.limitOneGiftPerOrder === true,
       message: body.message || "",
       autoAdd: body.autoAdd !== false,
       priority: Number(body.priority) || 1,
