@@ -15,6 +15,7 @@ import {
   IndexTable,
   InlineGrid,
   InlineStack,
+  Modal,
   Select,
   Text,
   TextField,
@@ -72,6 +73,7 @@ export default function BuyXGetYTabPolaris() {
   const [message, setMessage] = useState("Free gift added automatically when the rule qualifies.");
   const [priority, setPriority] = useState("1");
   const [autoAdd, setAutoAdd] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [buyProductIds, setBuyProductIds] = useState<string[]>([""]);
   const [buyVariantIds, setBuyVariantIds] = useState<string[]>([""]);
   const [giftProductId, setGiftProductId] = useState("");
@@ -281,84 +283,69 @@ export default function BuyXGetYTabPolaris() {
         </InlineGrid>
       )}
 
-      {/* Simple merchant docs */}
       <Card>
-        <BlockStack gap="400">
-          <BlockStack gap="100">
-            <Text as="p" variant="bodySm" tone="subdued">BXGY guide</Text>
-            <Text as="h2" variant="headingLg">How this works</Text>
-            <Text as="p" variant="bodyMd" tone="subdued">
-              This section helps you create a simple offer: when a shopper buys a certain product, your app can
-              automatically place a free gift in the cart.
+        <InlineStack align="space-between" blockAlign="center" gap="300">
+          <BlockStack gap="050">
+            <Text as="p" variant="bodyMd" fontWeight="semibold">Do you need any help?</Text>
+            <Text as="p" variant="bodySm" tone="subdued">
+              You can open our quick guide to understand this section, read simple examples, and get help with setup.
             </Text>
           </BlockStack>
-
-          <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h3" variant="headingMd">What each part means</Text>
-                <BlockStack gap="150">
-                  <Text as="p" variant="bodyMd">
-                    <strong>Main product:</strong> the product the shopper must buy to unlock the offer.
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Buy quantity:</strong> how many of the main product the shopper must add before the gift is unlocked.
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Gift product:</strong> the free item the shopper receives.
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Gift quantity:</strong> how many free gift items the shopper receives when the rule is unlocked.
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Limit to one gift per cart:</strong> if turned on, the shopper receives the gift only once, even if they add more qualifying items.
-                  </Text>
-                </BlockStack>
-              </BlockStack>
-            </Card>
-
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h3" variant="headingMd">Simple examples</Text>
-                <BlockStack gap="150">
-                  <Text as="p" variant="bodyMd">
-                    <strong>Buy 1, get 1:</strong> shopper adds 1 main product and receives 1 free gift.
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Buy 3, get 1:</strong> shopper must add 3 of the main product before the free gift appears.
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Buy 3, get 3:</strong> shopper must add 3 of the main product, then receives 3 free gifts.
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Buy 3, get 3 once only:</strong> turn on the gift limit option if you want the shopper to receive only one batch of 3 gifts, even if they buy more.
-                  </Text>
-                </BlockStack>
-              </BlockStack>
-            </Card>
-          </InlineGrid>
-
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h3" variant="headingMd">Good to know</Text>
-              <BlockStack gap="150">
-                <Text as="p" variant="bodyMd">
-                  Choose the <strong>Main product</strong> and <strong>Gift product</strong> carefully. They should usually be different products.
-                </Text>
-                <Text as="p" variant="bodyMd">
-                  If you want the gift to keep increasing as the shopper adds more qualifying items, leave the gift limit option turned off.
-                </Text>
-                <Text as="p" variant="bodyMd">
-                  If you want a cleaner promotion like “one free gift per order,” turn the gift limit option on.
-                </Text>
-                <Text as="p" variant="bodyMd">
-                  After saving a rule, test it once on the storefront to make sure the cart behaves the way you expect.
-                </Text>
-              </BlockStack>
-            </BlockStack>
-          </Card>
-        </BlockStack>
+          <Button variant="secondary" onClick={() => setHelpOpen(true)}>
+            Help
+          </Button>
+        </InlineStack>
       </Card>
+
+      <Modal
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        title="Help"
+        primaryAction={{ content: "Close", onAction: () => setHelpOpen(false) }}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Text as="p" variant="bodyMd" tone="subdued">
+              This guide explains the basics of Buy X Get Y in simple language so you can set up the offer with confidence.
+            </Text>
+
+            <BlockStack gap="200">
+              <Text as="h3" variant="headingMd">Getting started</Text>
+              <Text as="p" variant="bodyMd">
+                Choose a <strong>Main product</strong>, choose a <strong>Gift product</strong>, then decide how many
+                of the main product the shopper must buy before the gift is unlocked.
+              </Text>
+              <Text as="p" variant="bodyMd">
+                Once the shopper qualifies, the app can automatically place the free gift into the cart for them.
+              </Text>
+            </BlockStack>
+
+            <BlockStack gap="200">
+              <Text as="h3" variant="headingMd">Field guide</Text>
+              <Text as="p" variant="bodyMd"><strong>Main product:</strong> the product the shopper must buy to unlock the offer.</Text>
+              <Text as="p" variant="bodyMd"><strong>Buy quantity:</strong> how many of the main product the shopper must add before the gift is unlocked.</Text>
+              <Text as="p" variant="bodyMd"><strong>Gift product:</strong> the free item the shopper receives.</Text>
+              <Text as="p" variant="bodyMd"><strong>Gift quantity:</strong> how many free gift items the shopper receives when the offer is unlocked.</Text>
+              <Text as="p" variant="bodyMd"><strong>Limit to one gift per cart:</strong> if turned on, the shopper receives the gift only once, even if they add more qualifying items.</Text>
+            </BlockStack>
+
+            <BlockStack gap="200">
+              <Text as="h3" variant="headingMd">Examples</Text>
+              <Text as="p" variant="bodyMd"><strong>Buy 1, get 1:</strong> shopper adds 1 main product and receives 1 free gift.</Text>
+              <Text as="p" variant="bodyMd"><strong>Buy 3, get 1:</strong> shopper must add 3 of the main product before the free gift appears.</Text>
+              <Text as="p" variant="bodyMd"><strong>Buy 3, get 3:</strong> shopper must add 3 of the main product, then receives 3 free gifts.</Text>
+              <Text as="p" variant="bodyMd"><strong>Buy 3, get 3 once only:</strong> turn on the gift limit option if you want the shopper to receive only one batch of 3 gifts, even if they buy more.</Text>
+            </BlockStack>
+
+            <BlockStack gap="200">
+              <Text as="h3" variant="headingMd">Common questions</Text>
+              <Text as="p" variant="bodyMd"><strong>Should the main product and gift product be different?</strong> Yes, in most cases that is the cleanest setup.</Text>
+              <Text as="p" variant="bodyMd"><strong>When should I use the gift limit option?</strong> Turn it on if you want a simple promotion like one free gift per order.</Text>
+              <Text as="p" variant="bodyMd"><strong>What should I do after saving a rule?</strong> Test it once on the storefront to make sure the cart behaves the way you expect.</Text>
+            </BlockStack>
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
 
       {/* Create rule form */}
       <Card>
