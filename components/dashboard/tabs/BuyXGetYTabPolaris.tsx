@@ -15,7 +15,6 @@ import {
   IndexTable,
   InlineGrid,
   InlineStack,
-  Modal,
   Select,
   Text,
   TextField,
@@ -24,6 +23,7 @@ import {
 } from "@shopify/polaris";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
+import FeatureHelpCard from "@/components/dashboard/FeatureHelpCard";
 import PolarisProvider from "@/components/PolarisProvider";
 import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
 import {
@@ -74,7 +74,6 @@ export default function BuyXGetYTabPolaris() {
   const [message, setMessage] = useState("Free gift added automatically when the rule qualifies.");
   const [priority, setPriority] = useState("1");
   const [autoAdd, setAutoAdd] = useState(true);
-  const [helpOpen, setHelpOpen] = useState(false);
   const [buyProductIds, setBuyProductIds] = useState<string[]>([""]);
   const [buyVariantIds, setBuyVariantIds] = useState<string[]>([""]);
   const [giftProductId, setGiftProductId] = useState("");
@@ -298,92 +297,6 @@ export default function BuyXGetYTabPolaris() {
           ))}
         </InlineGrid>
       )}
-
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid #dfe3e8",
-          borderRadius: 18,
-          padding: "1.15rem 1.3rem",
-          boxShadow: "0 8px 20px rgba(15, 23, 42, 0.04)",
-        }}
-      >
-        <BlockStack gap="200">
-          <Text as="p" variant="headingMd">Do you need any help?</Text>
-          <Text as="p" variant="bodyMd" tone="subdued">
-            You can browse our app guide to understand this section, read common questions, and get simple setup help whenever you need it.
-          </Text>
-          <div>
-            <button
-              type="button"
-              onClick={() => setHelpOpen(true)}
-              style={{
-                border: "1px solid #111827",
-                borderRadius: 10,
-                background: "#1f2937",
-                color: "#fff",
-                padding: "0.5rem 0.9rem",
-                fontSize: "0.95rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                boxShadow: "0 2px 0 rgba(17, 24, 39, 0.35)",
-              }}
-            >
-              Help
-            </button>
-          </div>
-        </BlockStack>
-      </div>
-
-      <Modal
-        open={helpOpen}
-        onClose={() => setHelpOpen(false)}
-        title="Help"
-        primaryAction={{ content: "Close", onAction: () => setHelpOpen(false) }}
-      >
-        <Modal.Section>
-          <BlockStack gap="400">
-            <Text as="p" variant="bodyMd" tone="subdued">
-              This guide explains the basics of Buy X Get Y in simple language so you can set up the offer with confidence.
-            </Text>
-
-            <BlockStack gap="200">
-              <Text as="h3" variant="headingMd">Getting started</Text>
-              <Text as="p" variant="bodyMd">
-                Choose a <strong>Main product</strong>, choose a <strong>Gift product</strong>, then decide how many
-                of the main product the shopper must buy before the gift is unlocked.
-              </Text>
-              <Text as="p" variant="bodyMd">
-                Once the shopper qualifies, the app can automatically place the free gift into the cart for them.
-              </Text>
-            </BlockStack>
-
-            <BlockStack gap="200">
-              <Text as="h3" variant="headingMd">Field guide</Text>
-              <Text as="p" variant="bodyMd"><strong>Main product:</strong> the product the shopper must buy to unlock the offer.</Text>
-              <Text as="p" variant="bodyMd"><strong>Buy quantity:</strong> how many of the main product the shopper must add before the gift is unlocked.</Text>
-              <Text as="p" variant="bodyMd"><strong>Gift product:</strong> the free item the shopper receives.</Text>
-              <Text as="p" variant="bodyMd"><strong>Gift quantity:</strong> how many free gift items the shopper receives when the offer is unlocked.</Text>
-              <Text as="p" variant="bodyMd"><strong>Limit to one gift per cart:</strong> if turned on, the shopper receives the gift only once, even if they add more qualifying items.</Text>
-            </BlockStack>
-
-            <BlockStack gap="200">
-              <Text as="h3" variant="headingMd">Examples</Text>
-              <Text as="p" variant="bodyMd"><strong>Buy 1, get 1:</strong> shopper adds 1 main product and receives 1 free gift.</Text>
-              <Text as="p" variant="bodyMd"><strong>Buy 3, get 1:</strong> shopper must add 3 of the main product before the free gift appears.</Text>
-              <Text as="p" variant="bodyMd"><strong>Buy 3, get 3:</strong> shopper must add 3 of the main product, then receives 3 free gifts.</Text>
-              <Text as="p" variant="bodyMd"><strong>Buy 3, get 3 once only:</strong> turn on the gift limit option if you want the shopper to receive only one batch of 3 gifts, even if they buy more.</Text>
-            </BlockStack>
-
-            <BlockStack gap="200">
-              <Text as="h3" variant="headingMd">Common questions</Text>
-              <Text as="p" variant="bodyMd"><strong>Should the main product and gift product be different?</strong> Yes, in most cases that is the cleanest setup.</Text>
-              <Text as="p" variant="bodyMd"><strong>When should I use the gift limit option?</strong> Turn it on if you want a simple promotion like one free gift per order.</Text>
-              <Text as="p" variant="bodyMd"><strong>What should I do after saving a rule?</strong> Test it once on the storefront to make sure the cart behaves the way you expect.</Text>
-            </BlockStack>
-          </BlockStack>
-        </Modal.Section>
-      </Modal>
 
       {/* Create rule form */}
       <Card>
@@ -620,6 +533,42 @@ export default function BuyXGetYTabPolaris() {
           )}
         </BlockStack>
       </Card>
+
+      <FeatureHelpCard
+        intro="You can browse our app guide to understand this section, read common questions, and get simple setup help whenever you need it."
+        sections={[
+          {
+            title: "Getting started",
+            body: [
+              "Choose a main product, choose a gift product, then decide how many of the main product the shopper must buy before the gift is unlocked.",
+              "Once the shopper qualifies, the app can automatically place the free gift into the cart for them.",
+            ],
+          },
+          {
+            title: "Field guide",
+            body: [
+              "Main product is the product the shopper must buy to unlock the offer. Buy quantity is how many they must add before the gift is unlocked.",
+              "Gift product is the free item the shopper receives. Gift quantity is how many free gift items they receive when the offer is unlocked.",
+              "Turn on the gift limit option if you want the shopper to receive the gift only once, even if they add more qualifying items.",
+            ],
+          },
+          {
+            title: "Examples",
+            body: [
+              "Buy 1, get 1 means the shopper adds 1 main product and receives 1 free gift.",
+              "Buy 3, get 3 means the shopper must add 3 of the main product, then receives 3 free gifts.",
+              "If you want only one batch of gifts per cart, turn on the limit option.",
+            ],
+          },
+          {
+            title: "Common questions",
+            body: [
+              "In most cases the main product and gift product should be different products.",
+              "After saving a rule, test it once on the storefront to make sure the cart behaves the way you expect.",
+            ],
+          },
+        ]}
+      />
 
     </BlockStack>
   );

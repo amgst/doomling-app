@@ -22,6 +22,7 @@ import {
 } from "@shopify/polaris";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
+import FeatureHelpCard from "@/components/dashboard/FeatureHelpCard";
 import PolarisProvider from "@/components/PolarisProvider";
 import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
 import {
@@ -304,6 +305,42 @@ export default function BundleOffersTab() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div style={{ marginTop: "1.5rem" }}>
+        <FeatureHelpCard
+          intro="You can browse our app guide to understand bundle offers, read simple examples, and get setup help whenever you need it."
+          sections={[
+            {
+              title: "Getting started",
+              body: [
+                "Choose the bundle product you want to promote, then set the public discount code and the discounted storefront price.",
+                "The app uses a real Shopify discount code so the offer stays clean through cart and checkout.",
+              ],
+            },
+            {
+              title: "Field guide",
+              body: [
+                "Offer name is for your team. Public discount code is what the shopper sees in cart and checkout.",
+                "Compare-at price shows the original value and discounted storefront price shows the promoted bundle price.",
+              ],
+            },
+            {
+              title: "Examples",
+              body: [
+                "You can set up a starter bundle with a higher original value and a lower storefront bundle price.",
+                "A short, memorable code like ULTIMATE makes the offer easier to understand in cart and checkout.",
+              ],
+            },
+            {
+              title: "Common questions",
+              body: [
+                "Enable the Bundle Offers app embed in the theme so shoppers can see the bundle price preview on the storefront.",
+                "After saving the offer, visit the product page once to make sure the sale preview and code behavior look correct.",
+              ],
+            },
+          ]}
+        />
       </div>
     </>
   );

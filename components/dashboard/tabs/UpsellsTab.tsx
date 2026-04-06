@@ -22,6 +22,7 @@ import {
 } from "@shopify/polaris";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
+import FeatureHelpCard from "@/components/dashboard/FeatureHelpCard";
 import PolarisProvider from "@/components/PolarisProvider";
 import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
 import {
@@ -520,6 +521,42 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div style={{ marginTop: "1.5rem" }}>
+        <FeatureHelpCard
+          intro="You can browse our app guide to understand upsells, read simple examples, and get setup help whenever you need it."
+          sections={[
+            {
+              title: "Getting started",
+              body: [
+                "Choose the trigger product first. This is the product the shopper is already viewing or buying.",
+                "Then add one or more suggestion products that you want to recommend as upsells.",
+              ],
+            },
+            {
+              title: "Field guide",
+              body: [
+                "Campaign name is your internal label. It helps your team recognize the upsell later.",
+                "Suggested products are the items shown to the shopper. You can also add a discount percent or a short badge if needed.",
+              ],
+            },
+            {
+              title: "Examples",
+              body: [
+                "If the shopper views a card game, you can suggest sleeves, a playmat, or an expansion pack.",
+                "A small discount or a short badge like Best value can help the suggestion stand out.",
+              ],
+            },
+            {
+              title: "Common questions",
+              body: [
+                "Do not use the same product as both the trigger and the suggestion. The app expects them to be different products.",
+                "After saving the rule, visit the storefront product page once to make sure the recommendation appears the way you expect.",
+              ],
+            },
+          ]}
+        />
       </div>
     </>
   );

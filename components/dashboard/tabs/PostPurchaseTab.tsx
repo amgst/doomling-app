@@ -22,6 +22,7 @@ import {
 } from "@shopify/polaris";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
+import FeatureHelpCard from "@/components/dashboard/FeatureHelpCard";
 import PolarisProvider from "@/components/PolarisProvider";
 import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
 import {
@@ -544,6 +545,40 @@ export default function PostPurchaseTab() {
             </div>
           )}
         </div>
+
+        <FeatureHelpCard
+          intro="You can browse our app guide to understand post-purchase offers, read simple examples, and get setup help whenever you need it."
+          sections={[
+            {
+              title: "Getting started",
+              body: [
+                "Choose the product you want to show after checkout, then write a short headline and button label for the offer.",
+                "You can show the offer to all orders, only after certain products are purchased, or only after a minimum subtotal is reached.",
+              ],
+            },
+            {
+              title: "Field guide",
+              body: [
+                "Offer product is the item the customer can add after checkout without starting over.",
+                "Priority controls which offer should run first if more than one offer could apply at the same time.",
+              ],
+            },
+            {
+              title: "Examples",
+              body: [
+                "After a shopper buys a base game, you can offer an expansion or accessory with a small discount.",
+                "You can also create a higher-value offer that appears only when the order subtotal is above a certain amount.",
+              ],
+            },
+            {
+              title: "Common questions",
+              body: [
+                "Keep the message short and clear so shoppers can understand the offer quickly after checkout.",
+                "After saving the offer, test a checkout once to confirm the offer appears for the right kind of order.",
+              ],
+            },
+          ]}
+        />
       </>
     </PolarisProvider>
   );
