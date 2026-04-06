@@ -93,12 +93,6 @@ export default function BuyXGetYTabPolaris() {
       .finally(() => setLoading(false));
   }, []);
 
-  const addBuyTrigger = () => {
-    if (buyProductIds.length >= 6) return;
-    setBuyProductIds((current) => [...current, ""]);
-    setBuyVariantIds((current) => [...current, ""]);
-  };
-
   const getSelectedVariantId = (productId: string, variantId?: string) => {
     const product = products.find((entry) => String(entry.id) === productId);
     if (!product?.variants?.length) return "";
@@ -120,11 +114,6 @@ export default function BuyXGetYTabPolaris() {
 
   const updateBuyVariant = (index: number, variantId: string) => {
     setBuyVariantIds((current) => current.map((entry, idx) => (idx === index ? variantId : entry)));
-  };
-
-  const removeBuyTrigger = (index: number) => {
-    setBuyProductIds((current) => current.filter((_, idx) => idx !== index));
-    setBuyVariantIds((current) => current.filter((_, idx) => idx !== index));
   };
 
   const updateGiftProduct = (productId: string) => {
@@ -251,7 +240,7 @@ export default function BuyXGetYTabPolaris() {
   }
 
   const selectedGiftProduct = products.find((product) => String(product.id) === giftProductId);
-  const selectedTriggerCount = buyProductIds.filter(Boolean).length;
+  const selectedTriggerCount = buyProductIds[0] ? 1 : 0;
   const selectedGiftLabel = selectedGiftProduct ? selectedGiftProduct.title : "Choose a gift product";
 
   return (
@@ -292,6 +281,85 @@ export default function BuyXGetYTabPolaris() {
         </InlineGrid>
       )}
 
+      {/* Simple merchant docs */}
+      <Card>
+        <BlockStack gap="400">
+          <BlockStack gap="100">
+            <Text as="p" variant="bodySm" tone="subdued">BXGY guide</Text>
+            <Text as="h2" variant="headingLg">How this works</Text>
+            <Text as="p" variant="bodyMd" tone="subdued">
+              This section helps you create a simple offer: when a shopper buys a certain product, your app can
+              automatically place a free gift in the cart.
+            </Text>
+          </BlockStack>
+
+          <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+            <Card>
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingMd">What each part means</Text>
+                <BlockStack gap="150">
+                  <Text as="p" variant="bodyMd">
+                    <strong>Main product:</strong> the product the shopper must buy to unlock the offer.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Buy quantity:</strong> how many of the main product the shopper must add before the gift is unlocked.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Gift product:</strong> the free item the shopper receives.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Gift quantity:</strong> how many free gift items the shopper receives when the rule is unlocked.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Limit to one gift per cart:</strong> if turned on, the shopper receives the gift only once, even if they add more qualifying items.
+                  </Text>
+                </BlockStack>
+              </BlockStack>
+            </Card>
+
+            <Card>
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingMd">Simple examples</Text>
+                <BlockStack gap="150">
+                  <Text as="p" variant="bodyMd">
+                    <strong>Buy 1, get 1:</strong> shopper adds 1 main product and receives 1 free gift.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Buy 3, get 1:</strong> shopper must add 3 of the main product before the free gift appears.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Buy 3, get 3:</strong> shopper must add 3 of the main product, then receives 3 free gifts.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Buy 3, get 3 once only:</strong> turn on the gift limit option if you want the shopper to receive only one batch of 3 gifts, even if they buy more.
+                  </Text>
+                </BlockStack>
+              </BlockStack>
+            </Card>
+          </InlineGrid>
+
+          <Card>
+            <BlockStack gap="200">
+              <Text as="h3" variant="headingMd">Good to know</Text>
+              <BlockStack gap="150">
+                <Text as="p" variant="bodyMd">
+                  Choose the <strong>Main product</strong> and <strong>Gift product</strong> carefully. They should usually be different products.
+                </Text>
+                <Text as="p" variant="bodyMd">
+                  If you want the gift to keep increasing as the shopper adds more qualifying items, leave the gift limit option turned off.
+                </Text>
+                <Text as="p" variant="bodyMd">
+                  If you want a cleaner promotion like “one free gift per order,” turn the gift limit option on.
+                </Text>
+                <Text as="p" variant="bodyMd">
+                  After saving a rule, test it once on the storefront to make sure the cart behaves the way you expect.
+                </Text>
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        </BlockStack>
+      </Card>
+
       {/* Create rule form */}
       <Card>
         <BlockStack gap="500">
@@ -305,7 +373,7 @@ export default function BuyXGetYTabPolaris() {
 
           <InlineGrid columns={{ xs: 1, md: 3 }} gap="300">
             {[
-              { label: "Buy triggers", value: `${selectedTriggerCount || 0} selected` },
+              { label: "Main product", value: selectedTriggerCount ? "1 selected" : "Choose product" },
               { label: "Gift product", value: selectedGiftLabel },
               { label: "Rule outcome", value: limitOneGiftPerOrder ? "One free gift max" : `Buy ${buyQuantity || "1"}, get ${giftQuantity || "1"}` },
             ].map((item) => (
@@ -377,30 +445,28 @@ export default function BuyXGetYTabPolaris() {
 
               <Card>
                 <BlockStack gap="300">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <BlockStack gap="100">
-                      <Text as="h3" variant="headingMd">Qualifying products</Text>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        Add one or more products that should count toward the Buy quantity.
-                      </Text>
-                    </BlockStack>
-                    <Button onClick={addBuyTrigger} disabled={buyProductIds.length >= 6}>Add trigger</Button>
-                  </InlineStack>
-                  {buyProductIds.map((productId, index) => {
-                    const selectedProduct = products.find((product) => String(product.id) === productId);
+                  <BlockStack gap="100">
+                    <Text as="h3" variant="headingMd">Main product</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Choose the product that unlocks the free gift when the customer reaches the Buy quantity.
+                    </Text>
+                  </BlockStack>
+                  {(() => {
+                    const selectedProduct = products.find((product) => String(product.id) === buyProductIds[0]);
                     const variantOptions = selectedProduct?.variants?.map((variant) => ({
                       label: variant.title,
                       value: String(variant.id),
                     })) ?? [];
                     return (
-                      <InlineStack key={index} gap="200" blockAlign="end">
+                      <InlineStack gap="200" blockAlign="end">
                         <div style={{ flex: 1 }}>
                           <PolarisProductAutocomplete
                             products={products}
-                            value={productId}
-                            onChange={(value) => updateBuyProduct(index, value)}
-                            label={`Buy product ${index + 1}`}
-                            placeholder="Search trigger product"
+                            value={buyProductIds[0] ?? ""}
+                            onChange={(value) => updateBuyProduct(0, value)}
+                            label="Main product"
+                            placeholder="Search main product"
+                            helpText="This is the product the shopper must add to unlock the free gift."
                           />
                         </div>
                         {hasMeaningfulVariants(selectedProduct) && (
@@ -408,19 +474,14 @@ export default function BuyXGetYTabPolaris() {
                             <Select
                               label="Variant"
                               options={[{ label: "Select variant", value: "" }, ...variantOptions]}
-                              value={buyVariantIds[index] ?? ""}
-                              onChange={(value) => updateBuyVariant(index, value)}
+                              value={buyVariantIds[0] ?? ""}
+                              onChange={(value) => updateBuyVariant(0, value)}
                             />
                           </div>
                         )}
-                        {buyProductIds.length > 1 && (
-                          <Button tone="critical" variant="secondary" onClick={() => removeBuyTrigger(index)}>
-                            Remove
-                          </Button>
-                        )}
                       </InlineStack>
                     );
-                  })}
+                  })()}
                 </BlockStack>
               </Card>
             </BlockStack>

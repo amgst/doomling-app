@@ -72,13 +72,14 @@ function cartLinesDiscountsGenerateRun(input) {
       const giftVariantId = String(rule?.giftVariantId ?? "");
       const buyQuantity = Math.max(Number(rule?.buyQuantity) || 1, 1);
       const giftQuantity = Math.max(Number(rule?.giftQuantity) || 1, 1);
+      const limitOneGiftPerOrder = rule?.limitOneGiftPerOrder === true;
       const ruleId = String(rule?.ruleId ?? "");
       if (!buyVariantIds.length || !giftVariantId || !ruleId) continue;
       const qualifyingQty = input.cart.lines.reduce((sum, line) => {
         if (line.attribute?.value === "true") return sum;
         return buyVariantIds.includes(line.merchandise?.id) ? sum + (line.quantity || 0) : sum;
       }, 0);
-      const eligibleGiftQty = Math.floor(qualifyingQty / buyQuantity) * giftQuantity;
+      const eligibleGiftQty = limitOneGiftPerOrder ? qualifyingQty >= buyQuantity ? giftQuantity : 0 : Math.floor(qualifyingQty / buyQuantity) * giftQuantity;
       if (eligibleGiftQty <= 0) continue;
       const giftLines = input.cart.lines.filter(
         (line) => line.merchandise?.id === giftVariantId && line.rule?.value === ruleId
