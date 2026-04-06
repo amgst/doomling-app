@@ -255,6 +255,16 @@ export async function syncBxgyDiscount(shop: string, accessToken: string, rules:
 
   const errors = updateResponse?.data?.discountAutomaticAppUpdate?.userErrors ?? [];
   if (Array.isArray(errors) && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "Failed to update BXGY discount");
+    const message = errors[0]?.message ?? "Failed to update BXGY discount";
+    if (/discount does not exist/i.test(String(message))) {
+      const stored = await getShop(shop);
+      await updateShopSettings(shop, {
+        ...(stored?.settings ?? {}),
+        bxgyDiscountId: undefined,
+      });
+      cachedAppDiscountTypeByShop.delete(shop);
+      return syncBxgyDiscount(shop, accessToken, rules);
+    }
+    throw new Error(message);
   }
 }

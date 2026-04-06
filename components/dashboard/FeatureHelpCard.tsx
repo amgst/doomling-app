@@ -23,7 +23,7 @@ export default function FeatureHelpCard({
           background: "#fff",
           border: "1px solid #dfe3e8",
           borderRadius: 18,
-          padding: "1.15rem 1.3rem",
+          padding: "1.5rem 1.3rem 1.15rem",
           boxShadow: "0 8px 20px rgba(15, 23, 42, 0.04)",
         }}
       >
