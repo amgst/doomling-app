@@ -176,6 +176,9 @@ var toastTitle = root.dataset.toastTitle || 'Free gift added!';
 var floatingTitle = root.dataset.bannerTitle || 'Your free gift is in the cart';
 var GIFT_FLAG = '_bxgy';
 var RULE_FLAG = '_bxgy_rule_id';
+var DISMISSED_FLAG = 'upsale_bxgy_dismissed';
+var DISMISSED_TTL_MS = 30 * 60 * 1000;
+var nativeFetch = window.fetch.bind(window);
 
 if (!shop || !apiBase) return;
 
@@ -185,10 +188,16 @@ var syncPending = false;
 var syncRunning = false;
 var latestCart = null;
 var seenToasts;
+var dismissedGifts;
 try {
 seenToasts = new Set(JSON.parse(sessionStorage.getItem('upsale_bxgy_seen') || '[]'));
 } catch (e) {
 seenToasts = new Set();
+}
+try {
+dismissedGifts = JSON.parse(sessionStorage.getItem(DISMISSED_FLAG) || '{}') || {};
+} catch (e) {
+dismissedGifts = {};
 }
 
 function rememberToast(key) {
@@ -198,10 +207,79 @@ sessionStorage.setItem('upsale_bxgy_seen', JSON.stringify(Array.from(seenToasts)
 } catch (e) {}
 }
 
+function giftKey(ruleId, variantId) {
+return String(ruleId) + ':' + String(variantId);
+}
+
+function persistDismissedGifts() {
+try {
+sessionStorage.setItem(DISMISSED_FLAG, JSON.stringify(dismissedGifts));
+} catch (e) {}
+}
+
+function clearDismissedGift(ruleId, variantId) {
+var key = giftKey(ruleId, variantId);
+if (!dismissedGifts[key]) return;
+delete dismissedGifts[key];
+persistDismissedGifts();
+}
+
+function dismissGift(ruleId, variantId, buyQty) {
+dismissedGifts[giftKey(ruleId, variantId)] = {
+buyQty: Math.max(Number(buyQty) || 0, 0),
+dismissedAt: Date.now()
+};
+persistDismissedGifts();
+}
+
+function pruneDismissedGifts() {
+var now = Date.now();
+var changed = false;
+Object.keys(dismissedGifts).forEach(function (key) {
+var entry = dismissedGifts[key];
+if (!entry || typeof entry !== 'object') {
+delete dismissedGifts[key];
+changed = true;
+return;
+}
+
+var dismissedAt = Number(entry.dismissedAt || 0);
+if (!dismissedAt || (now - dismissedAt) > DISMISSED_TTL_MS) {
+delete dismissedGifts[key];
+changed = true;
+}
+});
+
+if (changed) {
+persistDismissedGifts();
+}
+}
+
+function isGiftDismissed(ruleId, variantId, buyQty) {
+var key = giftKey(ruleId, variantId);
+var entry = dismissedGifts[key];
+if (!entry || typeof entry !== 'object') return false;
+
+var dismissedAt = Number(entry.dismissedAt || 0);
+if (!dismissedAt || (Date.now() - dismissedAt) > DISMISSED_TTL_MS) {
+clearDismissedGift(ruleId, variantId);
+return false;
+}
+
+var dismissedBuyQty = Math.max(Number(entry.buyQty) || 0, 0);
+var normalizedBuyQty = Math.max(Number(buyQty) || 0, 0);
+if (dismissedBuyQty !== normalizedBuyQty) {
+clearDismissedGift(ruleId, variantId);
+return false;
+}
+
+return normalizedBuyQty > 0;
+}
+
 function loadRules() {
 if (rulesCache) return Promise.resolve(rulesCache);
 if (rulesPromise) return rulesPromise;
-rulesPromise = fetch(apiBase + '/api/public/gift-rules?shop=' + encodeURIComponent(shop), {
+rulesPromise = nativeFetch(apiBase + '/api/public/gift-rules?shop=' + encodeURIComponent(shop), {
 method: 'GET',
 mode: 'cors',
 credentials: 'omit',
@@ -219,11 +297,11 @@ return rulesPromise;
 }
 
 function fetchCart() {
-return fetch('/cart.js', { cache: 'no-store' }).then(function (r) { return r.json(); });
+return nativeFetch('/cart.js', { cache: 'no-store' }).then(function (r) { return r.json(); });
 }
 
 function post(path, payload) {
-return fetch(path, {
+return nativeFetch(path, {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify(payload || {})
@@ -231,7 +309,7 @@ body: JSON.stringify(payload || {})
 }
 
 function track(ruleId, event) {
-fetch(apiBase + '/api/bxgy-track', {
+nativeFetch(apiBase + '/api/bxgy-track', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({ shop: shop, ruleId: ruleId, event: event })
@@ -241,6 +319,8 @@ body: JSON.stringify({ shop: shop, ruleId: ruleId, event: event })
 function totalQtyByVariants(cart, variantIds) {
 var ids = new Set((variantIds || []).map(String));
 return ((cart && cart.items) || []).reduce(function (sum, item) {
+var props = item && item.properties ? item.properties : {};
+if (String(props[GIFT_FLAG] || '') === 'true') return sum;
 return ids.has(String(item.variant_id)) ? sum + Number(item.quantity || 0) : sum;
 }, 0);
 }
@@ -268,6 +348,29 @@ if (String(props[GIFT_FLAG] || '') === 'true') continue;
 return true;
 }
 return false;
+}
+
+function updateDismissedGifts(prevCart, nextCart, rules) {
+if (!prevCart || !Array.isArray(rules) || !rules.length) return;
+
+rules.forEach(function (rule) {
+if (!rule || !rule.giftVariantId || !rule.buyVariantIds || !rule.buyVariantIds.length) return;
+
+var buyQty = totalQtyByVariants(nextCart, rule.buyVariantIds);
+var bundleCount = Math.floor(buyQty / Math.max(Number(rule.buyQuantity || 1), 1));
+var nextGiftLine = findAutoGiftLine(nextCart, rule.giftVariantId, rule.ruleId);
+var prevGiftLine = findAutoGiftLine(prevCart, rule.giftVariantId, rule.ruleId);
+var manualGift = hasManualGift(nextCart, rule.giftVariantId);
+
+if (bundleCount <= 0 || nextGiftLine || manualGift) {
+clearDismissedGift(rule.ruleId, rule.giftVariantId);
+return;
+}
+
+if (prevGiftLine && !nextGiftLine) {
+dismissGift(rule.ruleId, rule.giftVariantId, buyQty);
+}
+});
 }
 
 function showToast(title) {
@@ -423,7 +526,12 @@ var buyQty = totalQtyByVariants(cart, rule.buyVariantIds);
 var giftLine = findAutoGiftLine(cart, rule.giftVariantId, rule.ruleId);
 var manualGift = hasManualGift(cart, rule.giftVariantId);
 var bundleCount = Math.floor(buyQty / Math.max(Number(rule.buyQuantity || 1), 1));
-var desiredQty = manualGift ? 0 : bundleCount * Math.max(Number(rule.giftQuantity || 1), 1);
+if (bundleCount <= 0) {
+clearDismissedGift(rule.ruleId, rule.giftVariantId);
+}
+var desiredQty = (manualGift || isGiftDismissed(rule.ruleId, rule.giftVariantId, buyQty))
+? 0
+: bundleCount * Math.max(Number(rule.giftQuantity || 1), 1);
 
 if (bundleCount > 0 && !trackedQualification) {
 track(rule.ruleId, 'qualified');
@@ -479,11 +587,13 @@ if (syncRunning) {
 syncPending = true;
 return;
 }
+pruneDismissedGifts();
 syncRunning = true;
 Promise.all([fetchCart(), loadRules()]).then(function (payload) {
 var cart = payload[0];
-latestCart = cart;
 var rules = payload[1];
+updateDismissedGifts(latestCart, cart, rules);
+latestCart = cart;
 return sync(cart, rules).then(function (changed) {
 return fetchCart().then(function (nextCart) {
 latestCart = nextCart;

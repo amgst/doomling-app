@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:bxgy": "node tests/bxgy-cart-qa.js"
   },
   "dependencies": {
     "@shopify/app-bridge-react": "^4.1.0",
