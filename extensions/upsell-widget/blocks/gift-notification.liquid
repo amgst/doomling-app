@@ -216,11 +216,8 @@ sessionStorage.setItem(DISMISSED_FLAG, JSON.stringify(dismissedGifts));
 } catch (e) {}
 }
 
-function dismissGift(ruleId, variantId, buyQty) {
-dismissedGifts[giftKey(ruleId, variantId)] = {
-buyQty: Math.max(Number(buyQty) || 0, 0),
-dismissedAt: Date.now()
-};
+function dismissGift(ruleId, variantId) {
+dismissedGifts[giftKey(ruleId, variantId)] = true;
 persistDismissedGifts();
 }
 
@@ -231,24 +228,8 @@ delete dismissedGifts[key];
 persistDismissedGifts();
 }
 
-function isGiftDismissed(ruleId, variantId, buyQty) {
-var key = giftKey(ruleId, variantId);
-var entry = dismissedGifts[key];
-if (!entry) return false;
-
-var normalizedBuyQty = Math.max(Number(buyQty) || 0, 0);
-if (entry === true || typeof entry !== 'object') {
-clearDismissedGift(ruleId, variantId);
-return false;
-}
-
-var dismissedBuyQty = Math.max(Number(entry.buyQty) || 0, 0);
-if (dismissedBuyQty !== normalizedBuyQty) {
-clearDismissedGift(ruleId, variantId);
-return false;
-}
-
-return normalizedBuyQty > 0;
+function isGiftDismissed(ruleId, variantId) {
+return dismissedGifts[giftKey(ruleId, variantId)] === true;
 }
 
 function loadRules() {
@@ -334,7 +315,6 @@ if (!rule || !rule.giftVariantId || !rule.buyVariantIds || !rule.buyVariantIds.l
 var bundleCount = Math.floor(
 totalQtyByVariants(nextCart, rule.buyVariantIds) / Math.max(Number(rule.buyQuantity || 1), 1)
 );
-var buyQty = totalQtyByVariants(nextCart, rule.buyVariantIds);
 var nextGiftLine = findAutoGiftLine(nextCart, rule.giftVariantId, rule.ruleId);
 var prevGiftLine = findAutoGiftLine(prevCart, rule.giftVariantId, rule.ruleId);
 var manualGift = hasManualGift(nextCart, rule.giftVariantId);
@@ -345,7 +325,7 @@ return;
 }
 
 if (prevGiftLine && !nextGiftLine) {
-dismissGift(rule.ruleId, rule.giftVariantId, buyQty);
+dismissGift(rule.ruleId, rule.giftVariantId);
 }
 });
 }
@@ -506,7 +486,7 @@ var bundleCount = Math.floor(buyQty / Math.max(Number(rule.buyQuantity || 1), 1)
 if (bundleCount <= 0) {
 clearDismissedGift(rule.ruleId, rule.giftVariantId);
 }
-var desiredQty = (manualGift || isGiftDismissed(rule.ruleId, rule.giftVariantId, buyQty)) ? 0 : bundleCount * Math.max(Number(rule.giftQuantity || 1), 1);
+var desiredQty = (manualGift || isGiftDismissed(rule.ruleId, rule.giftVariantId)) ? 0 : bundleCount * Math.max(Number(rule.giftQuantity || 1), 1);
 
 if (bundleCount > 0 && !trackedQualification) {
 track(rule.ruleId, 'qualified');
