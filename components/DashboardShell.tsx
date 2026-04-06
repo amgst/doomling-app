@@ -26,17 +26,6 @@ const TABS = [
     ),
   },
   {
-    key: "qalab",
-    label: "QA Lab",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 3h6" />
-        <path d="M10 3v5l-5.5 9.5A3 3 0 0 0 7.1 22h9.8a3 3 0 0 0 2.6-4.5L14 8V3" />
-        <path d="M8.5 14h7" />
-      </svg>
-    ),
-  },
-  {
     key: "products",
     label: "Products",
     icon: (
@@ -138,7 +127,7 @@ const TABS = [
 ] as const;
 
 const NAV_GROUPS: { label: string; keys: Array<typeof TABS[number]["key"]> }[] = [
-  { label: "", keys: ["overview", "stats", "qalab", "products"] },
+  { label: "", keys: ["overview", "stats", "products"] },
   { label: "Features", keys: ["upsells", "buyxgety", "postpurchase", "bundles"] },
   { label: "Tools", keys: ["cartlimits", "geocountdown", "customcursor", "themeswitcher"] },
 ];
