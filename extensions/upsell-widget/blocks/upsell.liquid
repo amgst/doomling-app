@@ -43,21 +43,22 @@ display: inline-flex;
 
 #{{ upsell_dom_id }} .upsale-upsell-arrow {
 appearance: none;
-border: none;
+border: 1px solid rgb(var(--color-foreground, 17 24 39) / 0.18);
 width: 2.25rem;
 height: 2.25rem;
 display: inline-flex;
 align-items: center;
 justify-content: center;
 border-radius: 999px;
-background: transparent;
+background: rgb(var(--color-background, 255 255 255));
 color: rgb(var(--color-foreground, 17 24 39));
 cursor: pointer;
-transition: background-color 0.2s ease, opacity 0.2s ease;
+transition: background-color 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
 }
 
 #{{ upsell_dom_id }} .upsale-upsell-arrow:hover {
 background: rgb(var(--color-foreground, 17 24 39) / 0.06);
+border-color: rgb(var(--color-foreground, 17 24 39) / 0.35);
 }
 
 #{{ upsell_dom_id }} .upsale-upsell-arrow[disabled] {
@@ -565,7 +566,9 @@ list.appendChild(buildItem(upsell, variantId, ruleId));
 });
 })).then(function () {
 root.hidden = false;
-updateControls();
+requestAnimationFrame(function () {
+requestAnimationFrame(updateControls);
+});
 track(ruleId, 'view');
 });
 })

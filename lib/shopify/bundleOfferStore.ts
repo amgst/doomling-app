@@ -1,10 +1,22 @@
 import { getShop, updateShopSettings } from "@/lib/firebase/shopStore";
 
+export type BundleOfferItem = {
+  productId: string;
+  productTitle: string;
+  variantId?: string;
+  variantTitle?: string;
+  quantity: number;
+  image?: string;
+};
+
 export type BundleOffer = {
   id: string;
   name: string;
   productId: string;
   productTitle: string;
+  storefrontTitle: string;
+  bundleLevel: "product" | "variant";
+  items: BundleOfferItem[];
   code: string;
   compareAtPrice: string;
   discountedPrice: string;
@@ -28,6 +40,50 @@ function normalizeCode(value: unknown) {
     .slice(0, 255);
 }
 
+function normalizePositiveInt(value: unknown, fallback = 1) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function normalizeBundleLevel(value: unknown): "product" | "variant" {
+  return String(value ?? "").trim().toLowerCase() === "variant" ? "variant" : "product";
+}
+
+function normalizeItem(input: Partial<BundleOfferItem>): BundleOfferItem | null {
+  const productId = String(input.productId || "").trim();
+  const productTitle = String(input.productTitle || "").trim();
+  if (!productId || !productTitle) return null;
+
+  const quantity = normalizePositiveInt(input.quantity, 1);
+  const variantId = String(input.variantId || "").trim() || undefined;
+  const variantTitle = String(input.variantTitle || "").trim() || undefined;
+  const image = String(input.image || "").trim() || undefined;
+
+  return {
+    productId,
+    productTitle,
+    variantId,
+    variantTitle,
+    quantity,
+    image,
+  };
+}
+
+function normalizeItems(raw: unknown, existing?: BundleOfferItem[]): BundleOfferItem[] {
+  const source = Array.isArray(raw) ? raw : existing ?? [];
+  const seen = new Set<string>();
+
+  return source
+    .map((entry) => normalizeItem((entry ?? {}) as Partial<BundleOfferItem>))
+    .filter((entry): entry is BundleOfferItem => Boolean(entry))
+    .filter((entry) => {
+      const key = `${entry.productId}::${entry.variantId ?? "product"}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function normalizeOffer(input: Partial<BundleOffer>, existing?: BundleOffer | null): BundleOffer {
   const now = new Date().toISOString();
   return {
@@ -35,6 +91,9 @@ function normalizeOffer(input: Partial<BundleOffer>, existing?: BundleOffer | nu
     name: String(input.name || existing?.name || "").trim(),
     productId: String(input.productId || existing?.productId || "").trim(),
     productTitle: String(input.productTitle || existing?.productTitle || "").trim(),
+    storefrontTitle: String(input.storefrontTitle || existing?.storefrontTitle || "").trim(),
+    bundleLevel: normalizeBundleLevel(input.bundleLevel ?? existing?.bundleLevel),
+    items: normalizeItems(input.items, existing?.items),
     code: normalizeCode(input.code || existing?.code || ""),
     compareAtPrice: normalizeMoneyString(input.compareAtPrice ?? existing?.compareAtPrice),
     discountedPrice: normalizeMoneyString(input.discountedPrice ?? existing?.discountedPrice),
@@ -50,7 +109,15 @@ function getOffersFromSettings(settings: Record<string, unknown> | undefined): B
   if (!Array.isArray(raw)) return [];
   return raw
     .map((entry) => normalizeOffer((entry ?? {}) as Partial<BundleOffer>))
-    .filter((entry) => entry.name && entry.productId && entry.code && entry.compareAtPrice && entry.discountedPrice);
+    .filter(
+      (entry) =>
+        entry.name &&
+        entry.productId &&
+        entry.code &&
+        entry.compareAtPrice &&
+        entry.discountedPrice &&
+        entry.items.length > 0,
+    );
 }
 
 export async function listBundleOffers(shop: string) {
@@ -65,7 +132,13 @@ export async function upsertBundleOffer(shop: string, input: Partial<BundleOffer
   const next = normalizeOffer(input, existing);
 
   if (!next.name || !next.productId || !next.code || !next.compareAtPrice || !next.discountedPrice) {
-    throw new Error("Name, product, code, compare-at price, and discounted price are required.");
+    throw new Error("Name, standalone bundle product, code, compare-at price, and discounted price are required.");
+  }
+  if (!next.storefrontTitle) {
+    throw new Error("Enter the storefront title for the standalone bundle product.");
+  }
+  if (next.items.length === 0) {
+    throw new Error("Add at least one product to the bundle.");
   }
 
   const filtered = offers.filter((entry) => entry.id !== next.id);

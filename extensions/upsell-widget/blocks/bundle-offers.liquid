@@ -16,6 +16,14 @@ font-weight: 700;
 letter-spacing: 0.02em;
 text-transform: uppercase;
 }
+
+.upsale-bundle-items-note {
+display: block;
+margin-top: 0.3rem;
+color: rgba(17, 24, 39, 0.68);
+font-size: 0.74rem;
+line-height: 1.45;
+}
 </style>
 
 <script>
@@ -99,6 +107,31 @@ priceComponent.appendChild(note);
 note.textContent = codeNoteTemplate.replace(/\[code\]/g, String(offer.code));
 }
 
+function upsertBundleItemsNote(priceComponent, offer) {
+if (!(priceComponent instanceof HTMLElement) || !offer) return;
+var items = Array.isArray(offer.items) ? offer.items : [];
+if (!items.length) return;
+
+var note = priceComponent.querySelector('.upsale-bundle-items-note');
+if (!(note instanceof HTMLElement)) {
+note = document.createElement('small');
+note.className = 'upsale-bundle-items-note';
+priceComponent.appendChild(note);
+}
+
+var preview = items.slice(0, 3).map(function (item) {
+var title = String(item && item.productTitle || '').trim();
+var quantity = Number(item && item.quantity || 1);
+if (!title) return '';
+return title + ' x' + quantity;
+}).filter(Boolean);
+
+if (!preview.length) return;
+
+var suffix = items.length > 3 ? ' +' + (items.length - 3) + ' more' : '';
+note.textContent = 'Includes: ' + preview.join(', ') + suffix;
+}
+
 function applyPriceOverride(priceComponent, offer) {
 if (!(priceComponent instanceof HTMLElement) || !offer) return;
 
@@ -122,6 +155,7 @@ regularPrice.textContent = fmt(offer.discountedPrice);
 }
 
 upsertCodeNote(priceComponent, offer);
+upsertBundleItemsNote(priceComponent, offer);
 }
 
 function paintBundlePrices() {

@@ -1,18 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Autocomplete,
-  Badge,
   Banner,
   BlockStack,
   Button,
   Card,
   Checkbox,
-  DataTable,
-  EmptyState,
-  IndexTable,
   InlineGrid,
   InlineStack,
   Select,
@@ -20,14 +14,12 @@ import {
   TextField,
   Thumbnail,
 } from "@shopify/polaris";
-import OrdersChart from "@/components/charts/OrdersChart";
-import RevenueChart from "@/components/charts/RevenueChart";
 import FeatureHelpCard from "@/components/dashboard/FeatureHelpCard";
-import PolarisProvider from "@/components/PolarisProvider";
-import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
 import { safeJson, fmt } from "../shared";
-import { type Product, PolarisProductAutocomplete } from "../products";
-import type { BundleOffer } from "../types/bundle";
+import { type Product, PolarisProductAutocomplete, hasMeaningfulVariants } from "../products";
+import type { BundleOffer, BundleOfferItem } from "../types/bundle";
+
+const EMPTY_ITEM_PICKER = "";
 
 export default function BundleOffersTab() {
   const [offers, setOffers] = useState<BundleOffer[]>([]);
@@ -35,13 +27,18 @@ export default function BundleOffersTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState("Ultimate Bundle");
+  const [name, setName] = useState("Expansions Bundle");
+  const [storefrontTitle, setStorefrontTitle] = useState("Standalone bundle product");
+  const [bundleLevel, setBundleLevel] = useState<"product" | "variant">("product");
   const [productId, setProductId] = useState("");
-  const [code, setCode] = useState("ULTIMATE");
+  const [code, setCode] = useState("EXPANSIONS");
   const [compareAtPrice, setCompareAtPrice] = useState("95.00");
   const [discountedPrice, setDiscountedPrice] = useState("59.99");
   const [enabled, setEnabled] = useState(true);
+  const [items, setItems] = useState<BundleOfferItem[]>([]);
+  const [itemPickerProductId, setItemPickerProductId] = useState(EMPTY_ITEM_PICKER);
 
   const loadData = useCallback(async () => {
     const [bundleData, productData] = await Promise.all([
@@ -61,39 +58,155 @@ export default function BundleOffersTab() {
 
   const resetForm = () => {
     setEditingId(null);
-    setName("Ultimate Bundle");
+    setName("Expansions Bundle");
+    setStorefrontTitle("Standalone bundle product");
+    setBundleLevel("product");
     setProductId("");
-    setCode("ULTIMATE");
+    setCode("EXPANSIONS");
     setCompareAtPrice("95.00");
     setDiscountedPrice("59.99");
     setEnabled(true);
+    setItems([]);
+    setItemPickerProductId(EMPTY_ITEM_PICKER);
   };
 
-  const selectedProduct = products.find((product) => String(product.id) === productId) ?? null;
-  const usedProductIds = new Set(offers.filter((offer) => offer.id !== editingId).map((offer) => String(offer.productId)));
-  const selectableProducts = products.filter((product) => !usedProductIds.has(String(product.id)));
+  const selectedBundleProduct = products.find((product) => String(product.id) === productId) ?? null;
+  const usedStandaloneProductIds = new Set(
+    offers.filter((offer) => offer.id !== editingId).map((offer) => String(offer.productId)),
+  );
+  const selectableStandaloneProducts = products.filter(
+    (product) => !usedStandaloneProductIds.has(String(product.id)),
+  );
   const totalSavings = offers.reduce((sum, offer) => {
     const comparePrice = Number(offer.compareAtPrice);
     const salePrice = Number(offer.discountedPrice);
     return sum + Math.max(comparePrice - salePrice, 0);
   }, 0);
 
+  const itemCount = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+  const availableBundleItems = useMemo(() => {
+    const selectedIds = new Set(items.map((item) => String(item.productId)));
+    return products.filter((product) => !selectedIds.has(String(product.id)));
+  }, [items, products]);
+
+  const syncItemForLevel = useCallback(
+    (item: BundleOfferItem): BundleOfferItem => {
+      const product = products.find((entry) => String(entry.id) === String(item.productId));
+      if (!product) return item;
+
+      if (bundleLevel === "product") {
+        return { ...item, variantId: undefined, variantTitle: undefined };
+      }
+
+      if (!hasMeaningfulVariants(product)) {
+        const firstVariant = product.variants[0];
+        return {
+          ...item,
+          variantId: firstVariant ? String(firstVariant.id) : undefined,
+          variantTitle: firstVariant?.title,
+        };
+      }
+
+      if (item.variantId && product.variants.some((variant) => String(variant.id) === String(item.variantId))) {
+        const currentVariant = product.variants.find((variant) => String(variant.id) === String(item.variantId));
+        return {
+          ...item,
+          variantTitle: currentVariant?.title,
+        };
+      }
+
+      return {
+        ...item,
+        variantId: undefined,
+        variantTitle: undefined,
+      };
+    },
+    [bundleLevel, products],
+  );
+
+  useEffect(() => {
+    setItems((current) => current.map(syncItemForLevel));
+  }, [bundleLevel, syncItemForLevel]);
+
+  const addBundleItem = () => {
+    const product = products.find((entry) => String(entry.id) === itemPickerProductId);
+    if (!product) return;
+
+    const nextItem: BundleOfferItem = syncItemForLevel({
+      productId: String(product.id),
+      productTitle: product.title,
+      quantity: 1,
+      image: product.image?.src ?? undefined,
+    });
+
+    setItems((current) => [...current, nextItem]);
+    setItemPickerProductId(EMPTY_ITEM_PICKER);
+  };
+
+  const updateItem = (productKey: string, updater: (item: BundleOfferItem) => BundleOfferItem) => {
+    setItems((current) =>
+      current.map((item) => (String(item.productId) === productKey ? updater(item) : item)),
+    );
+  };
+
+  const removeItem = (productKey: string) => {
+    setItems((current) => current.filter((item) => String(item.productId) !== productKey));
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
-      setError("Enter an internal offer name.");
+      setError("Enter a bundle name.");
+      setSuccessMessage(null);
+      return;
+    }
+    if (!storefrontTitle.trim()) {
+      setError("Enter the storefront title for the standalone bundle product.");
+      setSuccessMessage(null);
       return;
     }
     if (!productId) {
-      setError("Choose the bundle product to control.");
+      setError("Choose the standalone bundle product to control.");
+      setSuccessMessage(null);
       return;
     }
     if (!code.trim()) {
       setError("Enter the public discount code name.");
+      setSuccessMessage(null);
+      return;
+    }
+    if (items.length === 0) {
+      setError("Add at least one product to the bundle.");
+      setSuccessMessage(null);
+      return;
+    }
+
+    const preparedItems = items.map((item) => {
+      const product = products.find((entry) => String(entry.id) === String(item.productId));
+      const variant = product?.variants.find((entry) => String(entry.id) === String(item.variantId));
+      return {
+        ...item,
+        productTitle: product?.title ?? item.productTitle,
+        image: product?.image?.src ?? item.image,
+        variantTitle: variant?.title ?? item.variantTitle,
+      };
+    });
+
+    if (
+      bundleLevel === "variant" &&
+      preparedItems.some((item) => {
+        const product = products.find((entry) => String(entry.id) === String(item.productId));
+        return hasMeaningfulVariants(product) && !item.variantId;
+      })
+    ) {
+      setError("Choose a variant for each bundled product when variant level is selected.");
+      setSuccessMessage(null);
       return;
     }
 
     setSaving(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const response = await fetch("/api/standalone/bundles", {
@@ -103,7 +216,10 @@ export default function BundleOffersTab() {
           id: editingId,
           name,
           productId,
-          productTitle: selectedProduct?.title ?? "",
+          productTitle: selectedBundleProduct?.title ?? "",
+          storefrontTitle,
+          bundleLevel,
+          items: preparedItems,
           code,
           compareAtPrice,
           discountedPrice,
@@ -116,6 +232,7 @@ export default function BundleOffersTab() {
       if (data?.warning) {
         setError(data.warning);
       } else {
+        setSuccessMessage(editingId ? "Bundle updated." : "Bundle created.");
         resetForm();
       }
     } catch (err) {
@@ -128,12 +245,14 @@ export default function BundleOffersTab() {
   const handleDelete = async (offerId: string) => {
     setSaving(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const response = await fetch(`/api/standalone/bundles/${offerId}`, { method: "DELETE" });
       const data = await safeJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(data?.error ?? `HTTP ${response.status}`);
       setOffers((current) => current.filter((offer) => offer.id !== offerId));
       if (editingId === offerId) resetForm();
+      setSuccessMessage("Bundle deleted.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete bundle offer.");
     } finally {
@@ -144,11 +263,17 @@ export default function BundleOffersTab() {
   const startEdit = (offer: BundleOffer) => {
     setEditingId(offer.id);
     setName(offer.name);
+    setStorefrontTitle(offer.storefrontTitle || offer.productTitle);
+    setBundleLevel(offer.bundleLevel || "product");
     setProductId(offer.productId);
     setCode(offer.code);
     setCompareAtPrice(offer.compareAtPrice);
     setDiscountedPrice(offer.discountedPrice);
     setEnabled(offer.enabled);
+    setItems(offer.items ?? []);
+    setItemPickerProductId(EMPTY_ITEM_PICKER);
+    setError(null);
+    setSuccessMessage(null);
   };
 
   if (loading) {
@@ -159,8 +284,8 @@ export default function BundleOffersTab() {
     <>
       <div style={{ marginBottom: "1rem" }}>
         <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#1a1a1a" }}>Bundle Offers</h1>
-        <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.84rem", maxWidth: 820 }}>
-          Pick specific bundle products, give each one a named native Shopify discount code, and let the storefront app embed show the sale price preview while cart and checkout use a real discount code instead of a manually lowered product price.
+        <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.84rem", maxWidth: 900 }}>
+          Build a standalone bundle product, choose whether the bundle works at product or variant level, and add multiple products with quantities inside the bundle.
         </p>
       </div>
 
@@ -170,11 +295,18 @@ export default function BundleOffersTab() {
         </div>
       )}
 
+      {successMessage && (
+        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "0.75rem 1rem", color: "#166534", fontSize: "0.875rem", marginBottom: "1rem" }}>
+          {successMessage}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
         {[
-          { label: "Bundle offers", value: offers.length, sub: "Products with managed bundle pricing" },
+          { label: "Bundle offers", value: offers.length, sub: "Standalone bundle products managed here" },
           { label: "Active now", value: offers.filter((offer) => offer.enabled).length, sub: `${offers.filter((offer) => !offer.enabled).length} paused` },
           { label: "Tracked savings", value: fmt(totalSavings, "USD"), sub: "Difference between compare-at and sale price" },
+          { label: "Items in draft", value: itemCount, sub: "Total quantities inside the current bundle" },
         ].map((card) => (
           <div key={card.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "0.85rem 0.95rem" }}>
             <p style={{ margin: 0, fontSize: "0.73rem", color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em" }}>{card.label}</p>
@@ -184,57 +316,184 @@ export default function BundleOffersTab() {
         ))}
       </div>
 
-      <Card>
-        <BlockStack gap="400">
-          <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
-            <TextField label="Offer name" value={name} onChange={setName} autoComplete="off" helpText="Internal admin label for your team." />
-            <TextField label="Public discount code" value={code} onChange={(value) => setCode(value.toUpperCase())} autoComplete="off" helpText="Shown in cart and checkout, for example ULTIMATE." />
-            <PolarisProductAutocomplete
-              products={editingId ? products : selectableProducts}
-              value={productId}
-              onChange={setProductId}
-              label="Bundle product"
-              placeholder="Search bundle product"
-              helpText="Choose the storefront bundle product that should receive this managed discount."
+      <BlockStack gap="400">
+        <Card>
+          <BlockStack gap="400">
+            <Text as="h2" variant="headingMd">General information</Text>
+            <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+              <TextField label="Bundle name" value={name} onChange={setName} autoComplete="off" helpText="Internal name for your team. Customers will not see this name." />
+              <TextField label="Title" value={storefrontTitle} onChange={setStorefrontTitle} autoComplete="off" helpText="This title is used for the standalone bundle product in your storefront." />
+              <PolarisProductAutocomplete
+                products={editingId ? products : selectableStandaloneProducts}
+                value={productId}
+                onChange={setProductId}
+                label="Standalone bundle product"
+                placeholder="Search standalone bundle product"
+                helpText="Choose the product that represents the bundle on the storefront."
+              />
+              <div style={{ display: "flex", alignItems: "end" }}>
+                <Checkbox label="Bundle is active" checked={enabled} onChange={setEnabled} />
+              </div>
+            </InlineGrid>
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="300">
+            <Text as="h2" variant="headingMd">Bundle product level</Text>
+            <Select
+              label="Bundle level"
+              options={[
+                { label: "Product level", value: "product" },
+                { label: "Variant level", value: "variant" },
+              ]}
+              value={bundleLevel}
+              onChange={(value) => setBundleLevel(value === "variant" ? "variant" : "product")}
+              helpText="Use product level for simple bundles. Use variant level if each bundled item should target a specific variant."
             />
-            <div style={{ display: "flex", alignItems: "end" }}>
-              <Checkbox label="Offer is active" checked={enabled} onChange={setEnabled} />
-            </div>
-            <TextField label="Compare-at / value price" type="number" min={0} step={0.01} value={compareAtPrice} onChange={setCompareAtPrice} autoComplete="off" />
-            <TextField label="Discounted storefront price" type="number" min={0} step={0.01} value={discountedPrice} onChange={setDiscountedPrice} autoComplete="off" />
-          </InlineGrid>
-          <InlineStack align="space-between" blockAlign="center">
-            <Text as="p" tone="subdued">
-              Enable the `Bundle offers` app embed in your theme so homepage, collection, and product pages show the sale preview and the matching code is applied automatically in cart.
-            </Text>
-            <InlineStack gap="300">
-              {editingId && (
-                <Button onClick={resetForm} disabled={saving}>
-                  Cancel
-                </Button>
-              )}
-              <Button variant="primary" onClick={handleSave} loading={saving}>
-                {editingId ? "Update offer" : "Create offer"}
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="400">
+            <Text as="h2" variant="headingMd">Price</Text>
+            <Text as="p" tone="subdued">You control the compare-at value and the discounted storefront price shown for the bundle product.</Text>
+            <InlineGrid columns={{ xs: 1, md: 3 }} gap="400">
+              <TextField label="Public discount code" value={code} onChange={(value) => setCode(value.toUpperCase())} autoComplete="off" helpText="Shown in cart and checkout, for example EXPANSIONS." />
+              <TextField label="Compare-at / value price" type="number" min={0} step={0.01} value={compareAtPrice} onChange={setCompareAtPrice} autoComplete="off" />
+              <TextField label="Discounted storefront price" type="number" min={0} step={0.01} value={discountedPrice} onChange={setDiscountedPrice} autoComplete="off" />
+            </InlineGrid>
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="400">
+            <BlockStack gap="100">
+              <Text as="h2" variant="headingMd">Products in the bundle</Text>
+              <Text as="p" tone="subdued">
+                Add the products you want to include in this bundle. You can include multiple products and set a quantity for each one.
+              </Text>
+            </BlockStack>
+
+            <InlineStack gap="300" blockAlign="end" wrap>
+              <div style={{ flex: 1, minWidth: 260 }}>
+                <PolarisProductAutocomplete
+                  products={availableBundleItems}
+                  value={itemPickerProductId}
+                  onChange={setItemPickerProductId}
+                  label="Add product"
+                  placeholder="Search product to include"
+                  helpText="You can add up to 30 products to a bundle."
+                />
+              </div>
+              <Button onClick={addBundleItem} disabled={!itemPickerProductId || items.length >= 30}>
+                Add product
               </Button>
             </InlineStack>
+
+            {items.length === 0 ? (
+              <div style={{ border: "1px dashed #d1d5db", borderRadius: 12, padding: "1rem", color: "#6b7280" }}>
+                No bundled products yet. Add your first product above.
+              </div>
+            ) : (
+              <BlockStack gap="300">
+                {items.map((item) => {
+                  const product = products.find((entry) => String(entry.id) === String(item.productId));
+                  const variantOptions = [
+                    { label: "Select variant", value: "" },
+                    ...((product?.variants ?? []).map((variant) => ({ label: variant.title, value: String(variant.id) }))),
+                  ];
+                  const needsVariant = bundleLevel === "variant" && hasMeaningfulVariants(product);
+
+                  return (
+                    <div key={item.productId} style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: "0.95rem 1rem", background: "#fff" }}>
+                      <InlineGrid columns={{ xs: 1, md: needsVariant ? 4 : 3 }} gap="300">
+                        <InlineStack gap="300" blockAlign="center">
+                          {item.image ? (
+                            <Thumbnail source={item.image} alt={item.productTitle} size="small" />
+                          ) : null}
+                          <BlockStack gap="050">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">{item.productTitle}</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              {needsVariant ? "Choose a variant and quantity for this product." : "Set how many of this product should be included."}
+                            </Text>
+                          </BlockStack>
+                        </InlineStack>
+
+                        {needsVariant ? (
+                          <Select
+                            label="Variant"
+                            options={variantOptions}
+                            value={item.variantId ?? ""}
+                            onChange={(value) => {
+                              const selectedVariant = product?.variants.find((variant) => String(variant.id) === value);
+                              updateItem(String(item.productId), (current) => ({
+                                ...current,
+                                variantId: value || undefined,
+                                variantTitle: selectedVariant?.title,
+                              }));
+                            }}
+                          />
+                        ) : (
+                          <div />
+                        )}
+
+                        <TextField
+                          label="Quantity"
+                          type="number"
+                          min={1}
+                          value={String(item.quantity || 1)}
+                          onChange={(value) => {
+                            updateItem(String(item.productId), (current) => ({
+                              ...current,
+                              quantity: Math.max(1, Number.parseInt(value || "1", 10) || 1),
+                            }));
+                          }}
+                          autoComplete="off"
+                        />
+
+                        <div style={{ display: "flex", alignItems: "end", justifyContent: "flex-end" }}>
+                          <Button tone="critical" variant="tertiary" onClick={() => removeItem(String(item.productId))}>
+                            Remove
+                          </Button>
+                        </div>
+                      </InlineGrid>
+                    </div>
+                  );
+                })}
+              </BlockStack>
+            )}
+          </BlockStack>
+        </Card>
+
+        <InlineStack align="space-between" blockAlign="center">
+          <Text as="p" tone="subdued">
+            Enable the `Bundle offers` app embed in your theme so homepage, collection, and product pages show the bundle price preview and apply the matching code in cart.
+          </Text>
+          <InlineStack gap="300">
+            {editingId && <Button onClick={resetForm} disabled={saving}>Cancel</Button>}
+            <Button variant="primary" onClick={handleSave} loading={saving}>
+              {editingId ? "Update bundle" : "Save bundle"}
+            </Button>
           </InlineStack>
-        </BlockStack>
-      </Card>
+        </InlineStack>
+      </BlockStack>
 
       <div style={{ marginTop: "1rem", background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden" }}>
         <div style={{ padding: "1rem 1.1rem", borderBottom: "1px solid #e5e7eb" }}>
-          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Configured bundle offers</p>
+          <p style={{ margin: 0, fontWeight: 700, color: "#111827" }}>Configured bundles</p>
         </div>
         {offers.length === 0 ? (
           <p style={{ margin: 0, padding: "1.5rem", color: "#6b7280" }}>
-            No bundle offers yet. Create the first one above, then enable the Bundle Offers app embed in the theme customizer.
+            No bundles yet. Create the first one above, then enable the Bundle Offers app embed in the theme customizer.
           </p>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#fafafa" }}>
-                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Offer</th>
-                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Product</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Bundle</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Standalone product</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Contents</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Code</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Storefront price</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Status</th>
@@ -246,9 +505,24 @@ export default function BundleOffersTab() {
                 <tr key={offer.id} style={{ borderBottom: index < offers.length - 1 ? "1px solid #f3f4f6" : "none" }}>
                   <td style={{ padding: "0.85rem 0.9rem" }}>
                     <div style={{ fontSize: "0.86rem", fontWeight: 700, color: "#111827" }}>{offer.name}</div>
-                    <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem" }}>Discount ID: {offer.discountId ?? "Pending sync"}</div>
+                    <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem" }}>{offer.bundleLevel === "variant" ? "Variant level" : "Product level"}</div>
                   </td>
-                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>{offer.productTitle}</td>
+                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>
+                    <div>{offer.productTitle}</div>
+                    <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem" }}>{offer.storefrontTitle}</div>
+                  </td>
+                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>
+                    <div style={{ fontWeight: 600, color: "#111827" }}>
+                      {offer.items.length} product{offer.items.length === 1 ? "" : "s"}
+                    </div>
+                    <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem", maxWidth: 280 }}>
+                      {offer.items
+                        .slice(0, 3)
+                        .map((item) => `${item.productTitle} x${item.quantity}`)
+                        .join(", ")}
+                      {offer.items.length > 3 ? ` +${offer.items.length - 3} more` : ""}
+                    </div>
+                  </td>
                   <td style={{ padding: "0.85rem 0.9rem" }}>
                     <span style={{ display: "inline-flex", padding: "0.22rem 0.55rem", borderRadius: "999px", background: "#eef2ff", color: "#4338ca", fontSize: "0.76rem", fontWeight: 700 }}>
                       {offer.code}
@@ -285,29 +559,29 @@ export default function BundleOffersTab() {
             {
               title: "Getting started",
               body: [
-                "Choose the bundle product you want to promote, then set the public discount code and the discounted storefront price.",
-                "The app uses a real Shopify discount code so the offer stays clean through cart and checkout.",
+                "Choose the standalone bundle product first, then decide whether the bundle should work at product level or variant level.",
+                "After that, add the products you want inside the bundle and set a quantity for each one.",
               ],
             },
             {
               title: "Field guide",
               body: [
-                "Offer name is for your team. Public discount code is what the shopper sees in cart and checkout.",
-                "Compare-at price shows the original value and discounted storefront price shows the promoted bundle price.",
+                "Bundle name is for your team. Title is the shopper-facing title for the standalone bundle product.",
+                "Product level keeps the bundle simple. Variant level lets you target specific variants for bundled items.",
               ],
             },
             {
               title: "Examples",
               body: [
-                "You can set up a starter bundle with a higher original value and a lower storefront bundle price.",
-                "A short, memorable code like ULTIMATE makes the offer easier to understand in cart and checkout.",
+                "You can create an Expansions Bundle that includes several different products with quantity 1 each.",
+                "You can also build a mixed bundle where one product appears twice and another product appears once.",
               ],
             },
             {
               title: "Common questions",
               body: [
-                "Enable the Bundle Offers app embed in the theme so shoppers can see the bundle price preview on the storefront.",
-                "After saving the offer, visit the product page once to make sure the sale preview and code behavior look correct.",
+                "The standalone bundle product is the storefront product that carries the bundle offer and discount code behavior.",
+                "After saving the bundle, visit the storefront product page once to make sure the bundle price preview and code flow look correct.",
               ],
             },
           ]}
