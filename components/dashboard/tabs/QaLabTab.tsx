@@ -262,11 +262,6 @@ export default function QaLabTab({ shopDomain, storeUrl }: { shopDomain?: string
   const autoAddRules = enabledRules.filter((rule) => rule.autoAdd);
   const blockingIssues = checks.filter((check) => check.tone === "bad").length;
   const warningIssues = checks.filter((check) => check.tone === "warn").length;
-  const publicRulesUrl = shopDomain ? `/api/public/gift-rules?shop=${encodeURIComponent(shopDomain)}` : "/api/public/gift-rules?shop=YOUR_SHOP.myshopify.com";
-  const inspectDismissedSnippet = "sessionStorage.getItem('upsale_bxgy_dismissed')";
-  const clearDismissedSnippet = "sessionStorage.removeItem('upsale_bxgy_dismissed')";
-  const inspectCartSnippet = "fetch('/cart.js').then(r => r.json()).then(cart => console.log(JSON.stringify(cart.items, null, 2)))";
-  const inspectRulesSnippet = `fetch('${publicRulesUrl}').then(r => r.json()).then(data => console.log(JSON.stringify(data, null, 2)))`;
 
   if (loading) {
     return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading QA diagnostics...</div>;
@@ -428,59 +423,6 @@ export default function QaLabTab({ shopDomain, storeUrl }: { shopDomain?: string
               </p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section style={cardStyle()}>
-        <h2 style={{ margin: 0, fontSize: "1.08rem", color: "#111827" }}>Storefront BXGY state</h2>
-        <p style={{ margin: "0.45rem 0 1rem", color: "#6b7280", fontSize: "0.9rem", lineHeight: 1.55 }}>
-          The admin app cannot read storefront <code>sessionStorage</code> directly, but this panel gives the exact
-          commands to inspect and reset BXGY client state while you are on the storefront.
-        </p>
-        <div style={{ display: "grid", gap: "0.85rem", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
-          <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: "0.9rem 1rem", background: "#fcfcfd" }}>
-            <div style={{ fontWeight: 700, color: "#111827", marginBottom: "0.45rem" }}>1. Check dismissal state</div>
-            <p style={{ margin: "0 0 0.55rem", color: "#6b7280", fontSize: "0.86rem", lineHeight: 1.5 }}>
-              Use this when the gift does not return, or returns when it should not.
-            </p>
-            <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", background: "#111827", color: "#f9fafb", padding: "0.75rem", borderRadius: 12, fontSize: "0.8rem" }}>
-{inspectDismissedSnippet}
-            </pre>
-          </div>
-
-          <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: "0.9rem 1rem", background: "#fcfcfd" }}>
-            <div style={{ fontWeight: 700, color: "#111827", marginBottom: "0.45rem" }}>2. Reset dismissal state</div>
-            <p style={{ margin: "0 0 0.55rem", color: "#6b7280", fontSize: "0.86rem", lineHeight: 1.5 }}>
-              Use this once if a test session got into a bad state and you want a clean BXGY re-check.
-            </p>
-            <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", background: "#111827", color: "#f9fafb", padding: "0.75rem", borderRadius: 12, fontSize: "0.8rem" }}>
-{clearDismissedSnippet}
-            </pre>
-          </div>
-
-          <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: "0.9rem 1rem", background: "#fcfcfd" }}>
-            <div style={{ fontWeight: 700, color: "#111827", marginBottom: "0.45rem" }}>3. Inspect cart lines</div>
-            <p style={{ margin: "0 0 0.55rem", color: "#6b7280", fontSize: "0.86rem", lineHeight: 1.5 }}>
-              Confirms whether the gift line exists, what properties it has, and whether the buy quantity qualifies.
-            </p>
-            <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", background: "#111827", color: "#f9fafb", padding: "0.75rem", borderRadius: 12, fontSize: "0.8rem" }}>
-{inspectCartSnippet}
-            </pre>
-          </div>
-
-          <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: "0.9rem 1rem", background: "#fcfcfd" }}>
-            <div style={{ fontWeight: 700, color: "#111827", marginBottom: "0.45rem" }}>4. Inspect public rule feed</div>
-            <p style={{ margin: "0 0 0.55rem", color: "#6b7280", fontSize: "0.86rem", lineHeight: 1.5 }}>
-              Confirms the storefront can load the BXGY rules the theme script depends on.
-            </p>
-            <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", background: "#111827", color: "#f9fafb", padding: "0.75rem", borderRadius: 12, fontSize: "0.8rem" }}>
-{inspectRulesSnippet}
-            </pre>
-          </div>
-        </div>
-        <div style={{ marginTop: "1rem", borderRadius: 14, border: "1px solid #dbeafe", background: "#eff6ff", padding: "0.9rem 1rem", color: "#1d4ed8", lineHeight: 1.55 }}>
-          <strong>Recommended flow:</strong> open storefront, run check 4 first, then check 3, then check 1. Only run
-          check 2 if you intentionally want to clear the current BXGY suppression state.
         </div>
       </section>
 
