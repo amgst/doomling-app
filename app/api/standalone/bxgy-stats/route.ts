@@ -8,37 +8,45 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const cookie = req.cookies.get(COOKIE_NAME)?.value;
-  const shop = cookie ? await verifyShop(cookie) : null;
-  if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const cookie = req.cookies.get(COOKIE_NAME)?.value;
+    const shop = cookie ? await verifyShop(cookie) : null;
+    if (!shop) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
-  if (!session?.accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
+    const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
+    if (!session?.accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
-  const rules = await listBxgyRules(shop, session.accessToken);
-  const stats = await getBxgyRuleStats(shop, rules.map((rule) => rule.id));
+    const rules = await listBxgyRules(shop, session.accessToken);
+    const stats = await getBxgyRuleStats(shop, rules.map((rule) => rule.id));
 
-  const merged = stats.map((stat) => {
-    const rule = rules.find((entry) => entry.id === stat.ruleId);
-    return {
-      ...stat,
-      name: rule?.name ?? "Buy X Get Y",
-      buyLabel: rule?.buyProducts.map((product) => product.title).join(", ") ?? "",
-      giftLabel: rule?.giftProduct?.title ?? "",
-      message: rule?.message ?? "",
-    };
-  });
+    const merged = stats.map((stat) => {
+      const rule = rules.find((entry) => entry.id === stat.ruleId);
+      return {
+        ...stat,
+        name: rule?.name ?? "Buy X Get Y",
+        buyLabel: rule?.buyProducts.map((product) => product.title).join(", ") ?? "",
+        giftLabel: rule?.giftProduct?.title ?? "",
+        message: rule?.message ?? "",
+      };
+    });
 
-  const totalQualified = merged.reduce((sum, stat) => sum + stat.qualified, 0);
-  const totalAutoAdded = merged.reduce((sum, stat) => sum + stat.autoAdded, 0);
+    const totalQualified = merged.reduce((sum, stat) => sum + stat.qualified, 0);
+    const totalAutoAdded = merged.reduce((sum, stat) => sum + stat.autoAdded, 0);
 
-  return NextResponse.json({
-    rules: merged,
-    summary: {
-      activeRules: rules.length,
-      totalQualified,
-      totalAutoAdded,
-      conversionRate: totalQualified > 0 ? ((totalAutoAdded / totalQualified) * 100).toFixed(1) + "%" : "—",
-    },
-  });
+    return NextResponse.json({
+      rules: merged,
+      summary: {
+        activeRules: rules.filter((rule) => rule.enabled).length,
+        totalQualified,
+        totalAutoAdded,
+        conversionRate: totalQualified > 0 ? `${((totalAutoAdded / totalQualified) * 100).toFixed(1)}%` : "-",
+      },
+    });
+  } catch (error) {
+    console.error("[bxgy-stats] GET failed", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load BXGY stats" },
+      { status: 500 },
+    );
+  }
 }

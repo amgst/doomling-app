@@ -19,15 +19,13 @@ export async function GET(req: NextRequest) {
   const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);
   if (!session?.accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
-  const [rule, snap] = await Promise.all([
-    getUpsellRule(shop, session.accessToken, ruleId),
-    getDocs(query(
-      collection(getDb(), "upsell_stats", shop, "rules", ruleId, "days"),
-      orderBy("__name__")
-    )),
-  ]);
-
+  const rule = await getUpsellRule(shop, session.accessToken, ruleId);
   if (!rule) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const snap = await getDocs(query(
+    collection(getDb(), "upsell_stats", shop, "rules", ruleId, "days"),
+    orderBy("__name__")
+  ));
 
   let totalViews = 0, totalClicks = 0, totalAdded = 0;
   const daily = snap.docs.map(d => {

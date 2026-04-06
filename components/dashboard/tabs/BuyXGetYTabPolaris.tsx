@@ -26,38 +26,9 @@ import RevenueChart from "@/components/charts/RevenueChart";
 import FeatureHelpCard from "@/components/dashboard/FeatureHelpCard";
 import PolarisProvider from "@/components/PolarisProvider";
 import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
-import {
-  type Stats,
-  type Product,
-  type CartQuantityRule,
-  type UpsellRule,
-  type UpsellProduct,
-  type BxgyProduct,
-  type BxgyRule,
-  type BxgySummary,
-  type BxgyRuleStat,
-  type ThemeSummary,
-  type LaunchpadSchedule,
-  type BundleOffer,
-  type PostPurchaseProduct,
-  type PostPurchaseOffer,
-  type PostPurchaseSummary,
-  type PostPurchaseOfferStat,
-  type RuleStat,
-  RANGES,
-  fmt,
-  calcTrend,
-  safeJson,
-  SearchableProductSelect,
-  PolarisProductAutocomplete,
-  SkeletonCard,
-  StatCard,
-  AppHealthCheck,
-  ModuleOverviewStrip,
-  BxgyOverviewStrip,
-  hasMeaningfulVariants,
-  bxgyOptionLabel,
-} from "../shared";
+import { safeJson } from "../shared";
+import { type Product, PolarisProductAutocomplete, hasMeaningfulVariants, bxgyOptionLabel } from "../products";
+import type { BxgyProduct, BxgyRule, BxgySummary, BxgyRuleStat } from "../types/bxgy";
 
 export default function BuyXGetYTabPolaris() {
   const [rules, setRules] = useState<BxgyRule[]>([]);
@@ -75,6 +46,7 @@ export default function BuyXGetYTabPolaris() {
   const [message, setMessage] = useState("Free gift added automatically when the rule qualifies.");
   const [priority, setPriority] = useState("1");
   const [autoAdd, setAutoAdd] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [buyProductIds, setBuyProductIds] = useState<string[]>([""]);
   const [buyVariantIds, setBuyVariantIds] = useState<string[]>([""]);
   const [giftProductId, setGiftProductId] = useState("");
@@ -140,6 +112,7 @@ export default function BuyXGetYTabPolaris() {
   };
 
   const resetForm = () => {
+    setEditingId(null);
     setName("Cart gift");
     setBuyQuantity("1");
     setGiftQuantity("1");
@@ -151,6 +124,42 @@ export default function BuyXGetYTabPolaris() {
     setBuyVariantIds([""]);
     setGiftProductId("");
     setGiftVariantId("");
+  };
+
+  const handleEdit = (rule: BxgyRule) => {
+    setEditingId(rule.id);
+    setName(rule.name);
+    setBuyQuantity(String(rule.buyQuantity));
+    setGiftQuantity(String(rule.giftQuantity));
+    setLimitOneGiftPerOrder(rule.limitOneGiftPerOrder);
+    setMessage(rule.message);
+    setPriority(String(rule.priority));
+    setAutoAdd(rule.autoAdd);
+    setBuyProductIds(rule.buyProducts.map((p) => p.productId));
+    setBuyVariantIds(rule.buyProducts.map((p) => p.variantId));
+    setGiftProductId(rule.giftProduct?.productId ?? "");
+    setGiftVariantId(rule.giftProduct?.variantId ?? "");
+    setError(null);
+    setSuccessMessage(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleToggleEnabled = async (rule: BxgyRule) => {
+    setError(null);
+    setSuccessMessage(null);
+    const response = await fetch(`/api/standalone/bxgy/${rule.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: !rule.enabled }),
+    });
+    const data = await safeJson<{ error?: string; warning?: string }>(response);
+    if (!response.ok) {
+      setError(data?.error ?? "Failed to update rule.");
+      return;
+    }
+    if (data?.warning) setError(data.warning);
+    await refreshData();
+    setSuccessMessage(rule.enabled ? "Rule paused." : "Rule resumed.");
   };
 
   const refreshData = async () => {
@@ -193,6 +202,7 @@ export default function BuyXGetYTabPolaris() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        id: editingId ?? undefined,
         name,
         buyProducts,
         giftProduct,
@@ -216,8 +226,9 @@ export default function BuyXGetYTabPolaris() {
     }
 
     await refreshData();
+    const wasEditing = !!editingId;
     resetForm();
-    setSuccessMessage("Buy X Get Y rule saved.");
+    setSuccessMessage(wasEditing ? "Rule updated." : "Buy X Get Y rule saved.");
     setSaving(false);
   };
 
@@ -318,10 +329,15 @@ export default function BuyXGetYTabPolaris() {
         <BlockStack gap="500">
           <InlineStack align="space-between" blockAlign="start">
             <BlockStack gap="100">
-              <Text as="p" variant="bodySm" tone="subdued">New free gift rule</Text>
-              <Text as="h2" variant="headingLg">Launch a Buy X Get Y campaign</Text>
+              <Text as="p" variant="bodySm" tone="subdued">{editingId ? "Editing rule" : "New free gift rule"}</Text>
+              <Text as="h2" variant="headingLg">{editingId ? "Edit Buy X Get Y rule" : "Launch a Buy X Get Y campaign"}</Text>
             </BlockStack>
-            <Badge tone="success">Auto-add gift flow</Badge>
+            <InlineStack gap="200">
+              {editingId && (
+                <Button variant="secondary" onClick={resetForm}>Cancel edit</Button>
+              )}
+              <Badge tone="success">Auto-add gift flow</Badge>
+            </InlineStack>
           </InlineStack>
 
           <InlineGrid columns={{ xs: 1, md: 3 }} gap="300">
@@ -457,7 +473,7 @@ export default function BuyXGetYTabPolaris() {
 
           <InlineStack align="end">
             <Button variant="primary" onClick={handleSave} loading={saving}>
-              Save BXGY rule
+              {editingId ? "Update rule" : "Save BXGY rule"}
             </Button>
           </InlineStack>
         </BlockStack>
@@ -481,6 +497,7 @@ export default function BuyXGetYTabPolaris() {
               { title: "Gift" },
               { title: "Quantities" },
               { title: "Priority" },
+              { title: "Status" },
               { title: "" },
             ]}
             selectable={false}
@@ -514,9 +531,18 @@ export default function BuyXGetYTabPolaris() {
                   <Badge>{String(rule.priority)}</Badge>
                 </IndexTable.Cell>
                 <IndexTable.Cell>
-                  <Button tone="critical" variant="secondary" size="slim" onClick={() => handleDelete(rule.id)}>
-                    Delete
-                  </Button>
+                  <Badge tone={rule.enabled ? "success" : "warning"}>{rule.enabled ? "Active" : "Paused"}</Badge>
+                </IndexTable.Cell>
+                <IndexTable.Cell>
+                  <InlineStack gap="200">
+                    <Button size="slim" onClick={() => handleEdit(rule)}>Edit</Button>
+                    <Button size="slim" onClick={() => void handleToggleEnabled(rule)}>
+                      {rule.enabled ? "Pause" : "Resume"}
+                    </Button>
+                    <Button tone="critical" variant="secondary" size="slim" onClick={() => handleDelete(rule.id)}>
+                      Delete
+                    </Button>
+                  </InlineStack>
                 </IndexTable.Cell>
               </IndexTable.Row>
             ))}

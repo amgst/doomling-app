@@ -1,4 +1,7 @@
-const SECRET = process.env.SESSION_SECRET ?? "dev-secret-change-in-production";
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET environment variable is not set");
+}
+const SECRET: string = process.env.SESSION_SECRET;
 export const COOKIE_NAME = "upsale_shop";
 
 async function getKey(): Promise<CryptoKey> {

@@ -82,18 +82,18 @@ export async function POST(req: NextRequest) {
       // GDPR webhooks — required for Shopify app store listing
       case "customers/data_request":
         // Respond with customer data you hold for this shop
-        // For now: log and acknowledge (implement data export as needed)
-        console.log(`[webhooks] GDPR data_request for shop ${shop}`, body);
+        // For now: acknowledge (implement data export as needed)
+        console.log(`[webhooks] GDPR data_request for shop ${shop}`);
         break;
 
       case "customers/redact":
         // Delete customer PII from your database
-        console.log(`[webhooks] GDPR customers/redact for shop ${shop}`, body);
+        console.log(`[webhooks] GDPR customers/redact for shop ${shop}`);
         break;
 
       case "shop/redact":
         // Delete all shop data (triggered 48h after uninstall)
-        console.log(`[webhooks] GDPR shop/redact for shop ${shop}`, body);
+        console.log(`[webhooks] GDPR shop/redact for shop ${shop}`);
         break;
 
       default:

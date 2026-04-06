@@ -9,7 +9,8 @@ const SCOPES = "write_orders,write_products,read_products,read_themes,write_them
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get("shop") ?? "";
 
-  if (!shop || !shop.endsWith(".myshopify.com")) {
+  const SHOP_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/;
+  if (!shop || !SHOP_PATTERN.test(shop)) {
     return NextResponse.redirect(new URL("/?error=invalid-shop", req.url));
   }
 

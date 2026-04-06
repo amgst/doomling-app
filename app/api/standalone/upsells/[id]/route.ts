@@ -26,7 +26,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json();
   const nextRule = {
     ...current,
-    ...body,
     id: params.id,
     triggerProductId: body.triggerProductId ?? current.triggerProductId,
     triggerProductTitle: body.triggerProductTitle ?? current.triggerProductTitle,

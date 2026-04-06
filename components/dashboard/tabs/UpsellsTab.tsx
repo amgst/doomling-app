@@ -25,43 +25,67 @@ import RevenueChart from "@/components/charts/RevenueChart";
 import FeatureHelpCard from "@/components/dashboard/FeatureHelpCard";
 import PolarisProvider from "@/components/PolarisProvider";
 import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
-import {
-  type Stats,
-  type Product,
-  type RuleStat,
-  type CartQuantityRule,
-  type UpsellRule,
-  type UpsellProduct,
-  type BxgyProduct,
-  type BxgyRule,
-  type BxgySummary,
-  type BxgyRuleStat,
-  type ThemeSummary,
-  type LaunchpadSchedule,
-  type BundleOffer,
-  type PostPurchaseProduct,
-  type PostPurchaseOffer,
-  type PostPurchaseSummary,
-  type PostPurchaseOfferStat,
-  RANGES,
-  fmt,
-  calcTrend,
-  safeJson,
-  SearchableProductSelect,
-  PolarisProductAutocomplete,
-  SkeletonCard,
-  StatCard,
-  AppHealthCheck,
-  ModuleOverviewStrip,
-  BxgyOverviewStrip,
-  hasMeaningfulVariants,
-  bxgyOptionLabel,
-} from "../shared";
+import { fmt, RANGES, calcTrend, safeJson } from "../shared";
+import { type Product, SearchableProductSelect } from "../products";
+import type { UpsellProduct, UpsellRule, RuleStat } from "../types/upsell";
 
 interface SuggestionDraft {
   productId: string;
   discountPercent: string;
   badgeText: string;
+}
+
+function ProductThumb({ p, url }: { p: UpsellProduct; url: string | null }) {
+  const img = p.image
+    ? <img src={p.image} alt={p.title} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", objectFit: "cover", border: "1px solid #e4e5e7" }} />
+    : <div title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", background: "#f1f1f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#6d7175" }}>{p.title.slice(0, 2)}</div>;
+  if (!url) return img;
+  return <a href={url} target="_blank" rel="noreferrer" title={p.title} style={{ display: "inline-flex" }}>{img}</a>;
+}
+
+function ProductCarousel({ products, storefrontUrlForProduct }: {
+  products: UpsellProduct[];
+  storefrontUrlForProduct: (productId?: string, fallbackHandle?: string) => string | null;
+}) {
+  const [offset, setOffset] = useState(0);
+  const PAGE = 3;
+  const canPrev = offset > 0;
+  const canNext = offset + PAGE < products.length;
+  const visible = products.slice(offset, offset + PAGE);
+
+  const arrowBtn: React.CSSProperties = {
+    width: 24, height: 24, border: "1px solid #d1d5db", borderRadius: "50%",
+    background: "#fff", cursor: "pointer", display: "flex", alignItems: "center",
+    justifyContent: "center", fontSize: "0.75rem", color: "#374151", flexShrink: 0, padding: 0,
+  };
+  const disabledArrow: React.CSSProperties = { ...arrowBtn, opacity: 0.35, cursor: "default" };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+      {products.length > PAGE && (
+        <button
+          style={canPrev ? arrowBtn : disabledArrow}
+          disabled={!canPrev}
+          onClick={() => setOffset((o) => Math.max(0, o - 1))}
+        >‹</button>
+      )}
+      {visible.map((p, pi) => (
+        <ProductThumb key={offset + pi} p={p} url={storefrontUrlForProduct(p.productId, p.handle)} />
+      ))}
+      {products.length > PAGE && (
+        <button
+          style={canNext ? arrowBtn : disabledArrow}
+          disabled={!canNext}
+          onClick={() => setOffset((o) => Math.min(products.length - PAGE, o + 1))}
+        >›</button>
+      )}
+      <span style={{ fontSize: "0.78rem", color: "#6d7175", marginLeft: "0.1rem" }}>
+        {products.length > PAGE
+          ? `${offset + 1}–${Math.min(offset + PAGE, products.length)} of ${products.length}`
+          : `${products.length} product${products.length !== 1 ? "s" : ""}`}
+      </span>
+    </div>
+  );
 }
 
 export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
@@ -138,21 +162,27 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error); setSaving(false); return; }
-    const [updated, refreshedStats] = await Promise.all([
-      fetch("/api/standalone/upsells").then(r => r.json()),
-      fetch("/api/standalone/stats").then(r => r.json()),
-    ]);
-    setRules(updated.rules ?? []);
-    setStats(refreshedStats.rules ?? []);
-    setEditingRuleId(null);
-    setTriggerProductId("");
-    setCampaignName("");
-    setSuggestions([{ productId: "", discountPercent: "0", badgeText: "" }]);
-    setSaving(false);
+    try {
+      const [updated, refreshedStats] = await Promise.all([
+        fetch("/api/standalone/upsells").then(r => r.json()),
+        fetch("/api/standalone/stats").then(r => r.json()),
+      ]);
+      setRules(updated.rules ?? []);
+      setStats(refreshedStats.rules ?? []);
+      setEditingRuleId(null);
+      setTriggerProductId("");
+      setCampaignName("");
+      setSuggestions([{ productId: "", discountPercent: "0", badgeText: "" }]);
+    } catch {
+      setError("Saved, but failed to refresh. Please reload the page.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/standalone/upsells/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/standalone/upsells/${id}`, { method: "DELETE" });
+    if (!res.ok) { setError("Failed to delete campaign."); return; }
     setRules(r => r.filter(x => x.id !== id));
     setStats(s => s.filter(x => x.ruleId !== id));
   };
@@ -212,18 +242,19 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
     return `${storeUrl.replace(/\/$/, "")}/products/${handle}`;
   };
 
-  const productStatRows = rules.flatMap((rule) => {
+  const ruleStatRows = rules.map((rule) => {
     const stat = stats.find((entry) => entry.ruleId === rule.id);
-    return rule.upsellProducts.map((product) => ({
-      key: `${rule.id}-${product.productId}`,
+    return {
+      key: rule.id,
+      campaign: rule.message || "Untitled campaign",
       triggerProductTitle: rule.triggerProductTitle,
-      product,
+      suggestions: rule.upsellProducts,
       views: stat?.views ?? 0,
       clicks: stat?.clicks ?? 0,
       added: stat?.added ?? 0,
       ctr: stat?.ctr ?? "—",
       convRate: stat?.convRate ?? "—",
-    }));
+    };
   });
 
   if (loading) return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading…</div>;
@@ -329,7 +360,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
           padding: "0.6rem 1.5rem", background: "#008060", color: "#fff", border: "none",
           borderRadius: "8px", fontSize: "0.875rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
           opacity: saving ? 0.7 : 1,
-        }}>{saving ? "Saving�" : editingRuleId ? "Update Campaign" : "Add Rule"}</button>
+        }}>{saving ? "Saving..." : editingRuleId ? "Update Campaign" : "Add Rule"}</button>
       </div>
 
       {/* Rules list */}
@@ -342,7 +373,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
-                {["Campaign", "When viewing", "Suggestions", "Status", "Actions", ""].map((h, i) => (
+                {["Campaign", "When viewing", "Suggestions", "Status", "Actions", "Stats", ""].map((h, i) => (
                   <th key={i} style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
@@ -373,27 +404,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
                     })()}
                   </td>
                   <td style={{ padding: "0.85rem 1rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
-                      {r.upsellProducts.slice(0, 4).map((p, pi) => (
-                        (() => {
-                          const productUrl = storefrontUrlForProduct(p.productId, p.handle);
-                          const content = p.image
-                            ? <img key={pi} src={p.image} alt={p.title} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", objectFit: "cover", border: "1px solid #e4e5e7" }} />
-                            : <div key={pi} title={p.title} style={{ width: 32, height: 32, borderRadius: "6px", background: "#f1f1f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#6d7175" }}>{p.title.slice(0, 2)}</div>;
-
-                          if (!productUrl) return content;
-
-                          return (
-                            <a key={pi} href={productUrl} target="_blank" rel="noreferrer" title={p.title} style={{ display: "inline-flex" }}>
-                              {content}
-                            </a>
-                          );
-                        })()
-                      ))}
-                      <span style={{ fontSize: "0.78rem", color: "#6d7175" }}>
-                        {r.upsellProducts.length} product{r.upsellProducts.length !== 1 ? "s" : ""}
-                      </span>
-                    </div>
+                    <ProductCarousel products={r.upsellProducts} storefrontUrlForProduct={storefrontUrlForProduct} />
                   </td>
                   <td style={{ padding: "0.85rem 1rem" }}>
                     <button
@@ -445,21 +456,21 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
 
       <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginTop: "1.5rem" }}>
         <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e4e5e7" }}>
-          <p style={{ margin: 0, fontWeight: 600, color: "#1a1a1a", fontSize: "0.92rem" }}>Product Statistics</p>
+          <p style={{ margin: 0, fontWeight: 600, color: "#1a1a1a", fontSize: "0.92rem" }}>Campaign Statistics</p>
           <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.8rem" }}>
-            Performance by suggested product. Existing stats remain available in the stats pages.
+            Performance per campaign. Detailed stats are available on individual stats pages.
           </p>
         </div>
 
-        {productStatRows.length === 0 ? (
+        {ruleStatRows.length === 0 ? (
           <p style={{ padding: "2rem", textAlign: "center", color: "#6d7175", margin: 0 }}>
-            No product statistics yet.
+            No statistics yet.
           </p>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
-                {["Trigger Product", "Suggested Product", "Price", "Views", "Clicks", "Added", "CTR", "Conv."].map((h, i) => (
+                {["Campaign", "Trigger Product", "Suggestions", "Views", "Clicks", "Added", "CTR", "Conv."].map((h, i) => (
                   <th key={i} style={{ padding: "0.75rem 1rem", textAlign: i >= 3 ? "center" : "left", fontSize: "0.8rem", fontWeight: 600, color: "#6d7175", textTransform: "uppercase" }}>
                     {h}
                   </th>
@@ -467,57 +478,26 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
               </tr>
             </thead>
             <tbody>
-              {productStatRows.map((row, index) => {
-                const productUrl = storefrontUrlForProduct(row.product.productId, row.product.handle);
-
-                return (
-                  <tr key={row.key} style={{ borderBottom: index < productStatRows.length - 1 ? "1px solid #f1f1f1" : "none" }}>
-                    <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a", fontWeight: 500 }}>{row.triggerProductTitle}</td>
-                    <td style={{ padding: "0.85rem 1rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-                        {row.product.image ? (
-                          <img src={row.product.image} alt={row.product.title} style={{ width: 38, height: 38, borderRadius: "8px", objectFit: "cover", border: "1px solid #e4e5e7", flexShrink: 0 }} />
-                        ) : (
-                          <div style={{ width: 38, height: 38, borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e4e5e7", flexShrink: 0 }} />
-                        )}
-                        <div style={{ minWidth: 0 }}>
-                          {productUrl ? (
-                            <a href={productUrl} target="_blank" rel="noreferrer" style={{ color: "#111827", textDecoration: "none", fontWeight: 600, fontSize: "0.875rem" }}>
-                              {row.product.title}
-                            </a>
-                          ) : (
-                            <span style={{ color: "#111827", fontWeight: 600, fontSize: "0.875rem" }}>{row.product.title}</span>
-                          )}
-                          <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.12rem" }}>
-                            {row.product.handle || "No handle saved"}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a" }}>
-                      {row.product.discountPercent > 0 ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
-                          <span style={{ fontWeight: 700 }}>{fmt(Number(row.product.price) * (1 - row.product.discountPercent / 100))}</span>
-                          <span style={{ color: "#9ca3af", textDecoration: "line-through" }}>{fmt(Number(row.product.price))}</span>
-                        </div>
-                      ) : (
-                        fmt(Number(row.product.price))
-                      )}
-                    </td>
-                    <td style={{ padding: "0.85rem 1rem", textAlign: "center", fontSize: "0.875rem", color: "#1a1a1a" }}>{row.views}</td>
-                    <td style={{ padding: "0.85rem 1rem", textAlign: "center", fontSize: "0.875rem", color: "#1a1a1a" }}>{row.clicks}</td>
-                    <td style={{ padding: "0.85rem 1rem", textAlign: "center", fontSize: "0.875rem", color: "#1a1a1a" }}>{row.added}</td>
-                    <td style={{ padding: "0.85rem 1rem", textAlign: "center" }}>
-                      <span style={{ background: "#f1f1f1", padding: "0.2rem 0.6rem", borderRadius: "20px", fontSize: "0.8rem" }}>{row.ctr}</span>
-                    </td>
-                    <td style={{ padding: "0.85rem 1rem", textAlign: "center" }}>
-                      <span style={{ background: row.added > 0 ? "#e3f1df" : "#f1f1f1", color: row.added > 0 ? "#1a6b3c" : "#6d7175", padding: "0.2rem 0.6rem", borderRadius: "20px", fontSize: "0.8rem" }}>
-                        {row.convRate}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {ruleStatRows.map((row, index) => (
+                <tr key={row.key} style={{ borderBottom: index < ruleStatRows.length - 1 ? "1px solid #f1f1f1" : "none" }}>
+                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a", fontWeight: 600 }}>{row.campaign}</td>
+                  <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: "#1a1a1a", fontWeight: 500 }}>{row.triggerProductTitle}</td>
+                  <td style={{ padding: "0.85rem 1rem" }}>
+                    <ProductCarousel products={row.suggestions} storefrontUrlForProduct={storefrontUrlForProduct} />
+                  </td>
+                  <td style={{ padding: "0.85rem 1rem", textAlign: "center", fontSize: "0.875rem", color: "#1a1a1a" }}>{row.views}</td>
+                  <td style={{ padding: "0.85rem 1rem", textAlign: "center", fontSize: "0.875rem", color: "#1a1a1a" }}>{row.clicks}</td>
+                  <td style={{ padding: "0.85rem 1rem", textAlign: "center", fontSize: "0.875rem", color: "#1a1a1a" }}>{row.added}</td>
+                  <td style={{ padding: "0.85rem 1rem", textAlign: "center" }}>
+                    <span style={{ background: "#f1f1f1", padding: "0.2rem 0.6rem", borderRadius: "20px", fontSize: "0.8rem" }}>{row.ctr}</span>
+                  </td>
+                  <td style={{ padding: "0.85rem 1rem", textAlign: "center" }}>
+                    <span style={{ background: row.added > 0 ? "#e3f1df" : "#f1f1f1", color: row.added > 0 ? "#1a6b3c" : "#6d7175", padding: "0.2rem 0.6rem", borderRadius: "20px", fontSize: "0.8rem" }}>
+                      {row.convRate}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}

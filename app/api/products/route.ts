@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   const headers = { "X-Shopify-Access-Token": session.accessToken };
   let nextUrl: string | null =
-    `https://${shop}/admin/api/2024-01/products.json?limit=250&fields=id,title,handle,status,variants,image`;
+    `https://${shop}/admin/api/2024-01/products.json?limit=250&fields=id,title,handle,status,variants,image&status=active`;
   const products: any[] = [];
 
   while (nextUrl) {

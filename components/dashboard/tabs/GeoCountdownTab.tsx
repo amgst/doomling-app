@@ -24,38 +24,7 @@ import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
 import PolarisProvider from "@/components/PolarisProvider";
 import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
-import {
-  type Stats,
-  type Product,
-  type CartQuantityRule,
-  type UpsellRule,
-  type UpsellProduct,
-  type BxgyProduct,
-  type BxgyRule,
-  type BxgySummary,
-  type BxgyRuleStat,
-  type ThemeSummary,
-  type LaunchpadSchedule,
-  type BundleOffer,
-  type PostPurchaseProduct,
-  type PostPurchaseOffer,
-  type PostPurchaseSummary,
-  type PostPurchaseOfferStat,
-  type RuleStat,
-  RANGES,
-  fmt,
-  calcTrend,
-  safeJson,
-  SearchableProductSelect,
-  PolarisProductAutocomplete,
-  SkeletonCard,
-  StatCard,
-  AppHealthCheck,
-  ModuleOverviewStrip,
-  BxgyOverviewStrip,
-  hasMeaningfulVariants,
-  bxgyOptionLabel,
-} from "../shared";
+import { safeJson } from "../shared";
 
 export default function GeoCountdownTab() {
   const [campaigns, setCampaigns] = useState<GeoCountdownCampaign[]>([]);

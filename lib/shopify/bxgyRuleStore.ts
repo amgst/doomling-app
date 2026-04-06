@@ -238,7 +238,7 @@ export async function listBxgyRules(shop: string, accessToken: string): Promise<
     .map((node: { handle: string; fields: Array<{ key: string; value: string }> }) =>
       mapRule(String(node.handle), node.fields ?? []),
     )
-    .filter((rule: BxgyRule) => rule.enabled && rule.buyProducts.length > 0 && rule.giftProduct?.variantId)
+    .filter((rule: BxgyRule) => rule.buyProducts.length > 0 && rule.giftProduct?.variantId)
     .sort((a: BxgyRule, b: BxgyRule) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 

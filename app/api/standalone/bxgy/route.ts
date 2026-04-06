@@ -20,11 +20,12 @@ async function getAccessToken(shop: string) {
 
 async function syncCompiledState(shop: string, accessToken: string) {
   const rules = await listBxgyRules(shop, accessToken);
-  await setShopBxgyRulesMetafield(shop, accessToken, rules);
+  const enabledRules = rules.filter((rule) => rule.enabled);
+  await setShopBxgyRulesMetafield(shop, accessToken, enabledRules);
 
   let syncWarning: string | null = null;
   try {
-    await syncBxgyDiscount(shop, accessToken, rules);
+    await syncBxgyDiscount(shop, accessToken, enabledRules);
   } catch (error) {
     console.error("[bxgy] discount sync failed", error);
     syncWarning = error instanceof Error ? error.message : "Buy X Get Y rule saved, but discount sync failed.";

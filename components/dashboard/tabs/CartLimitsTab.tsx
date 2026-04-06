@@ -24,38 +24,9 @@ import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
 import PolarisProvider from "@/components/PolarisProvider";
 import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
-import {
-  type Stats,
-  type Product,
-  type CartQuantityRule,
-  type UpsellRule,
-  type UpsellProduct,
-  type BxgyProduct,
-  type BxgyRule,
-  type BxgySummary,
-  type BxgyRuleStat,
-  type ThemeSummary,
-  type LaunchpadSchedule,
-  type BundleOffer,
-  type PostPurchaseProduct,
-  type PostPurchaseOffer,
-  type PostPurchaseSummary,
-  type PostPurchaseOfferStat,
-  type RuleStat,
-  RANGES,
-  fmt,
-  calcTrend,
-  safeJson,
-  SearchableProductSelect,
-  PolarisProductAutocomplete,
-  SkeletonCard,
-  StatCard,
-  AppHealthCheck,
-  ModuleOverviewStrip,
-  BxgyOverviewStrip,
-  hasMeaningfulVariants,
-  bxgyOptionLabel,
-} from "../shared";
+import { safeJson } from "../shared";
+import { type Product, PolarisProductAutocomplete } from "../products";
+import type { CartQuantityRule } from "../types/cart";
 
 export default function CartLimitsTab() {
   const [products, setProducts] = useState<Product[]>([]);
