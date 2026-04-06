@@ -177,6 +177,7 @@ var floatingTitle = root.dataset.bannerTitle || 'Your free gift is in the cart';
 var GIFT_FLAG = '_bxgy';
 var RULE_FLAG = '_bxgy_rule_id';
 var DISMISSED_FLAG = 'upsale_bxgy_dismissed';
+var DISMISSED_TTL_MS = 30 * 60 * 1000;
 var nativeFetch = window.fetch.bind(window);
 
 if (!shop || !apiBase) return;
@@ -216,6 +217,29 @@ sessionStorage.setItem(DISMISSED_FLAG, JSON.stringify(dismissedGifts));
 } catch (e) {}
 }
 
+function pruneDismissedGifts() {
+var now = Date.now();
+var changed = false;
+Object.keys(dismissedGifts).forEach(function (key) {
+var entry = dismissedGifts[key];
+if (!entry || entry === true || typeof entry !== 'object') {
+delete dismissedGifts[key];
+changed = true;
+return;
+}
+
+var dismissedAt = Number(entry.dismissedAt || 0);
+if (!dismissedAt || (now - dismissedAt) > DISMISSED_TTL_MS) {
+delete dismissedGifts[key];
+changed = true;
+}
+});
+
+if (changed) {
+persistDismissedGifts();
+}
+}
+
 function dismissGift(ruleId, variantId, buyQty) {
 dismissedGifts[giftKey(ruleId, variantId)] = {
 buyQty: Math.max(Number(buyQty) || 0, 0),
@@ -243,6 +267,12 @@ return false;
 }
 
 var dismissedBuyQty = Math.max(Number(entry.buyQty) || 0, 0);
+var dismissedAt = Number(entry.dismissedAt || 0);
+if (!dismissedAt || (Date.now() - dismissedAt) > DISMISSED_TTL_MS) {
+clearDismissedGift(ruleId, variantId);
+return false;
+}
+
 if (dismissedBuyQty !== normalizedBuyQty) {
 clearDismissedGift(ruleId, variantId);
 return false;
@@ -562,6 +592,7 @@ if (syncRunning) {
 syncPending = true;
 return;
 }
+pruneDismissedGifts();
 syncRunning = true;
 Promise.all([fetchCart(), loadRules()]).then(function (payload) {
 var cart = payload[0];
