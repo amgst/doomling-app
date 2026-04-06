@@ -47,9 +47,94 @@ function parseJson<T>(raw: string | null, fallback: T): T {
   }
 }
 
+function normalize(value: string | null | undefined) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
 async function ensureBxgyDefinition(shop: string, accessToken: string) {
   const resolved = await resolveMetaobjectType(shop, accessToken, TYPE, DEFINITION_NAME);
   if (resolved.foundDefinition) {
+    const definitionLookup = await shopifyAdminGraphql(
+      shop,
+      accessToken,
+      `
+        query BxgyDefinitionLookup {
+          metaobjectDefinitions(first: 250) {
+            nodes {
+              id
+              name
+              type
+              fieldDefinitions {
+                key
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const definitions = definitionLookup?.data?.metaobjectDefinitions?.nodes ?? [];
+    const logicalKey = String(TYPE || "").replace(/^\$app:/, "");
+    const wantedName = normalize(DEFINITION_NAME);
+    const match = definitions.find((node: { id?: string; type?: string; name?: string }) => {
+      const type = String(node?.type ?? "");
+      return (
+        type === resolved.type ||
+        type === TYPE ||
+        type === logicalKey ||
+        type.endsWith(`--${logicalKey}`) ||
+        normalize(node?.name) === wantedName
+      );
+    });
+
+    const hasLimitField = (match?.fieldDefinitions ?? []).some(
+      (field: { key?: string }) => String(field?.key ?? "") === "limit_one_gift_per_order",
+    );
+
+    if (match?.id && !hasLimitField) {
+      const updateResponse = await shopifyAdminGraphql(
+        shop,
+        accessToken,
+        `
+          mutation UpdateBxgyDefinition($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
+            metaobjectDefinitionUpdate(id: $id, definition: $definition) {
+              metaobjectDefinition {
+                id
+              }
+              userErrors {
+                field
+                message
+                code
+              }
+            }
+          }
+        `,
+        {
+          id: match.id,
+          definition: {
+            fieldDefinitions: [
+              {
+                create: {
+                  key: "limit_one_gift_per_order",
+                  name: "Limit to one gift per order",
+                  type: "boolean",
+                },
+              },
+            ],
+          },
+        },
+      );
+
+      const updateErrors = updateResponse?.data?.metaobjectDefinitionUpdate?.userErrors ?? [];
+      if (Array.isArray(updateErrors) && updateErrors.length > 0) {
+        const first = updateErrors[0];
+        const message = String(first?.message ?? "");
+        if (!/already exists/i.test(message)) {
+          throw new Error(message || "Failed to update BXGY definition");
+        }
+      }
+    }
+
     return resolved.type;
   }
 
