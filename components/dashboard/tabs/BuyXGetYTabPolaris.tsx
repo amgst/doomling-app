@@ -20,6 +20,7 @@ import {
   Text,
   TextField,
   Thumbnail,
+  Tooltip,
 } from "@shopify/polaris";
 import OrdersChart from "@/components/charts/OrdersChart";
 import RevenueChart from "@/components/charts/RevenueChart";
@@ -244,6 +245,21 @@ export default function BuyXGetYTabPolaris() {
   const selectedGiftProduct = products.find((product) => String(product.id) === giftProductId);
   const selectedTriggerCount = buyProductIds[0] ? 1 : 0;
   const selectedGiftLabel = selectedGiftProduct ? selectedGiftProduct.title : "Choose a gift product";
+  const helpBadgeButton: React.CSSProperties = {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    border: "1px solid #d1d5db",
+    background: "#fff",
+    color: "#6b7280",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "0.76rem",
+    fontWeight: 700,
+    cursor: "help",
+    padding: 0,
+  };
 
   return (
     <BlockStack gap="500">
@@ -283,19 +299,41 @@ export default function BuyXGetYTabPolaris() {
         </InlineGrid>
       )}
 
-      <Card>
-        <InlineStack align="space-between" blockAlign="center" gap="300">
-          <BlockStack gap="050">
-            <Text as="p" variant="bodyMd" fontWeight="semibold">Do you need any help?</Text>
-            <Text as="p" variant="bodySm" tone="subdued">
-              You can open our quick guide to understand this section, read simple examples, and get help with setup.
-            </Text>
-          </BlockStack>
-          <Button variant="secondary" onClick={() => setHelpOpen(true)}>
-            Help
-          </Button>
-        </InlineStack>
-      </Card>
+      <div
+        style={{
+          background: "#fff",
+          border: "1px solid #dfe3e8",
+          borderRadius: 18,
+          padding: "1.15rem 1.3rem",
+          boxShadow: "0 8px 20px rgba(15, 23, 42, 0.04)",
+        }}
+      >
+        <BlockStack gap="200">
+          <Text as="p" variant="headingMd">Do you need any help?</Text>
+          <Text as="p" variant="bodyMd" tone="subdued">
+            You can browse our app guide to understand this section, read common questions, and get simple setup help whenever you need it.
+          </Text>
+          <div>
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              style={{
+                border: "1px solid #111827",
+                borderRadius: 10,
+                background: "#1f2937",
+                color: "#fff",
+                padding: "0.5rem 0.9rem",
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                boxShadow: "0 2px 0 rgba(17, 24, 39, 0.35)",
+              }}
+            >
+              Help
+            </button>
+          </div>
+        </BlockStack>
+      </div>
 
       <Modal
         open={helpOpen}
@@ -377,22 +415,27 @@ export default function BuyXGetYTabPolaris() {
             <Card>
               <BlockStack gap="400">
                 <BlockStack gap="100">
-                  <Text as="h3" variant="headingMd">Rule setup</Text>
+                  <InlineStack gap="100" blockAlign="center">
+                    <Text as="h3" variant="headingMd">Rule setup</Text>
+                    <Tooltip content="Basic settings for when the offer should unlock and how the gift should behave.">
+                      <button type="button" aria-label="Rule setup help" style={helpBadgeButton}>?</button>
+                    </Tooltip>
+                  </InlineStack>
                   <Text as="p" variant="bodySm" tone="subdued">
                     Set the campaign name, quantities, shopper message, and execution priority.
                   </Text>
                 </BlockStack>
                 <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
-                  <TextField label="Rule name" value={name} onChange={setName} autoComplete="off" />
-                  <TextField label="Priority" type="number" min={1} value={priority} onChange={setPriority} autoComplete="off" />
+                  <TextField label="Rule name" value={name} onChange={setName} autoComplete="off" helpText="An internal name so you can recognize this offer later." />
+                  <TextField label="Priority" type="number" min={1} value={priority} onChange={setPriority} autoComplete="off" helpText="Use a lower number if you want this rule to run before other BXGY rules." />
                 </InlineGrid>
                 <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
-                  <TextField label="Buy quantity" type="number" min={1} value={buyQuantity} onChange={setBuyQuantity} autoComplete="off" />
-                  <TextField label="Gift quantity" type="number" min={1} value={giftQuantity} onChange={setGiftQuantity} autoComplete="off" />
+                  <TextField label="Buy quantity" type="number" min={1} value={buyQuantity} onChange={setBuyQuantity} autoComplete="off" helpText="How many main products the shopper must add before the gift is unlocked." />
+                  <TextField label="Gift quantity" type="number" min={1} value={giftQuantity} onChange={setGiftQuantity} autoComplete="off" helpText="How many free gift items the shopper receives when the offer unlocks." />
                 </InlineGrid>
-                <TextField label="Gift message" value={message} onChange={setMessage} autoComplete="off" />
-                <Checkbox label="Limit to one gift per cart even if more items qualify" checked={limitOneGiftPerOrder} onChange={setLimitOneGiftPerOrder} />
-                <Checkbox label="Auto-add gift when the rule qualifies" checked={autoAdd} onChange={setAutoAdd} />
+                <TextField label="Gift message" value={message} onChange={setMessage} autoComplete="off" helpText="Short shopper-facing text for the free gift experience." />
+                <Checkbox label="Limit to one gift per cart even if more items qualify" checked={limitOneGiftPerOrder} onChange={setLimitOneGiftPerOrder} helpText="Turn this on if you want the shopper to receive only one gift batch per cart." />
+                <Checkbox label="Auto-add gift when the rule qualifies" checked={autoAdd} onChange={setAutoAdd} helpText="Turn this on if you want the app to place the gift into the cart automatically." />
               </BlockStack>
             </Card>
 
@@ -400,7 +443,12 @@ export default function BuyXGetYTabPolaris() {
               <Card>
                 <BlockStack gap="400">
                   <BlockStack gap="100">
-                    <Text as="h3" variant="headingMd">Gift product</Text>
+                    <InlineStack gap="100" blockAlign="center">
+                      <Text as="h3" variant="headingMd">Gift product</Text>
+                      <Tooltip content="This is the free item the shopper receives when the offer unlocks.">
+                        <button type="button" aria-label="Gift product help" style={helpBadgeButton}>?</button>
+                      </Tooltip>
+                    </InlineStack>
                     <Text as="p" variant="bodySm" tone="subdued">
                       Choose the exact free gift product and variant to add into the cart when the rule qualifies.
                     </Text>
@@ -433,7 +481,12 @@ export default function BuyXGetYTabPolaris() {
               <Card>
                 <BlockStack gap="300">
                   <BlockStack gap="100">
-                    <Text as="h3" variant="headingMd">Main product</Text>
+                    <InlineStack gap="100" blockAlign="center">
+                      <Text as="h3" variant="headingMd">Main product</Text>
+                      <Tooltip content="This is the product the shopper must buy to unlock the free gift.">
+                        <button type="button" aria-label="Main product help" style={helpBadgeButton}>?</button>
+                      </Tooltip>
+                    </InlineStack>
                     <Text as="p" variant="bodySm" tone="subdued">
                       Choose the product that unlocks the free gift when the customer reaches the Buy quantity.
                     </Text>
