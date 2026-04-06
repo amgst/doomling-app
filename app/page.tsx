@@ -11,6 +11,9 @@ function LoginForm() {
   const error = params.get("error");
   const embedded = params.get("embedded");
   const shopParam = params.get("shop");
+  const discountIntent = Array.from(params.entries()).some(([key, value]) =>
+    `${key} ${value}`.toLowerCase().includes("discount"),
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +27,13 @@ function LoginForm() {
     return (
       <EmbeddedStandaloneLink
         appBaseUrl={process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || undefined}
-        message={`Open the full dashboard for ${shopParam} using the button below.`}
-        title="Open dashboard"
+        message={
+          discountIntent
+            ? `Finish setting up your Buy X Get Y discount for ${shopParam} using the button below.`
+            : `Open the full dashboard for ${shopParam} using the button below.`
+        }
+        targetPath={discountIntent ? "/dashboard/buyxgety" : "/dashboard"}
+        title={discountIntent ? "Open BXGY setup" : "Open dashboard"}
       />
     );
   }

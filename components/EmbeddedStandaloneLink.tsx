@@ -6,19 +6,24 @@ import { useSearchParams } from "next/navigation";
 type EmbeddedStandaloneLinkProps = {
   appBaseUrl?: string;
   message?: string;
+  targetPath?: string;
   title?: string;
 };
 
 export default function EmbeddedStandaloneLink({
   appBaseUrl,
   message = "Use the button below to open the full dashboard outside Shopify admin.",
+  targetPath,
   title = "Open full dashboard",
 }: EmbeddedStandaloneLinkProps) {
   const params = useSearchParams();
 
   const targetUrl = useMemo(() => {
     const baseUrl = appBaseUrl || window.location.origin;
-    const next = new URL("/dashboard", baseUrl);
+    const discountIntent = Array.from(params.entries()).some(([key, value]) =>
+      `${key} ${value}`.toLowerCase().includes("discount"),
+    );
+    const next = new URL(targetPath || (discountIntent ? "/dashboard/buyxgety" : "/dashboard"), baseUrl);
     const shop = params.get("shop");
     const locale = params.get("locale");
 
@@ -26,7 +31,7 @@ export default function EmbeddedStandaloneLink({
     if (locale) next.searchParams.set("locale", locale);
 
     return next.toString();
-  }, [appBaseUrl, params]);
+  }, [appBaseUrl, params, targetPath]);
 
   return (
     <main

@@ -67,6 +67,7 @@ export default function BuyXGetYTabPolaris() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [name, setName] = useState("Cart gift");
   const [buyQuantity, setBuyQuantity] = useState("1");
   const [giftQuantity, setGiftQuantity] = useState("1");
@@ -170,19 +171,23 @@ export default function BuyXGetYTabPolaris() {
 
     if (!name.trim()) {
       setError("Enter a rule name.");
+      setSuccessMessage(null);
       return;
     }
     if (buyProducts.length === 0) {
       setError("Select at least one Buy product.");
+      setSuccessMessage(null);
       return;
     }
     if (!giftProduct) {
       setError("Select the free Gift product.");
+      setSuccessMessage(null);
       return;
     }
 
     setSaving(true);
     setError(null);
+    setSuccessMessage(null);
 
     const response = await fetch("/api/standalone/bxgy", {
       method: "POST",
@@ -212,10 +217,13 @@ export default function BuyXGetYTabPolaris() {
 
     await refreshData();
     resetForm();
+    setSuccessMessage("Buy X Get Y rule saved.");
     setSaving(false);
   };
 
   const handleDelete = async (id: string) => {
+    setError(null);
+    setSuccessMessage(null);
     const response = await fetch(`/api/standalone/bxgy/${id}`, { method: "DELETE" });
     const data = await safeJson<{ error?: string; warning?: string }>(response);
     if (!response.ok) {
@@ -226,6 +234,7 @@ export default function BuyXGetYTabPolaris() {
       setError(data.warning);
     }
     await refreshData();
+    setSuccessMessage("Buy X Get Y rule deleted.");
   };
 
   if (loading) {
@@ -275,6 +284,12 @@ export default function BuyXGetYTabPolaris() {
       {error && (
         <Banner tone="critical" onDismiss={() => setError(null)}>
           {error}
+        </Banner>
+      )}
+
+      {successMessage && (
+        <Banner tone="success" onDismiss={() => setSuccessMessage(null)}>
+          {successMessage}
         </Banner>
       )}
 
