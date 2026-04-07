@@ -200,8 +200,11 @@ return codes;
 function syncBundleCodes() {
 if (syncPromise) return syncPromise;
 
+var cartUrl = (typeof FoxTheme !== 'undefined' && FoxTheme.routes && FoxTheme.routes.cart) ? FoxTheme.routes.cart : '/cart.js';
+var cartUpdateUrl = (typeof FoxTheme !== 'undefined' && FoxTheme.routes && FoxTheme.routes.cart_update_url) ? FoxTheme.routes.cart_update_url : '/cart/update.js';
+
 syncPromise = loadOffers().then(function () {
-return fetch(FoxTheme.routes.cart, { headers: { Accept: 'application/json' } });
+return fetch(cartUrl, { headers: { Accept: 'application/json' } });
 }).then(function (response) {
 return response.json();
 }).then(function (cart) {
@@ -218,7 +221,7 @@ var sectionId = element.dataset.sectionId;
 if (sectionId && sections.indexOf(sectionId) === -1) sections.push(sectionId);
 });
 
-return fetch(FoxTheme.routes.cart_update_url, {
+return fetch(cartUpdateUrl, {
 method: 'POST',
 headers: {
 'Content-Type': 'application/json',

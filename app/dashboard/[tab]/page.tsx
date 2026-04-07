@@ -5,10 +5,10 @@ const VALID_TABS = [
   "overview",
   "products",
   "cartlimits",
+  // "geocountdown", // hidden for now
   "upsells",
   "buyxgety",
   "bundles",
-  "geocountdown",
   "customcursor",
   "themeswitcher",
   "postpurchase",

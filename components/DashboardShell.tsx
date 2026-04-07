@@ -129,7 +129,7 @@ const TABS = [
 const NAV_GROUPS: { label: string; keys: Array<typeof TABS[number]["key"]> }[] = [
   { label: "", keys: ["overview", "stats", "products"] },
   { label: "Features", keys: ["upsells", "buyxgety", "postpurchase", "bundles"] },
-  { label: "Tools", keys: ["cartlimits", "geocountdown", "customcursor", "themeswitcher"] },
+  { label: "Tools", keys: ["cartlimits", "customcursor", "themeswitcher"] },
 ];
 
 type TabKey = typeof TABS[number]["key"];

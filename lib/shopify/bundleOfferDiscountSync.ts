@@ -38,15 +38,15 @@ function buildNativeDiscountInput(offer: BundleOffer) {
       shippingDiscounts: false,
     },
     customerGets: {
-      // Use "all items" targeting — product-level targeting via productsToAdd
-      // is not accepted on creation in API 2026-01 and causes "Context can't be blank".
-      // The code itself (e.g. EXPANSIONS) gates usage; the discount reduces the
-      // bundle product price by (compareAtPrice - discountedPrice).
-      items: { all: true },
+      items: {
+        products: {
+          productsToAdd: [asProductGid(offer.productId)],
+        },
+      },
       value: {
         discountAmount: {
           amount: discountAmount(offer),
-          appliesOnEachItem: false,
+          appliesOnEachItem: true,
         },
       },
     },
@@ -188,13 +188,13 @@ export async function syncBundleOfferDiscount(shop: string, accessToken: string,
 }
 
 export async function archiveBundleOfferDiscount(shop: string, accessToken: string, offer: BundleOffer) {
+  if (!offer.discountId) return; // no Shopify discount was ever created, nothing to archive
   try {
     await updateNativeBundleOfferDiscount(shop, accessToken, {
       ...offer,
       enabled: false,
     });
   } catch (error) {
-    if (!offer.discountId) return;
     await archiveLegacyAppBundleOfferDiscount(shop, accessToken, offer);
   }
 }

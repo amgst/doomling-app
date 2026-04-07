@@ -12,9 +12,19 @@ function LoginForm() {
   const error = params.get("error");
 
   useEffect(() => {
-    if (!error) {
-      window.location.href = `/standalone/auth?shop=${DEFAULT_SHOP}`;
-    }
+    if (error) return;
+    // Fast path: if a valid session cookie already exists, skip OAuth entirely
+    fetch("/api/standalone/me")
+      .then((res) => {
+        if (res.ok) {
+          window.location.href = "/dashboard";
+        } else {
+          window.location.href = `/standalone/auth?shop=${DEFAULT_SHOP}`;
+        }
+      })
+      .catch(() => {
+        window.location.href = `/standalone/auth?shop=${DEFAULT_SHOP}`;
+      });
   }, [error]);
   const embedded = params.get("embedded");
   const shopParam = params.get("shop");

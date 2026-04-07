@@ -26,6 +26,7 @@ export default function BundleOffersTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -228,12 +229,13 @@ export default function BundleOffersTab() {
       });
       const data = await safeJson<{ offers?: BundleOffer[]; warning?: string; error?: string }>(response);
       if (!response.ok) throw new Error(data?.error ?? `HTTP ${response.status}`);
+      const wasEditing = !!editingId;
       setOffers(data?.offers ?? []);
+      resetForm();
       if (data?.warning) {
-        setError(data.warning);
+        setError(`Bundle ${wasEditing ? "updated" : "created"}, but discount sync failed: ${data.warning}`);
       } else {
-        setSuccessMessage(editingId ? "Bundle updated." : "Bundle created.");
-        resetForm();
+        setSuccessMessage(wasEditing ? "Bundle updated." : "Bundle created.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save bundle offer.");
@@ -243,7 +245,8 @@ export default function BundleOffersTab() {
   };
 
   const handleDelete = async (offerId: string) => {
-    setSaving(true);
+    if (!confirm("Delete this bundle offer? This cannot be undone.")) return;
+    setDeletingId(offerId);
     setError(null);
     setSuccessMessage(null);
     try {
@@ -256,7 +259,7 @@ export default function BundleOffersTab() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete bundle offer.");
     } finally {
-      setSaving(false);
+      setDeletingId(null);
     }
   };
 
@@ -540,7 +543,7 @@ export default function BundleOffersTab() {
                   <td style={{ padding: "0.85rem 0.9rem", textAlign: "right" }}>
                     <InlineStack gap="200" align="end">
                       <Button size="micro" onClick={() => startEdit(offer)}>Edit</Button>
-                      <Button size="micro" tone="critical" variant="tertiary" onClick={() => void handleDelete(offer.id)} loading={saving}>
+                      <Button size="micro" tone="critical" variant="tertiary" onClick={() => void handleDelete(offer.id)} loading={deletingId === offer.id} disabled={deletingId === offer.id}>
                         Delete
                       </Button>
                     </InlineStack>
