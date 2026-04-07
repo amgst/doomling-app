@@ -147,25 +147,32 @@ export default function BuyXGetYTabPolaris() {
   const handleToggleEnabled = async (rule: BxgyRule) => {
     setError(null);
     setSuccessMessage(null);
-    const response = await fetch(`/api/standalone/bxgy/${rule.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: !rule.enabled }),
-    });
-    const data = await safeJson<{ error?: string; warning?: string }>(response);
-    if (!response.ok) {
-      setError(data?.error ?? "Failed to update rule.");
-      return;
+    try {
+      const response = await fetch(`/api/standalone/bxgy/${rule.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !rule.enabled }),
+      });
+      const data = await safeJson<{ error?: string; warning?: string }>(response);
+      if (!response.ok) {
+        setError(data?.error ?? "Failed to update rule.");
+        return;
+      }
+      await refreshData();
+      if (data?.warning) {
+        setError(`Rule updated, but discount sync failed: ${data.warning}`);
+      } else {
+        setSuccessMessage(rule.enabled ? "Rule paused." : "Rule resumed.");
+      }
+    } catch {
+      setError("Network error — please check your connection and try again.");
     }
-    if (data?.warning) setError(data.warning);
-    await refreshData();
-    setSuccessMessage(rule.enabled ? "Rule paused." : "Rule resumed.");
   };
 
   const refreshData = async () => {
     const [updated, updatedStats] = await Promise.all([
-      fetch("/api/standalone/bxgy").then((r) => safeJson(r)),
-      fetch("/api/standalone/bxgy-stats").then((r) => safeJson(r)),
+      fetch("/api/standalone/bxgy").then((r) => safeJson(r)).catch(() => null),
+      fetch("/api/standalone/bxgy-stats").then((r) => safeJson(r)).catch(() => null),
     ]);
     setRules(updated?.rules ?? []);
     setSummary(updatedStats?.summary ?? null);
@@ -198,38 +205,44 @@ export default function BuyXGetYTabPolaris() {
     setError(null);
     setSuccessMessage(null);
 
-    const response = await fetch("/api/standalone/bxgy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: editingId ?? undefined,
-        name,
-        buyProducts,
-        giftProduct,
-        buyQuantity,
-        giftQuantity,
-        limitOneGiftPerOrder,
-        message,
-        priority,
-        autoAdd,
-        enabled: editingId ? (rules.find((r) => r.id === editingId)?.enabled ?? true) : true,
-      }),
-    });
-    const data = await safeJson<{ error?: string; warning?: string }>(response);
-    if (!response.ok) {
-      setError(data?.error ?? "Failed to save BXGY rule.");
-      setSaving(false);
-      return;
-    }
-    if (data?.warning) {
-      setError(data.warning);
-    }
+    try {
+      const response = await fetch("/api/standalone/bxgy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingId ?? undefined,
+          name,
+          buyProducts,
+          giftProduct,
+          buyQuantity,
+          giftQuantity,
+          limitOneGiftPerOrder,
+          message,
+          priority,
+          autoAdd,
+          enabled: editingId ? (rules.find((r) => r.id === editingId)?.enabled ?? true) : true,
+        }),
+      });
+      const data = await safeJson<{ error?: string; warning?: string; id?: string }>(response);
+      if (!response.ok) {
+        setError(data?.error ?? "Failed to save BXGY rule.");
+        return;
+      }
 
-    await refreshData();
-    const wasEditing = !!editingId;
-    resetForm();
-    setSuccessMessage(wasEditing ? "Rule updated." : "Buy X Get Y rule saved.");
-    setSaving(false);
+      await refreshData();
+      const wasEditing = !!editingId;
+      resetForm();
+
+      if (data?.warning) {
+        setError(`Rule saved, but discount sync failed: ${data.warning}`);
+      } else {
+        setSuccessMessage(wasEditing ? "Rule updated." : "Buy X Get Y rule saved.");
+      }
+    } catch {
+      setError("Network error — please check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
