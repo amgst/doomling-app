@@ -32,20 +32,31 @@ export async function POST(req: NextRequest) {
   const accessToken = await getAccessToken(shop);
   if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
-  const body = await req.json();
-  const { id, triggerProductId, triggerProductTitle, upsellProducts, message, enabled } = body;
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { id, triggerProductId, triggerProductTitle, upsellProducts, message, enabled } = body as Record<string, unknown>;
   if (!triggerProductId || !Array.isArray(upsellProducts) || upsellProducts.length === 0) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const result = await upsertUpsellRule(shop, accessToken, {
-    id,
-    triggerProductId,
-    triggerProductTitle: triggerProductTitle || "",
-    upsellProducts,
-    message: message || "",
-    enabled: enabled !== false,
-  });
+  let result: { id: string };
+  try {
+    result = await upsertUpsellRule(shop, accessToken, {
+      id: id as string | undefined,
+      triggerProductId: triggerProductId as string,
+      triggerProductTitle: (triggerProductTitle as string) || "",
+      upsellProducts: upsellProducts as never,
+      message: (message as string) || "",
+      enabled: enabled !== false,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to save rule";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 
   // Compile to shop metafield for storefront reads
   try {

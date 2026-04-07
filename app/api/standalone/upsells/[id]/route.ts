@@ -23,18 +23,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const current = await getUpsellRule(shop, accessToken, params.id, { includeDisabled: true });
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = await req.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const nextRule = {
     ...current,
     id: params.id,
-    triggerProductId: body.triggerProductId ?? current.triggerProductId,
-    triggerProductTitle: body.triggerProductTitle ?? current.triggerProductTitle,
-    upsellProducts: Array.isArray(body.upsellProducts) ? body.upsellProducts : current.upsellProducts,
-    message: body.message ?? current.message,
+    triggerProductId: (body.triggerProductId as string) ?? current.triggerProductId,
+    triggerProductTitle: (body.triggerProductTitle as string) ?? current.triggerProductTitle,
+    upsellProducts: Array.isArray(body.upsellProducts) ? body.upsellProducts as never : current.upsellProducts,
+    message: (body.message as string) ?? current.message,
     enabled: typeof body.enabled === "boolean" ? body.enabled : current.enabled !== false,
   };
 
-  await upsertUpsellRule(shop, accessToken, nextRule);
+  try {
+    await upsertUpsellRule(shop, accessToken, nextRule);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to update rule";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 
   try {
     const rules = await listUpsellRules(shop, accessToken);
@@ -50,7 +60,12 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const { shop, accessToken, error } = await getShopAndToken(req);
   if (error || !shop || !accessToken) return error!;
 
-  await deleteUpsellRule(shop, accessToken, params.id);
+  try {
+    await deleteUpsellRule(shop, accessToken, params.id);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to delete rule";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 
   // Compile to shop metafield for storefront reads
   try {

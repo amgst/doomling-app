@@ -181,6 +181,7 @@ export default function UpsellsTab({ storeUrl }: { storeUrl?: string }) {
   };
 
   const handleDelete = async (id: string) => {
+    if (!confirm("Delete this upsell campaign? This cannot be undone.")) return;
     const res = await fetch(`/api/standalone/upsells/${id}`, { method: "DELETE" });
     if (!res.ok) { setError("Failed to delete campaign."); return; }
     setRules(r => r.filter(x => x.id !== id));

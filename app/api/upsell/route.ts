@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
           ? (parseFloat(p.price) * (1 - p.discountPercent / 100)).toFixed(2)
           : p.price,
       discountPercent: p.discountPercent,
+      badgeText: p.badgeText || "",
       message: rule.message,
     }));
 
