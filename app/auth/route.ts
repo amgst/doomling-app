@@ -9,25 +9,43 @@ const SCOPES =
 
 function buildTopLevelRedirectPage(url: string) {
   const safeUrl = JSON.stringify(url);
+  const escapedUrl = url.replace(/"/g, "&quot;");
+
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Redirecting…</title>
+    <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="0;url=${escapedUrl}" />
   </head>
   <body>
+    <a href="${escapedUrl}" target="_top" rel="noreferrer" id="auth-redirect-link">Continue</a>
     <script>
       (function() {
         var target = ${safeUrl};
-        if (window.top && window.top !== window.self) {
-          window.open(target, "_top");
-          return;
+
+        try {
+          if (window.top && window.top !== window.self) {
+            window.top.location.replace(target);
+            return;
+          }
+        } catch (error) {
+          // Fall back to current window navigation if the top frame is inaccessible.
         }
-        window.location.href = target;
+
+        try {
+          window.location.replace(target);
+          return;
+        } catch (error) {
+          // Fall through to the anchor fallback.
+        }
+
+        var link = document.getElementById("auth-redirect-link");
+        if (link) link.click();
       })();
     </script>
-    <p>Redirecting to Shopify…</p>
+    <p>Redirecting to Shopify...</p>
   </body>
 </html>`;
 }
