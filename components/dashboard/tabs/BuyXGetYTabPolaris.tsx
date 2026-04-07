@@ -212,7 +212,7 @@ export default function BuyXGetYTabPolaris() {
         message,
         priority,
         autoAdd,
-        enabled: true,
+        enabled: editingId ? (rules.find((r) => r.id === editingId)?.enabled ?? true) : true,
       }),
     });
     const data = await safeJson<{ error?: string; warning?: string }>(response);
@@ -233,6 +233,7 @@ export default function BuyXGetYTabPolaris() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!confirm("Delete this Buy X Get Y rule? This cannot be undone.")) return;
     setError(null);
     setSuccessMessage(null);
     const response = await fetch(`/api/standalone/bxgy/${id}`, { method: "DELETE" });
