@@ -1,5 +1,5 @@
 import { getDb } from "./admin";
-import { collection, doc, getDoc, getDocs, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 
 const COLLECTION = "shops";
 
@@ -59,6 +59,45 @@ export async function updateShopSettings(
     stripUndefinedDeep({ settings, updatedAt: serverTimestamp() }),
     { merge: true }
   );
+}
+
+/**
+ * Deletes all Firestore data for a shop. Called by the GDPR shop/redact webhook
+ * (triggered 48 hours after uninstall). Recursively removes all subcollections.
+ */
+export async function deleteShopAllData(shop: string): Promise<void> {
+  const db = getDb();
+
+  // analytics/{shop}/orders/*
+  const analyticsSnap = await getDocs(collection(db, "analytics", shop, "orders"));
+  await Promise.all(analyticsSnap.docs.map((d) => deleteDoc(d.ref)));
+
+  // upsells/{shop}/rules/*
+  const upsellsSnap = await getDocs(collection(db, "upsells", shop, "rules"));
+  await Promise.all(upsellsSnap.docs.map((d) => deleteDoc(d.ref)));
+
+  // bxgy_stats/{shop}/rules/{ruleId}/days/*  +  rule doc
+  const bxgyRulesSnap = await getDocs(collection(db, "bxgy_stats", shop, "rules"));
+  await Promise.all(
+    bxgyRulesSnap.docs.map(async (ruleDoc) => {
+      const daysSnap = await getDocs(collection(db, "bxgy_stats", shop, "rules", ruleDoc.id, "days"));
+      await Promise.all(daysSnap.docs.map((d) => deleteDoc(d.ref)));
+      await deleteDoc(ruleDoc.ref);
+    }),
+  );
+
+  // post_purchase_stats/{shop}/offers/{offerId}/days/*  +  offer doc
+  const ppOffersSnap = await getDocs(collection(db, "post_purchase_stats", shop, "offers"));
+  await Promise.all(
+    ppOffersSnap.docs.map(async (offerDoc) => {
+      const daysSnap = await getDocs(collection(db, "post_purchase_stats", shop, "offers", offerDoc.id, "days"));
+      await Promise.all(daysSnap.docs.map((d) => deleteDoc(d.ref)));
+      await deleteDoc(offerDoc.ref);
+    }),
+  );
+
+  // shops/{shop}  (the shop doc itself)
+  await deleteDoc(doc(db, "shops", shop));
 }
 
 export async function listShops(): Promise<Array<{ shop: string; data: ShopData }>> {

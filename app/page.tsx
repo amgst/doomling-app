@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import EmbeddedStandaloneLink from "@/components/EmbeddedStandaloneLink";
 
 function LoginForm() {
-  const [shop, setShop] = useState("upsellertheme.myshopify.com");
+  const [shop, setShop] = useState("");
   const params = useSearchParams();
   const error = params.get("error");
   const embedded = params.get("embedded");
@@ -56,18 +56,12 @@ function LoginForm() {
         maxWidth: "400px",
       }}>
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div style={{
-            width: 48, height: 48,
-            background: "#008060",
-            borderRadius: "12px",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: "1rem",
-          }}>
-            <span style={{ color: "#fff", fontSize: "1.5rem", fontWeight: 700 }}>U</span>
-          </div>
-          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "#1a1a1a" }}>Upsale</h1>
+          <img
+            src="https://www.doomlings.com/cdn/shop/files/Doomlings_Logo_FullColor_Outline_440x.png?v=1741365053"
+            alt="Doomlings"
+            style={{ width: 160, display: "block", margin: "0 auto 1rem" }}
+          />
+          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "#1a1a1a" }}>Doomlings App</h1>
           <p style={{ margin: "0.5rem 0 0", color: "#6d7175", fontSize: "0.9rem" }}>
             {embedded === "1" ? "Opening the embedded dashboard..." : "Sign in to your store dashboard"}
           </p>
@@ -125,6 +119,10 @@ function LoginForm() {
             Login with Shopify
           </button>
         </form>
+
+        <p style={{ margin: "1.5rem 0 0", textAlign: "center", fontSize: "0.75rem", color: "#9ca3af" }}>
+          &copy; {new Date().getFullYear()} Doomlings LLC. All rights reserved.
+        </p>
       </div>
     </main>
   );

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getShopify } from "@/lib/shopify/client";
 import { incrementDailyOrder, decrementDailyOrder } from "@/lib/firebase/analyticsStore";
-import { markUninstalled } from "@/lib/firebase/shopStore";
+import { markUninstalled, deleteShopAllData } from "@/lib/firebase/shopStore";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 
 export const runtime = "nodejs";
@@ -87,13 +87,15 @@ export async function POST(req: NextRequest) {
         break;
 
       case "customers/redact":
-        // Delete customer PII from your database
-        console.log(`[webhooks] GDPR customers/redact for shop ${shop}`);
+        // This app stores no customer PII — analytics are aggregated totals only.
+        // No deletion required; acknowledge immediately.
+        console.log(`[webhooks] GDPR customers/redact acknowledged for shop ${shop}`);
         break;
 
       case "shop/redact":
-        // Delete all shop data (triggered 48h after uninstall)
-        console.log(`[webhooks] GDPR shop/redact for shop ${shop}`);
+        // Delete all Firestore data for the shop (triggered 48h after uninstall).
+        await deleteShopAllData(shop);
+        console.log(`[webhooks] GDPR shop/redact: all data deleted for shop ${shop}`);
         break;
 
       default:

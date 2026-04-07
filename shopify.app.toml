@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "d758557fe11ba3e2d67c0376240d16c8"
-name = "Upsallerapp"
+name = "Doomlings App"
 application_url = "https://doomling-app-navy.vercel.app"
 embedded = true
 

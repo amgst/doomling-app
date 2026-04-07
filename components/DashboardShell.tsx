@@ -344,6 +344,9 @@ export default function DashboardShell({
             </svg>
             Sign out
           </a>
+          <p style={{ margin: "0.75rem 0 0 0.5rem", fontSize: "0.7rem", color: "#d1d5db", lineHeight: 1.4 }}>
+            &copy; {new Date().getFullYear()} Doomlings LLC
+          </p>
         </div>
       </aside>
 
