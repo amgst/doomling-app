@@ -43,7 +43,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     let warning: string | null = null;
     try {
-      await syncBxgyDiscount(shop, session.accessToken, enabledRules);
+      const syncTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Discount sync timed out. Rule updated — try toggling the rule to retry sync.")), 8_000)
+      );
+      await Promise.race([syncBxgyDiscount(shop, session.accessToken, enabledRules), syncTimeout]);
     } catch (error) {
       console.error("[bxgy] PATCH sync failed", error);
       warning = error instanceof Error ? error.message : "Rule updated, but discount sync failed.";
@@ -76,7 +79,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     let warning: string | null = null;
     try {
-      await syncBxgyDiscount(shop, session.accessToken, enabledRules);
+      const syncTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Discount sync timed out. Rule deleted — try saving another rule to retry sync.")), 8_000)
+      );
+      await Promise.race([syncBxgyDiscount(shop, session.accessToken, enabledRules), syncTimeout]);
     } catch (error) {
       console.error("[bxgy] DELETE sync failed", error);
       warning = error instanceof Error ? error.message : "Rule deleted, but discount sync failed.";

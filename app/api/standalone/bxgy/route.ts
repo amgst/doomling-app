@@ -25,10 +25,13 @@ async function syncCompiledState(shop: string, accessToken: string) {
 
   let syncWarning: string | null = null;
   try {
-    await syncBxgyDiscount(shop, accessToken, enabledRules);
+    const syncTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Discount sync timed out. Rule saved — try toggling the rule off/on to retry sync.")), 8_000)
+    );
+    await Promise.race([syncBxgyDiscount(shop, accessToken, enabledRules), syncTimeout]);
   } catch (error) {
     console.error("[bxgy] discount sync failed", error);
-    syncWarning = error instanceof Error ? error.message : "Buy X Get Y rule saved, but discount sync failed.";
+    syncWarning = error instanceof Error ? error.message : "Rule saved, but discount sync failed.";
   }
 
   return { rules, syncWarning };
