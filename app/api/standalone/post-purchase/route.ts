@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const accessToken = await getAccessToken(shop);
     if (!accessToken) return NextResponse.json({ error: "No access token" }, { status: 403 });
 
-    const offers = await listPostPurchaseOffers(shop, accessToken);
+    const offers = await syncCompiledState(shop, accessToken);
     return NextResponse.json({ offers });
   } catch (error) {
     console.error("[post-purchase] GET failed", error);

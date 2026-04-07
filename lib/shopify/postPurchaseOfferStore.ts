@@ -28,6 +28,18 @@ export interface PostPurchaseOffer {
 const TYPE = "$app:post_purchase_offer";
 const DEFINITION_NAME = "Post Purchase Offer";
 
+type LiveVariantNode = {
+  id?: string;
+  price?: string;
+  image?: { url?: string | null } | null;
+  product?: {
+    id?: string;
+    title?: string;
+    handle?: string;
+    featuredImage?: { url?: string | null } | null;
+  } | null;
+} | null;
+
 function normalizePositiveInt(value: unknown, fallback = 1) {
   const parsed = Number.parseInt(String(value ?? fallback), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -51,6 +63,92 @@ function parseJson<T>(raw: string | null, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function toGid(type: "Product" | "ProductVariant", value: string) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("gid://")) return trimmed;
+  return `gid://shopify/${type}/${trimmed}`;
+}
+
+function fromGid(value: string | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const match = raw.match(/\/([^/]+)$/);
+  return match?.[1] ?? raw;
+}
+
+async function loadLiveVariants(
+  shop: string,
+  accessToken: string,
+  offers: PostPurchaseOffer[],
+) {
+  const ids = Array.from(
+    new Set(
+      offers
+        .map((offer) => toGid("ProductVariant", String(offer.offerProduct?.variantId ?? "")))
+        .filter(Boolean),
+    ),
+  );
+
+  if (!ids.length) {
+    return new Map<string, LiveVariantNode>();
+  }
+
+  const response = await shopifyAdminGraphql(
+    shop,
+    accessToken,
+    `
+      query PostPurchaseLiveVariants($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on ProductVariant {
+            id
+            price
+            image {
+              url
+            }
+            product {
+              id
+              title
+              handle
+              featuredImage {
+                url
+              }
+            }
+          }
+        }
+      }
+    `,
+    { ids },
+  );
+
+  const nodes = Array.isArray(response?.data?.nodes) ? response.data.nodes as LiveVariantNode[] : [];
+  const liveVariants = new Map<string, LiveVariantNode>();
+
+  ids.forEach((id, index) => {
+    liveVariants.set(id, nodes[index] ?? null);
+  });
+
+  return liveVariants;
+}
+
+function hydrateOfferProduct(
+  offerProduct: PostPurchaseProduct | null,
+  liveVariant: LiveVariantNode,
+): PostPurchaseProduct | null {
+  if (!offerProduct?.variantId || !liveVariant?.id || !liveVariant.product?.id) {
+    return null;
+  }
+
+  return {
+    productId: fromGid(liveVariant.product.id) || String(offerProduct.productId ?? "").trim(),
+    variantId: fromGid(liveVariant.id) || String(offerProduct.variantId ?? "").trim(),
+    title: String(liveVariant.product.title ?? offerProduct.title ?? "").trim(),
+    image: String(liveVariant.image?.url ?? liveVariant.product?.featuredImage?.url ?? offerProduct.image ?? "").trim(),
+    price: String(liveVariant.price ?? offerProduct.price ?? "").trim(),
+    handle: String(liveVariant.product.handle ?? offerProduct.handle ?? "").trim(),
+  };
 }
 
 async function ensurePostPurchaseDefinition(shop: string, accessToken: string) {
@@ -158,11 +256,21 @@ export async function listPostPurchaseOffers(shop: string, accessToken: string):
   );
 
   const nodes = response?.data?.metaobjects?.nodes ?? [];
-  return nodes
+  const offers = nodes
     .map((node: { handle: string; fields: Array<{ key: string; value: string }> }) =>
       mapOffer(String(node.handle), node.fields ?? []),
     )
-    .filter((offer: PostPurchaseOffer) => offer.enabled && offer.offerProduct?.variantId)
+    .filter((offer: PostPurchaseOffer) => offer.enabled && offer.offerProduct?.variantId);
+
+  const liveVariants = await loadLiveVariants(shop, accessToken, offers);
+
+  return offers
+    .map((offer: PostPurchaseOffer) => {
+      const liveVariant = liveVariants.get(toGid("ProductVariant", String(offer.offerProduct?.variantId ?? ""))) ?? null;
+      const offerProduct = hydrateOfferProduct(offer.offerProduct, liveVariant);
+      return offerProduct ? { ...offer, offerProduct } : null;
+    })
+    .filter((offer: PostPurchaseOffer | null): offer is PostPurchaseOffer => Boolean(offer))
     .sort((a: PostPurchaseOffer, b: PostPurchaseOffer) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 
