@@ -58,12 +58,16 @@ export async function POST(req: NextRequest) {
 
     let warning: string | null = null;
     try {
-      const discountId = await syncBundleOfferDiscount(shop, accessToken, saved);
+      const syncTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Discount sync timed out. Bundle saved — try editing and re-saving to retry.")), 8_000)
+      );
+      const discountId = await Promise.race([syncBundleOfferDiscount(shop, accessToken, saved), syncTimeout]);
       if (discountId && discountId !== saved.discountId) {
         await saveBundleOffer(shop, { ...saved, discountId });
       }
     } catch (error) {
-      warning = error instanceof Error ? error.message : "Bundle offer saved, but discount sync failed.";
+      console.error("[bundles] POST discount sync failed", error);
+      warning = error instanceof Error ? error.message : "Bundle saved, but discount sync failed.";
     }
 
     const offers = await listBundleOffers(shop);

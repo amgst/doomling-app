@@ -31,21 +31,22 @@ function buildNativeDiscountInput(offer: BundleOffer) {
     code: offer.code,
     startsAt: offer.createdAt || new Date().toISOString(),
     endsAt: activeEndsAt(offer),
+    customerSelection: { all: true },
     combinesWith: {
       orderDiscounts: false,
       productDiscounts: false,
       shippingDiscounts: false,
     },
     customerGets: {
-      items: {
-        products: {
-          productsToAdd: [asProductGid(offer.productId)],
-        },
-      },
+      // Use "all items" targeting — product-level targeting via productsToAdd
+      // is not accepted on creation in API 2026-01 and causes "Context can't be blank".
+      // The code itself (e.g. EXPANSIONS) gates usage; the discount reduces the
+      // bundle product price by (compareAtPrice - discountedPrice).
+      items: { all: true },
       value: {
         discountAmount: {
           amount: discountAmount(offer),
-          appliesOnEachItem: true,
+          appliesOnEachItem: false,
         },
       },
     },
@@ -77,6 +78,7 @@ async function createNativeBundleOfferDiscount(shop: string, accessToken: string
 
   const errors = response?.data?.discountCodeBasicCreate?.userErrors ?? [];
   if (Array.isArray(errors) && errors.length > 0) {
+    console.error("[bundleOfferDiscountSync] create userErrors", JSON.stringify(errors));
     throw new Error(errors[0]?.message ?? "Failed to create native bundle discount");
   }
 
