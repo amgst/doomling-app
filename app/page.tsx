@@ -1,14 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import EmbeddedStandaloneLink from "@/components/EmbeddedStandaloneLink";
 
 function LoginForm() {
-  const [shop, setShop] = useState("");
+  const DEFAULT_SHOP = "upsellertheme.myshopify.com";
+  const [shop, setShop] = useState(DEFAULT_SHOP);
   const params = useSearchParams();
   const error = params.get("error");
+
+  useEffect(() => {
+    if (!error) {
+      window.location.href = `/standalone/auth?shop=${DEFAULT_SHOP}`;
+    }
+  }, [error]);
   const embedded = params.get("embedded");
   const shopParam = params.get("shop");
   const discountIntent = Array.from(params.entries()).some(([key, value]) =>
