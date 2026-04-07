@@ -123,13 +123,8 @@ font-size: 0.78rem;
 color: #4b5563;
 }
 quantity-selector-component[data-upsale-bxgy-locked='true'] {
-pointer-events: none;
-}
-quantity-selector-component[data-upsale-bxgy-locked='true'] .quantity-button {
 display: none !important;
-}
-quantity-selector-component[data-upsale-bxgy-locked='true'] .quantity-input {
-cursor: default;
+pointer-events: none;
 }
 .upsale-bxgy-lock-note {
 display: block;
@@ -530,7 +525,7 @@ note = document.createElement('small');
 note.className = 'upsale-bxgy-lock-note';
 quantityCell.appendChild(note);
 }
-note.textContent = 'Free gift quantity is managed automatically.';
+note.textContent = 'Free gift';
 }
 }
 }

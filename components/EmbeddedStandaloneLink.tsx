@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
 type EmbeddedStandaloneLinkProps = {
@@ -12,9 +12,9 @@ type EmbeddedStandaloneLinkProps = {
 
 export default function EmbeddedStandaloneLink({
   appBaseUrl,
-  message = "Use the button below to open the full dashboard outside Shopify admin.",
+  message = "Opening Doomlings App dashboard…",
   targetPath,
-  title = "Open full dashboard",
+  title = "Open dashboard",
 }: EmbeddedStandaloneLinkProps) {
   const params = useSearchParams();
 
@@ -33,6 +33,22 @@ export default function EmbeddedStandaloneLink({
     return next.toString();
   }, [appBaseUrl, params, targetPath]);
 
+  // Auto-navigate the top frame to the standalone dashboard so the full UI
+  // opens immediately without requiring a manual button click.
+  useEffect(() => {
+    try {
+      if (window.top && window.top !== window) {
+        window.top.location.href = targetUrl;
+      } else {
+        window.location.href = targetUrl;
+      }
+    } catch {
+      // Cross-origin frame restriction — fall back to navigating current frame
+      window.location.href = targetUrl;
+    }
+  }, [targetUrl]);
+
+  // Shown briefly while the redirect fires, and as a fallback if JS is slow
   return (
     <main
       style={{
@@ -56,7 +72,7 @@ export default function EmbeddedStandaloneLink({
           textAlign: "center",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "1.4rem", color: "#111827" }}>Upsale</h1>
+        <h1 style={{ margin: 0, fontSize: "1.4rem", color: "#111827" }}>Doomlings App</h1>
         <p style={{ margin: "0.9rem 0 0", color: "#4b5563", lineHeight: 1.5 }}>{message}</p>
         <a
           href={targetUrl}
@@ -79,7 +95,6 @@ export default function EmbeddedStandaloneLink({
         >
           {title}
         </a>
-        <p style={{ margin: "0.95rem 0 0", color: "#6b7280", fontSize: "0.9rem" }}>{targetUrl}</p>
       </div>
     </main>
   );

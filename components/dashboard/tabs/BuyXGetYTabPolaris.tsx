@@ -37,6 +37,7 @@ export default function BuyXGetYTabPolaris() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [name, setName] = useState("Cart gift");
@@ -147,6 +148,7 @@ export default function BuyXGetYTabPolaris() {
   const handleToggleEnabled = async (rule: BxgyRule) => {
     setError(null);
     setSuccessMessage(null);
+    setTogglingId(rule.id);
     try {
       const response = await fetch(`/api/standalone/bxgy/${rule.id}`, {
         method: "PATCH",
@@ -166,6 +168,8 @@ export default function BuyXGetYTabPolaris() {
       }
     } catch {
       setError("Network error — please check your connection and try again.");
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -255,11 +259,14 @@ export default function BuyXGetYTabPolaris() {
       setError(data?.error ?? "Failed to delete BXGY rule.");
       return;
     }
+    setRules((prev) => prev.filter((r) => r.id !== id));
+    setRuleStats((prev) => prev.filter((s) => s.ruleId !== id));
     if (data?.warning) {
-      setError(data.warning);
+      setError(`Rule deleted, but discount sync failed: ${data.warning}`);
+    } else {
+      setSuccessMessage("Buy X Get Y rule deleted.");
     }
-    await refreshData();
-    setSuccessMessage("Buy X Get Y rule deleted.");
+    refreshData().catch(() => null);
   };
 
   if (loading) {
@@ -550,7 +557,7 @@ export default function BuyXGetYTabPolaris() {
                 <IndexTable.Cell>
                   <InlineStack gap="200">
                     <Button size="slim" onClick={() => handleEdit(rule)}>Edit</Button>
-                    <Button size="slim" onClick={() => void handleToggleEnabled(rule)}>
+                    <Button size="slim" loading={togglingId === rule.id} disabled={togglingId === rule.id} onClick={() => void handleToggleEnabled(rule)}>
                       {rule.enabled ? "Pause" : "Resume"}
                     </Button>
                     <Button tone="critical" variant="secondary" size="slim" onClick={() => handleDelete(rule.id)}>
