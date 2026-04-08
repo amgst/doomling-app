@@ -33,7 +33,7 @@ function formatScheduleTime(schedule: LaunchpadSchedule) {
 }
 
 function formatRelativeDuration(ms: number) {
-  if (ms <= 0) return "Publishing window reached";
+  if (ms <= 0) return "Awaiting cron publish";
 
   const totalSeconds = Math.floor(ms / 1000);
   const days = Math.floor(totalSeconds / 86400);
@@ -366,7 +366,7 @@ export default function LaunchpadTab() {
                           {formatRelativeDuration(countdown)}
                         </div>
                         <div style={{ marginTop: "0.18rem", fontSize: "0.75rem", color: "#6b7280" }}>
-                          {countdown <= 0 ? "Waiting for the next cron run to publish this theme." : "Time left until this theme should go live."}
+                          {countdown <= 0 ? "The scheduled time has passed. The next 1-minute cron run should publish this theme automatically." : "Time left until this theme should go live."}
                         </div>
                         {progress !== null && (
                           <div style={{ marginTop: "0.55rem" }}>
