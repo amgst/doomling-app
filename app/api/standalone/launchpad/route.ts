@@ -66,6 +66,9 @@ export async function POST(req: NextRequest) {
     if (!scheduledForUtc) {
       return NextResponse.json({ error: "Use a valid local date/time and supported timezone" }, { status: 400 });
     }
+    if (Date.parse(scheduledForUtc) <= Date.now()) {
+      return NextResponse.json({ error: "Choose a future date and time for the publish schedule" }, { status: 400 });
+    }
 
     const stored = await getStoredShop(shop);
     const currentSchedules = getStoredSchedules(stored?.settings);

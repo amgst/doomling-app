@@ -1,31 +1,34 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Autocomplete,
-  Badge,
-  Banner,
   BlockStack,
   Button,
   Card,
-  Checkbox,
-  DataTable,
-  EmptyState,
-  IndexTable,
   InlineGrid,
   InlineStack,
   Select,
   Text,
   TextField,
-  Thumbnail,
 } from "@shopify/polaris";
-import OrdersChart from "@/components/charts/OrdersChart";
-import RevenueChart from "@/components/charts/RevenueChart";
-import PolarisProvider from "@/components/PolarisProvider";
-import type { GeoCountdownCampaign, GeoCountdownPageTarget } from "@/lib/geoCountdown";
 import { safeJson } from "../shared";
 import type { ThemeSummary, LaunchpadSchedule } from "../types/theme";
+
+function formatScheduleTime(schedule: LaunchpadSchedule) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone: schedule.timezone,
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(new Date(schedule.scheduledForUtc));
+  } catch {
+    return new Date(schedule.scheduledForUtc).toLocaleString();
+  }
+}
 
 export default function LaunchpadTab() {
   const [themes, setThemes] = useState<ThemeSummary[]>([]);
@@ -183,6 +186,7 @@ export default function LaunchpadTab() {
               ]}
               value={selectedThemeId}
               onChange={setSelectedThemeId}
+              disabled={saving || draftThemes.length === 0}
             />
             <TextField
               label="Date and time"
@@ -191,12 +195,14 @@ export default function LaunchpadTab() {
               onChange={setLocalDateTime}
               autoComplete="off"
               helpText="Enter the launch time in the timezone selected on the right."
+              disabled={saving}
             />
             <Select
               label="Timezone"
               options={timezones.map((value) => ({ label: value, value }))}
               value={timezone}
               onChange={setTimezone}
+              disabled={saving}
             />
           </InlineGrid>
           <InlineStack align="space-between" blockAlign="center">
@@ -241,9 +247,9 @@ export default function LaunchpadTab() {
                     <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem" }}>{schedule.themeId}</div>
                   </td>
                   <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>
-                    <div>{new Date(schedule.scheduledForUtc).toLocaleString()}</div>
+                    <div>{formatScheduleTime(schedule)}</div>
                     <div style={{ color: "#6b7280", marginTop: "0.15rem" }}>
-                      Saved with timezone: {schedule.timezone}
+                      Stored as UTC: {new Date(schedule.scheduledForUtc).toUTCString()}
                     </div>
                   </td>
                   <td style={{ padding: "0.85rem 0.9rem" }}>

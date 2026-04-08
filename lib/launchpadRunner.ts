@@ -23,7 +23,9 @@ export async function processDueLaunchpadSchedules(options?: { shop?: string }) 
     const shop = entry.shop;
     const stored = entry.data ?? (await getShop(shop));
     const schedules = readSchedules(stored?.settings);
-    const dueSchedules = schedules.filter((schedule) => schedule.status === "pending" && Date.parse(schedule.scheduledForUtc) <= now);
+    const dueSchedules = schedules
+      .filter((schedule) => schedule.status === "pending" && Date.parse(schedule.scheduledForUtc) <= now)
+      .sort((a, b) => Date.parse(a.scheduledForUtc) - Date.parse(b.scheduledForUtc));
     if (dueSchedules.length === 0) continue;
 
     const session = await firestoreSessionStorage.loadSession(`offline_${shop}`);

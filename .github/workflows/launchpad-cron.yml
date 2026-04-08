@@ -1,0 +1,29 @@
+name: Launchpad Cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger-launchpad:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scheduled theme publishes
+        env:
+          CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_URL" ]; then
+            echo "CRON_URL secret is not configured"
+            exit 1
+          fi
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET secret is not configured"
+            exit 1
+          fi
+
+          curl --fail --show-error --silent \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$CRON_URL"
