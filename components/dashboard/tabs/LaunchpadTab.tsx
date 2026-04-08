@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BlockStack,
   Button,
@@ -13,6 +13,8 @@ import {
 } from "@shopify/polaris";
 import { safeJson } from "../shared";
 import type { ThemeSummary, LaunchpadSchedule } from "../types/theme";
+
+const POLL_INTERVAL_MS = 15000;
 
 function formatScheduleTime(schedule: LaunchpadSchedule) {
   try {
@@ -30,40 +32,111 @@ function formatScheduleTime(schedule: LaunchpadSchedule) {
   }
 }
 
+function formatRelativeDuration(ms: number) {
+  if (ms <= 0) return "Publishing window reached";
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function getScheduleCountdown(schedule: LaunchpadSchedule, now: number) {
+  return Date.parse(schedule.scheduledForUtc) - now;
+}
+
+function getScheduleProgress(schedule: LaunchpadSchedule, now: number) {
+  const start = Date.parse(schedule.createdAt);
+  const end = Date.parse(schedule.scheduledForUtc);
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+
+  const ratio = ((now - start) / (end - start)) * 100;
+  return Math.max(0, Math.min(100, ratio));
+}
+
 export default function LaunchpadTab() {
   const [themes, setThemes] = useState<ThemeSummary[]>([]);
   const [schedules, setSchedules] = useState<LaunchpadSchedule[]>([]);
   const [timezones, setTimezones] = useState<string[]>(["UTC"]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [runningNow, setRunningNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState("");
   const [localDateTime, setLocalDateTime] = useState("");
   const [timezone, setTimezone] = useState("UTC");
+  const [now, setNow] = useState(() => Date.now());
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const pollInFlight = useRef(false);
 
-  const loadData = useCallback(async () => {
-    const [themesResponse, launchpadResponse] = await Promise.all([
-      fetch("/api/standalone/themes"),
-      fetch("/api/standalone/launchpad"),
-    ]);
+  const loadData = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (silent) {
+      if (pollInFlight.current) return;
+      pollInFlight.current = true;
+      setSyncing(true);
+    }
 
-    const themesData = await safeJson<{ themes?: ThemeSummary[]; error?: string }>(themesResponse);
-    const launchpadData = await safeJson<{ schedules?: LaunchpadSchedule[]; timezones?: string[]; error?: string }>(launchpadResponse);
+    try {
+      const [themesResponse, launchpadResponse] = await Promise.all([
+        fetch("/api/standalone/themes", { cache: "no-store" }),
+        fetch("/api/standalone/launchpad", { cache: "no-store" }),
+      ]);
 
-    if (!themesResponse.ok) throw new Error(themesData?.error ?? `HTTP ${themesResponse.status}`);
-    if (!launchpadResponse.ok) throw new Error(launchpadData?.error ?? `HTTP ${launchpadResponse.status}`);
+      const themesData = await safeJson<{ themes?: ThemeSummary[]; error?: string }>(themesResponse);
+      const launchpadData = await safeJson<{ schedules?: LaunchpadSchedule[]; timezones?: string[]; error?: string }>(launchpadResponse);
 
-    setThemes(themesData?.themes ?? []);
-    setSchedules(launchpadData?.schedules ?? []);
-    setTimezones(launchpadData?.timezones ?? ["UTC"]);
-    setTimezone((current) => (launchpadData?.timezones?.includes(current) ? current : (launchpadData?.timezones?.[0] ?? "UTC")));
+      if (!themesResponse.ok) throw new Error(themesData?.error ?? `HTTP ${themesResponse.status}`);
+      if (!launchpadResponse.ok) throw new Error(launchpadData?.error ?? `HTTP ${launchpadResponse.status}`);
+
+      setThemes(themesData?.themes ?? []);
+      setSchedules(launchpadData?.schedules ?? []);
+      setTimezones(launchpadData?.timezones ?? ["UTC"]);
+      setTimezone((current) => (launchpadData?.timezones?.includes(current) ? current : (launchpadData?.timezones?.[0] ?? "UTC")));
+      setLastUpdatedAt(new Date().toISOString());
+    } finally {
+      if (silent) {
+        pollInFlight.current = false;
+        setSyncing(false);
+      }
+    }
   }, []);
 
   useEffect(() => {
     loadData()
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load launchpad data."))
       .finally(() => setLoading(false));
+  }, [loadData]);
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(tick);
+  }, []);
+
+  useEffect(() => {
+    const poll = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void loadData({ silent: true }).catch(() => {});
+    }, POLL_INTERVAL_MS);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void loadData({ silent: true }).catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [loadData]);
 
   const scheduleTheme = async () => {
@@ -141,6 +214,11 @@ export default function LaunchpadTab() {
   const mainTheme = themes.find((theme) => theme.role === "MAIN") ?? null;
   const draftThemes = themes.filter((theme) => theme.role !== "MAIN");
   const pendingCount = schedules.filter((schedule) => schedule.status === "pending").length;
+  const nextPendingSchedule = schedules
+    .filter((schedule) => schedule.status === "pending")
+    .slice()
+    .sort((a, b) => Date.parse(a.scheduledForUtc) - Date.parse(b.scheduledForUtc))[0] ?? null;
+  const nextPendingCountdown = nextPendingSchedule ? getScheduleCountdown(nextPendingSchedule, now) : null;
 
   if (loading) {
     return <div style={{ textAlign: "center", padding: "4rem", color: "#6d7175" }}>Loading launchpad...</div>;
@@ -153,6 +231,25 @@ export default function LaunchpadTab() {
         <p style={{ margin: "0.2rem 0 0", color: "#6d7175", fontSize: "0.84rem", maxWidth: 840 }}>
           Schedule a theme to auto-publish later. The time is entered in the timezone you choose, then stored in UTC for reliable execution by the background cron.
         </p>
+        <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.35rem",
+            padding: "0.28rem 0.6rem",
+            borderRadius: "999px",
+            border: "1px solid #d1fae5",
+            background: syncing ? "#fffbeb" : "#ecfdf5",
+            color: syncing ? "#92400e" : "#065f46",
+            fontSize: "0.76rem",
+            fontWeight: 700,
+          }}>
+            {syncing ? "Syncing..." : "Live auto-refresh on"}
+          </span>
+          <span style={{ color: "#6b7280", fontSize: "0.76rem" }}>
+            Refreshes every {Math.round(POLL_INTERVAL_MS / 1000)} seconds{lastUpdatedAt ? `, last synced ${new Date(lastUpdatedAt).toLocaleTimeString()}` : ""}.
+          </span>
+        </div>
       </div>
 
       {error && (
@@ -165,6 +262,11 @@ export default function LaunchpadTab() {
         {[
           { label: "Live theme", value: mainTheme?.name ?? "None", sub: "Current published storefront theme" },
           { label: "Scheduled publishes", value: pendingCount, sub: "Queued for automatic publish" },
+          {
+            label: "Next publish",
+            value: nextPendingSchedule ? formatRelativeDuration(nextPendingCountdown ?? 0) : "None",
+            sub: nextPendingSchedule ? `${nextPendingSchedule.themeName} will go live next` : "No pending auto-publish scheduled",
+          },
           { label: "Timezone", value: timezone, sub: "Used for new schedules" },
         ].map((card) => (
           <div key={card.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "0.85rem 0.95rem" }}>
@@ -235,24 +337,69 @@ export default function LaunchpadTab() {
               <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#fafafa" }}>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Theme</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Scheduled time</th>
+                <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Progress</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "left", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Status</th>
                 <th style={{ padding: "0.75rem 0.9rem", textAlign: "right", fontSize: "0.76rem", fontWeight: 600, color: "#6b7280" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {schedules.map((schedule, index) => (
+              {schedules.map((schedule, index) => {
+                const countdown = getScheduleCountdown(schedule, now);
+                const progress = getScheduleProgress(schedule, now);
+
+                return (
                 <tr key={schedule.id} style={{ borderBottom: index < schedules.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <td style={{ padding: "0.85rem 0.9rem" }}>
+                  <td style={{ padding: "0.85rem 0.9rem", verticalAlign: "top" }}>
                     <div style={{ fontSize: "0.86rem", fontWeight: 700, color: "#111827" }}>{schedule.themeName}</div>
                     <div style={{ fontSize: "0.76rem", color: "#6b7280", marginTop: "0.15rem" }}>{schedule.themeId}</div>
                   </td>
-                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151" }}>
+                  <td style={{ padding: "0.85rem 0.9rem", fontSize: "0.82rem", color: "#374151", verticalAlign: "top" }}>
                     <div>{formatScheduleTime(schedule)}</div>
                     <div style={{ color: "#6b7280", marginTop: "0.15rem" }}>
                       Stored as UTC: {new Date(schedule.scheduledForUtc).toUTCString()}
                     </div>
                   </td>
-                  <td style={{ padding: "0.85rem 0.9rem" }}>
+                  <td style={{ padding: "0.85rem 0.9rem", minWidth: 220, verticalAlign: "top" }}>
+                    {schedule.status === "pending" ? (
+                      <>
+                        <div style={{ fontSize: "0.84rem", fontWeight: 700, color: countdown <= 0 ? "#92400e" : "#111827" }}>
+                          {formatRelativeDuration(countdown)}
+                        </div>
+                        <div style={{ marginTop: "0.18rem", fontSize: "0.75rem", color: "#6b7280" }}>
+                          {countdown <= 0 ? "Waiting for the next cron run to publish this theme." : "Time left until this theme should go live."}
+                        </div>
+                        {progress !== null && (
+                          <div style={{ marginTop: "0.55rem" }}>
+                            <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
+                              <div style={{
+                                width: `${progress}%`,
+                                height: "100%",
+                                borderRadius: 999,
+                                background: countdown <= 0 ? "#f59e0b" : "#10b981",
+                                transition: "width 0.9s linear",
+                              }} />
+                            </div>
+                            <div style={{ marginTop: "0.22rem", fontSize: "0.73rem", color: "#6b7280" }}>
+                              {Math.round(progress)}% of the scheduled wait completed
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : schedule.status === "published" ? (
+                      <div style={{ fontSize: "0.78rem", color: "#166534" }}>
+                        Published{schedule.publishedAt ? ` ${new Date(schedule.publishedAt).toLocaleString()}` : ""}
+                      </div>
+                    ) : schedule.status === "failed" ? (
+                      <div style={{ fontSize: "0.78rem", color: "#b91c1c" }}>
+                        Last attempt failed
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: "0.78rem", color: "#6b7280" }}>
+                        Schedule stopped
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: "0.85rem 0.9rem", verticalAlign: "top" }}>
                     <span style={{
                       display: "inline-flex",
                       alignItems: "center",
@@ -272,7 +419,7 @@ export default function LaunchpadTab() {
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: "0.85rem 0.9rem", textAlign: "right" }}>
+                  <td style={{ padding: "0.85rem 0.9rem", textAlign: "right", verticalAlign: "top" }}>
                     {schedule.status === "pending" && (
                       <button
                         type="button"
@@ -311,7 +458,7 @@ export default function LaunchpadTab() {
                     )}
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         )}
