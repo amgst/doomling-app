@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
     const saved = await upsertBundleOffer(shop, {
       id: body.id,
       name: body.name,
+      offerType: body.offerType,
       productId: body.productId,
       productTitle: body.productTitle,
       storefrontTitle: body.storefrontTitle,

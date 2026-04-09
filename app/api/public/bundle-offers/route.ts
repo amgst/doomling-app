@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
       .map((offer) => ({
         id: offer.id,
         name: offer.name,
+        offerType: offer.offerType,
         productId: offer.productId,
         productTitle: offer.productTitle,
         storefrontTitle: offer.storefrontTitle,

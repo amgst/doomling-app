@@ -12,6 +12,7 @@ export type BundleOfferItem = {
 export type BundleOffer = {
   id: string;
   name: string;
+  offerType: "bundle" | "product";
   productId: string;
   productTitle: string;
   storefrontTitle: string;
@@ -47,6 +48,10 @@ function normalizePositiveInt(value: unknown, fallback = 1) {
 
 function normalizeBundleLevel(value: unknown): "product" | "variant" {
   return String(value ?? "").trim().toLowerCase() === "variant" ? "variant" : "product";
+}
+
+function normalizeOfferType(value: unknown): "bundle" | "product" {
+  return String(value ?? "").trim().toLowerCase() === "product" ? "product" : "bundle";
 }
 
 function normalizeItem(input: Partial<BundleOfferItem>): BundleOfferItem | null {
@@ -89,6 +94,7 @@ function normalizeOffer(input: Partial<BundleOffer>, existing?: BundleOffer | nu
   return {
     id: String(input.id || existing?.id || `bundle_${Date.now()}`),
     name: String(input.name || existing?.name || "").trim(),
+    offerType: normalizeOfferType(input.offerType ?? existing?.offerType),
     productId: String(input.productId || existing?.productId || "").trim(),
     productTitle: String(input.productTitle || existing?.productTitle || "").trim(),
     storefrontTitle: String(input.storefrontTitle || existing?.storefrontTitle || "").trim(),
@@ -116,7 +122,7 @@ function getOffersFromSettings(settings: Record<string, unknown> | undefined): B
         entry.code &&
         entry.compareAtPrice &&
         entry.discountedPrice &&
-        entry.items.length > 0,
+        (entry.offerType === "product" || entry.items.length > 0),
     );
 }
 
@@ -132,21 +138,21 @@ export async function upsertBundleOffer(shop: string, input: Partial<BundleOffer
   const next = normalizeOffer(input, existing);
 
   if (!next.name || !next.productId || !next.code || !next.compareAtPrice || !next.discountedPrice) {
-    throw new Error("Name, standalone bundle product, code, compare-at price, and discounted price are required.");
+    throw new Error("Name, storefront product, code, compare-at price, and discounted price are required.");
   }
   if (!next.storefrontTitle) {
-    throw new Error("Enter the storefront title for the standalone bundle product.");
+    throw new Error("Enter the storefront title for the discounted storefront product.");
   }
-  if (next.items.length === 0) {
+  if (next.offerType === "bundle" && next.items.length === 0) {
     throw new Error("Add at least one product to the bundle.");
   }
 
   const filtered = offers.filter((entry) => entry.id !== next.id);
   if (filtered.some((entry) => entry.code.toUpperCase() === next.code.toUpperCase())) {
-    throw new Error("Each bundle offer code must be unique.");
+    throw new Error("Each discount offer code must be unique.");
   }
   if (filtered.some((entry) => entry.productId === next.productId)) {
-    throw new Error("This product already has a bundle offer configured.");
+    throw new Error("This product already has a discount offer configured.");
   }
 
   const updated = [...filtered, next].sort((a, b) => a.name.localeCompare(b.name));

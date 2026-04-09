@@ -10,6 +10,7 @@ export interface BundleOfferItem {
 export interface BundleOffer {
   id: string;
   name: string;
+  offerType: "bundle" | "product";
   productId: string;
   productTitle: string;
   storefrontTitle: string;

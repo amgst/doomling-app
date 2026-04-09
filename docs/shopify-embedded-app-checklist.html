@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopify Embedded App Setup Checklist</title>
+  <style>
+    :root {
+      --bg: #f5f3ee;
+      --panel: #fffdf8;
+      --text: #1f1f1a;
+      --muted: #5c5a52;
+      --accent: #0f766e;
+      --accent-soft: #dff5ef;
+      --border: #d9d2c3;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at top left, #efe8d7 0, transparent 28%),
+        linear-gradient(180deg, #f8f6f1 0%, var(--bg) 100%);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    .hero,
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(50, 44, 33, 0.06);
+    }
+
+    .hero {
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.1;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .card {
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 1.35rem;
+    }
+
+    .checklist {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .checklist li {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 14px 0;
+      border-bottom: 1px solid #ece6da;
+    }
+
+    .checklist li:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 4px;
+      accent-color: var(--accent);
+    }
+
+    code,
+    pre {
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    code {
+      background: #f2eee5;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow-x: auto;
+      border-radius: 12px;
+      background: #1f2430;
+      color: #f8fafc;
+    }
+
+    .links a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .links a:hover {
+      text-decoration: underline;
+    }
+
+    .note {
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Checklist</div>
+      <h1>New Shopify Embedded App Setup</h1>
+      <p class="muted">
+        This is the modern official path for a Shopify app that opens inside Shopify Admin.
+        The recommended scaffold is a <strong>React Router app</strong> created with Shopify CLI.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Before You Start</h2>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox">
+          <div>Install <strong>Node.js 20.10+</strong> on your machine.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Install <strong>Git</strong>.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Make sure you have a <strong>Shopify Partner account</strong>.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Make sure you have a <strong>development store</strong> to test the app.</div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Install Shopify CLI</h2>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox">
+          <div>
+            Install Shopify CLI globally:
+            <pre><code>npm install -g @shopify/cli@latest</code></pre>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>
+            Confirm the installation:
+            <pre><code>shopify version</code></pre>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Create the App</h2>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox">
+          <div>
+            Move to the folder where you want the new app:
+            <pre><code>cd "C:\shopify apps"</code></pre>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>
+            Create the app:
+            <pre><code>shopify app init</code></pre>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Enter your new app name when Shopify asks.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Select <strong>Build a React Router app</strong> when prompted.</div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Connect the App</h2>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox">
+          <div>
+            Open the new app folder:
+            <pre><code>cd your-new-app</code></pre>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>
+            Start local development:
+            <pre><code>shopify app dev</code></pre>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Log in to your Shopify Partner account if prompted.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Select your Partner organization.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Select the development store where you want to test the app.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Let Shopify CLI create the tunnel and app URLs automatically.</div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Confirm It Is Embedded</h2>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox">
+          <div>Open <code>shopify.app.toml</code>.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Make sure <code>embedded = true</code> is present.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Keep only the scopes your app really needs.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Make sure the generated app URL and redirect URLs are correct.</div>
+        </li>
+      </ul>
+      <div class="note">
+        Embedded means the app opens inside Shopify Admin, usually inside an iframe.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>First Build Goal</h2>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox">
+          <div>Keep the app clean and new in a separate folder.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Do not copy old business logic from your existing app at the start.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Build your first page inside Shopify Admin using Polaris and App Bridge.</div>
+        </li>
+        <li>
+          <input type="checkbox">
+          <div>Add new scopes, APIs, extensions, and features only when you need them.</div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card links">
+      <h2>Official Docs</h2>
+      <p><a href="https://shopify.dev/docs/api/app-home" target="_blank" rel="noreferrer">App Home</a></p>
+      <p><a href="https://shopify.dev/docs/api/shopify-cli" target="_blank" rel="noreferrer">Shopify CLI</a></p>
+      <p><a href="https://shopify.dev/docs/api/shopify-cli/app/app-init" target="_blank" rel="noreferrer">shopify app init</a></p>
+      <p><a href="https://shopify.dev/docs/apps/build/scaffold-app" target="_blank" rel="noreferrer">Scaffold an app</a></p>
+      <p><a href="https://shopify.dev/docs/apps/tools/cli/configuration" target="_blank" rel="noreferrer">App configuration</a></p>
+    </section>
+  </main>
+</body>
+</html>
