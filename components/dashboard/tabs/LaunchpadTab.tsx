@@ -121,6 +121,11 @@ export default function LaunchpadTab() {
   }, []);
 
   useEffect(() => {
+    if (schedules.every((schedule) => schedule.status !== "pending")) {
+      setSyncing(false);
+      return;
+    }
+
     const poll = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void loadData({ silent: true }).catch(() => {});
@@ -137,7 +142,7 @@ export default function LaunchpadTab() {
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [loadData]);
+  }, [loadData, schedules]);
 
   const scheduleTheme = async () => {
     const selectedTheme = themes.find((theme) => theme.id === selectedThemeId);
@@ -214,6 +219,7 @@ export default function LaunchpadTab() {
   const mainTheme = themes.find((theme) => theme.role === "MAIN") ?? null;
   const draftThemes = themes.filter((theme) => theme.role !== "MAIN");
   const pendingCount = schedules.filter((schedule) => schedule.status === "pending").length;
+  const shouldAutoRefresh = pendingCount > 0;
   const nextPendingSchedule = schedules
     .filter((schedule) => schedule.status === "pending")
     .slice()
@@ -238,16 +244,18 @@ export default function LaunchpadTab() {
             gap: "0.35rem",
             padding: "0.28rem 0.6rem",
             borderRadius: "999px",
-            border: "1px solid #d1fae5",
-            background: syncing ? "#fffbeb" : "#ecfdf5",
-            color: syncing ? "#92400e" : "#065f46",
+            border: shouldAutoRefresh ? "1px solid #d1fae5" : "1px solid #e5e7eb",
+            background: !shouldAutoRefresh ? "#f9fafb" : syncing ? "#fffbeb" : "#ecfdf5",
+            color: !shouldAutoRefresh ? "#6b7280" : syncing ? "#92400e" : "#065f46",
             fontSize: "0.76rem",
             fontWeight: 700,
           }}>
-            {syncing ? "Syncing..." : "Live auto-refresh on"}
+            {!shouldAutoRefresh ? "Auto-refresh idle" : syncing ? "Syncing..." : "Live auto-refresh on"}
           </span>
           <span style={{ color: "#6b7280", fontSize: "0.76rem" }}>
-            Refreshes every {Math.round(POLL_INTERVAL_MS / 1000)} seconds{lastUpdatedAt ? `, last synced ${new Date(lastUpdatedAt).toLocaleTimeString()}` : ""}.
+            {shouldAutoRefresh
+              ? `Refreshes every ${Math.round(POLL_INTERVAL_MS / 1000)} seconds${lastUpdatedAt ? `, last synced ${new Date(lastUpdatedAt).toLocaleTimeString()}` : ""}.`
+              : "No pending schedule right now, so live polling is paused."}
           </span>
         </div>
       </div>
