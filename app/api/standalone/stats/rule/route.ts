@@ -27,16 +27,30 @@ export async function GET(req: NextRequest) {
     orderBy("__name__")
   ));
 
-  let totalViews = 0, totalClicks = 0, totalAdded = 0;
-  const daily = snap.docs.map(d => {
+  let totalViews = 0;
+  let totalClicks = 0;
+  let totalAdded = 0;
+  let totalOrders = 0;
+  let totalUnits = 0;
+  let totalRevenue = 0;
+
+  const daily = snap.docs.map((d) => {
     const data = d.data();
     const views = (data.view as number) || 0;
     const clicks = (data.click as number) || 0;
     const added = (data.added as number) || 0;
+    const orders = (data.orders as number) || 0;
+    const units = (data.units as number) || 0;
+    const revenue = (data.revenue as number) || 0;
+
     totalViews += views;
     totalClicks += clicks;
     totalAdded += added;
-    return { date: d.id, views, clicks, added };
+    totalOrders += orders;
+    totalUnits += units;
+    totalRevenue += revenue;
+
+    return { date: d.id, views, clicks, added, orders, units, revenue };
   });
 
   return NextResponse.json({
@@ -45,8 +59,15 @@ export async function GET(req: NextRequest) {
       totalViews,
       totalClicks,
       totalAdded,
-      ctr: totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(1) + "%" : "—",
-      convRate: totalClicks > 0 ? ((totalAdded / totalClicks) * 100).toFixed(1) + "%" : "—",
+      totalOrders,
+      totalUnits,
+      totalRevenue,
+      ctr: totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(1) + "%" : "-",
+      convRate: totalClicks > 0 ? ((totalAdded / totalClicks) * 100).toFixed(1) + "%" : "-",
+      addRate: totalViews > 0 ? ((totalAdded / totalViews) * 100).toFixed(1) + "%" : "-",
+      revenuePerView: totalViews > 0 ? totalRevenue / totalViews : 0,
+      revenuePerClick: totalClicks > 0 ? totalRevenue / totalClicks : 0,
+      revenuePerOrder: totalOrders > 0 ? totalRevenue / totalOrders : 0,
       daily,
     },
   });

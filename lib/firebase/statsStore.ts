@@ -1,5 +1,5 @@
 import { getDb } from "./admin";
-import { doc, getDoc, setDoc, increment, collection, getDocs } from "firebase/firestore";
+import { doc, setDoc, increment, collection, getDocs } from "firebase/firestore";
 
 export type EventType = "view" | "click" | "added";
 
@@ -16,13 +16,38 @@ export async function trackEvent(
   await setDoc(ref, { [event]: increment(1) }, { merge: true });
 }
 
+export async function trackRevenueAttribution(
+  shop: string,
+  ruleId: string,
+  revenue: number,
+  orderCountDelta: number,
+  unitsDelta = 0,
+): Promise<void> {
+  const ref = doc(getDb(), "upsell_stats", shop, "rules", ruleId, "days", todayKey());
+  const payload: Record<string, unknown> = {};
+
+  if (Number.isFinite(revenue) && revenue !== 0) payload.revenue = increment(revenue);
+  if (Number.isFinite(orderCountDelta) && orderCountDelta !== 0) payload.orders = increment(orderCountDelta);
+  if (Number.isFinite(unitsDelta) && unitsDelta !== 0) payload.units = increment(unitsDelta);
+  if (Object.keys(payload).length === 0) return;
+
+  await setDoc(ref, payload, { merge: true });
+}
+
 export interface RuleStat {
   ruleId: string;
   views: number;
   clicks: number;
   added: number;
+  orders: number;
+  units: number;
+  revenue: number;
   ctr: string;
   convRate: string;
+  addRate: string;
+  revenuePerView: number;
+  revenuePerClick: number;
+  revenuePerOrder: number;
 }
 
 export async function getRuleStats(
@@ -36,12 +61,21 @@ export async function getRuleStats(
       const daysCol = collection(getDb(), "upsell_stats", shop, "rules", ruleId, "days");
       const snap = await getDocs(daysCol);
 
-      let views = 0, clicks = 0, added = 0;
+      let views = 0;
+      let clicks = 0;
+      let added = 0;
+      let orders = 0;
+      let units = 0;
+      let revenue = 0;
+
       snap.docs.forEach((d) => {
         const data = d.data();
         views += (data.view as number) || 0;
         clicks += (data.click as number) || 0;
         added += (data.added as number) || 0;
+        orders += (data.orders as number) || 0;
+        units += (data.units as number) || 0;
+        revenue += (data.revenue as number) || 0;
       });
 
       results.push({
@@ -49,8 +83,15 @@ export async function getRuleStats(
         views,
         clicks,
         added,
-        ctr: views > 0 ? ((clicks / views) * 100).toFixed(1) + "%" : "—",
-        convRate: clicks > 0 ? ((added / clicks) * 100).toFixed(1) + "%" : "—",
+        orders,
+        units,
+        revenue,
+        ctr: views > 0 ? ((clicks / views) * 100).toFixed(1) + "%" : "-",
+        convRate: clicks > 0 ? ((added / clicks) * 100).toFixed(1) + "%" : "-",
+        addRate: views > 0 ? ((added / views) * 100).toFixed(1) + "%" : "-",
+        revenuePerView: views > 0 ? revenue / views : 0,
+        revenuePerClick: clicks > 0 ? revenue / clicks : 0,
+        revenuePerOrder: orders > 0 ? revenue / orders : 0,
       });
     })
   );

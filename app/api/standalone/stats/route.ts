@@ -25,5 +25,14 @@ export async function GET(req: NextRequest) {
     return { ...s, triggerProductTitle: rule?.triggerProductTitle ?? "", upsellProductTitle };
   });
 
-  return NextResponse.json({ rules: merged });
+  const summary = {
+    totalViews: merged.reduce((sum, rule) => sum + rule.views, 0),
+    totalClicks: merged.reduce((sum, rule) => sum + rule.clicks, 0),
+    totalAdded: merged.reduce((sum, rule) => sum + rule.added, 0),
+    totalOrders: merged.reduce((sum, rule) => sum + rule.orders, 0),
+    totalUnits: merged.reduce((sum, rule) => sum + rule.units, 0),
+    totalRevenue: merged.reduce((sum, rule) => sum + rule.revenue, 0),
+  };
+
+  return NextResponse.json({ rules: merged, summary });
 }

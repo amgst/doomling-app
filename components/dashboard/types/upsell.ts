@@ -24,6 +24,13 @@ export interface RuleStat {
   views: number;
   clicks: number;
   added: number;
+  orders: number;
+  units: number;
+  revenue: number;
   ctr: string;
   convRate: string;
+  addRate: string;
+  revenuePerView: number;
+  revenuePerClick: number;
+  revenuePerOrder: number;
 }

@@ -479,6 +479,7 @@ var formData = new FormData();
 formData.append('id', String(variantId));
 formData.append('quantity', '1');
 formData.append('properties[_upsale]', 'true');
+formData.append('properties[_upsale_rule_id]', String(ruleId));
 if (sectionIds.length) {
 formData.append('sections', sectionIds.join(','));
 }

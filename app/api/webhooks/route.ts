@@ -1,11 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getShopify } from "@/lib/shopify/client";
 import { incrementDailyOrder, decrementDailyOrder } from "@/lib/firebase/analyticsStore";
+import { trackRevenueAttribution } from "@/lib/firebase/statsStore";
 import { markUninstalled, deleteShopAllData } from "@/lib/firebase/shopStore";
 import { firestoreSessionStorage } from "@/lib/firebase/sessionStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type WebhookLineItem = {
+  price: string;
+  quantity: number;
+  properties?: Array<{ name: string; value: string }>;
+};
+
+function accumulateUpsellRuleAttribution(lineItems: WebhookLineItem[]) {
+  const byRule = new Map<string, { revenue: number; units: number }>();
+
+  for (const item of lineItems) {
+    const properties = Array.isArray(item.properties) ? item.properties : [];
+    const isUpsale = properties.some((p) => p.name === "_upsale" && p.value === "true");
+    const ruleId = properties.find((p) => p.name === "_upsale_rule_id")?.value?.trim();
+    if (!isUpsale || !ruleId) continue;
+
+    const price = parseFloat(item.price || "0");
+    const quantity = Number(item.quantity) || 0;
+    const revenue = Number.isFinite(price) && quantity > 0 ? price * quantity : 0;
+    const existing = byRule.get(ruleId) ?? { revenue: 0, units: 0 };
+    existing.revenue += revenue;
+    existing.units += quantity;
+    byRule.set(ruleId, existing);
+  }
+
+  return byRule;
+}
 
 /**
  * POST /api/webhooks
@@ -46,15 +74,17 @@ export async function POST(req: NextRequest) {
         const currency = (body.currency as string) ?? "USD";
         const createdAt = (body.created_at as string)?.slice(0, 10);
         // Sum revenue from line items tagged with _upsale by our widgets
-        const lineItems = (body.line_items as Array<{
-          price: string;
-          quantity: number;
-          properties: Array<{ name: string; value: string }>;
-        }>) ?? [];
+        const lineItems = (body.line_items as WebhookLineItem[]) ?? [];
         const upsaleRevenue = lineItems
           .filter(item => item.properties?.some(p => p.name === "_upsale" && p.value === "true"))
           .reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0);
         await incrementDailyOrder(shop, totalPrice, currency, createdAt, upsaleRevenue);
+        const attributedByRule = accumulateUpsellRuleAttribution(lineItems);
+        await Promise.all(
+          Array.from(attributedByRule.entries()).map(([ruleId, totals]) =>
+            trackRevenueAttribution(shop, ruleId, totals.revenue, 1, totals.units),
+          ),
+        );
         break;
       }
 
@@ -62,6 +92,13 @@ export async function POST(req: NextRequest) {
         const totalPrice = parseFloat((body.total_price as string) ?? "0");
         const createdAt = (body.created_at as string)?.slice(0, 10);
         await decrementDailyOrder(shop, totalPrice, createdAt);
+        const lineItems = (body.line_items as WebhookLineItem[]) ?? [];
+        const attributedByRule = accumulateUpsellRuleAttribution(lineItems);
+        await Promise.all(
+          Array.from(attributedByRule.entries()).map(([ruleId, totals]) =>
+            trackRevenueAttribution(shop, ruleId, -totals.revenue, -1, -totals.units),
+          ),
+        );
         break;
       }
 
